@@ -63,26 +63,26 @@ k.scene("game", () => {
     dir = dir.unit();
     player.move(dir.scale(player.speed));
     
-    if (isTouchDevice) {
-      const leftBtn = k.add([
-        k.rect(60, 60),
-        k.pos(20, k.height() - 80),
-        k.color(100, 100, 100),
-        k.opacity(0.5),
-        "leftBtn",
-        k.fixed(),
-      ]);
+    // if (isTouchDevice) {
+    //   const leftBtn = k.add([
+    //     k.rect(60, 60),
+    //     k.pos(20, k.height() - 80),
+    //     k.color(100, 100, 100),
+    //     k.opacity(0.5),
+    //     "leftBtn",
+    //     k.fixed(),
+    //   ]);
 
-      k.onTouchStart((id, pos) => {
-        if (leftBtn.worldArea().hasPt(pos)) {
-          mobileDir.x = -1;
-        }
-      });
+    //   k.onTouchStart((id, pos) => {
+    //     if (leftBtn.worldArea().hasPt(pos)) {
+    //       mobileDir.x = -1;
+    //     }
+    //   });
 
-      k.onTouchEnd(() => {
-        mobileDir = k.vec2(0, 0);
-      });
-    }
+    //   k.onTouchEnd(() => {
+    //     mobileDir = k.vec2(0, 0);
+    //   });
+    // }
   });
 
   k.onMouseDown(() => {

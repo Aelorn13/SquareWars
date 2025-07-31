@@ -5,10 +5,10 @@ import { TutorialScene } from "./scenes/tutorial.js";
 import { initControls } from "./components/controls.js";
 
 const k = kaplay({
-  height: 960,
-  width: 540,
+  height: 768,
+  width: 1024,
   letterBox: true,
-  scale: Math.min(window.innerWidth / 540, window.innerHeight / 960),
+  // scale: Math.min(window.innerWidth / 540, window.innerHeight / 960),
   debug: true,
   global: false,
   background: [10, 10, 10],
@@ -24,5 +24,3 @@ defineGameOverScene(k, () => scoreRef.value());
 TutorialScene(k);
 initControls();
 k.go("tutorial");
-
-

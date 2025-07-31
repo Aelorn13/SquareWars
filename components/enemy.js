@@ -1,6 +1,4 @@
-import {drawHealthBar } from "./ui.js";
-
-export function spawnEnemy(k, player,onPlayerHit, onEnemyKilled) {
+export function spawnEnemy(k, player, onPlayerHit, onEnemyKilled) {
   const spawnPoints = [
     k.vec2(k.width() / 2, k.height()),
     k.vec2(0, k.height()),
@@ -37,13 +35,13 @@ export function spawnEnemy(k, player,onPlayerHit, onEnemyKilled) {
 
   // When hitting player
   enemy.onCollide("player", () => {
+    if (player.isInvincible) return;
     player.hurt(enemy.damage);
-    // drawHealthBar(k, player.hp());
     onPlayerHit?.();
     k.shake(10);
     if (player.hp() <= 0) {
-  k.go("gameover");
-}
+      k.go("gameover");
+    }
     k.destroy(enemy);
   });
 
@@ -70,6 +68,6 @@ export function spawnEnemy(k, player,onPlayerHit, onEnemyKilled) {
     }
 
     k.destroy(enemy);
-     onEnemyKilled?.();
+    onEnemyKilled?.();
   });
 }

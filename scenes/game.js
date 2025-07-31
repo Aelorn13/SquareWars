@@ -4,13 +4,13 @@ import {
   createScoreLabel,
   updateScoreLabel,
   drawHealthBar,
+  drawDashCooldownBar,
 } from "../components/ui.js";
 import { setupShooting } from "../components/shooting.js";
 
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
-
-        // UI
+    // UI
     const scoreLabel = createScoreLabel(k);
     let score = 0;
     scoreRef.value = () => score;
@@ -24,13 +24,18 @@ export function defineGameScene(k, scoreRef) {
       k.fixed(),
     ]);
 
-
     // Player
     const player = createPlayer(k);
     drawHealthBar(k, player.hp());
+    const dashCooldownBar = drawDashCooldownBar(k);
 
     // Attach shooting system
     setupShooting(k, player);
+
+    k.onUpdate(() => {
+      const progress = player.getDashCooldownProgress(); // 0 to 1
+      dashCooldownBar.width = dashCooldownBar.fullWidth * progress;
+    });
 
     // Spawn enemies
     k.loop(1, () => {

@@ -8,10 +8,13 @@ export function createPlayer(k) {
     k.color(0, 0, 255),
     k.rotate(0),
     k.area(),
+    k.body(),
     k.health(3, 10),
     "player",
     {
+      damage: 1,
       speed: 95,
+      luck: 0.2,
       bulletSpeed: 400,
       isShooting: false,
       attackSpeed: 0.3,
@@ -21,6 +24,7 @@ export function createPlayer(k) {
       dashTimer: 0,
       canDash: true,
       isInvincible: false,
+      activePowerUps : {}
     },
   ]);
 

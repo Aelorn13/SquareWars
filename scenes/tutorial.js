@@ -1,7 +1,7 @@
 export function TutorialScene(k) {
   k.scene("tutorial", () => {
     k.add([
-      k.text("Movement: WASD /  Arrows"),
+      k.text("Move: WASD /  Arrows"),
       k.anchor("left"),
       k.pos(k.width() / 4, k.height() / 2 - 100),
     ]);

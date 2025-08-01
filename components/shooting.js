@@ -1,4 +1,6 @@
 export function setupShooting(k, player) {
+  let canShoot = true;
+
   // Shoot a single bullet
   function shoot() {
     k.add([
@@ -14,12 +16,20 @@ export function setupShooting(k, player) {
     ]);
   }
 
-  // Click shooting
-  k.onClick(() => {
-    shoot();
-  });
+  // Only allow shooting if cooldown is ready
+  function tryShoot() {
+    if (!canShoot) return;
 
-  // Hold-to-shoot control
+    shoot();
+    canShoot = false;
+
+    // Use current attackSpeed
+    k.wait(player.attackSpeed, () => {
+      canShoot = true;
+    });
+  }
+
+  // Handle holding mouse button to shoot
   k.onMouseDown(() => {
     player.isShooting = true;
   });
@@ -28,8 +38,8 @@ export function setupShooting(k, player) {
     player.isShooting = false;
   });
 
-  // Repeated shooting loop
-  k.loop(player.attackSpeed, () => {
-    if (player.isShooting) shoot();
+  // Update shooting logic each frame
+  k.onUpdate(() => {
+    if (player.isShooting) tryShoot();
   });
 }

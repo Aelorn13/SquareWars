@@ -5,8 +5,8 @@ import { TutorialScene } from "./scenes/tutorial.js";
 import { initControls } from "./components/controls.js";
 
 const k = kaplay({
+    width: 1024,
   height: 768,
-  width: 1024,
   letterBox: true,
   // scale: Math.min(window.innerWidth / 540, window.innerHeight / 960),
   debug: true,

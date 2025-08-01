@@ -1,3 +1,4 @@
+import { spawnPowerUp,POWERUP_TYPES } from "./powerup.js";
 export function spawnEnemy(k, player, onPlayerHit, onEnemyKilled) {
   const spawnPoints = [
     k.vec2(k.width() / 2, k.height()),
@@ -15,6 +16,7 @@ export function spawnEnemy(k, player, onPlayerHit, onEnemyKilled) {
     k.color(255, 0, 0),
     k.anchor("center"),
     k.area(),
+    k.body(),
     k.pos(pos),
     k.rotate(0),
     k.health(3),
@@ -48,6 +50,7 @@ export function spawnEnemy(k, player, onPlayerHit, onEnemyKilled) {
   // When hit by bullet
   enemy.onCollide("bullet", (bullet) => {
     k.destroy(bullet);
+    enemy.hurt(player.damage);
 
     // Knockback effect (temporary slowdown)
     const originalSpeed = enemy.speed;
@@ -57,8 +60,6 @@ export function spawnEnemy(k, player, onPlayerHit, onEnemyKilled) {
     });
 
     if (enemy.hp() > 0) {
-      enemy.hurt();
-
       // Color feedback
       const hpRatio = 1 - enemy.hp() / enemy.maxHp;
       const green = Math.floor(50 + 150 * hpRatio);
@@ -69,5 +70,14 @@ export function spawnEnemy(k, player, onPlayerHit, onEnemyKilled) {
 
     k.destroy(enemy);
     onEnemyKilled?.();
+    dropPowerUp(k, player, enemy.pos);
   });
+}
+
+function dropPowerUp(k, player, pos) {
+  const dropChance = player.luck ?? 0;
+  if (Math.random() < dropChance) {
+    const choice = k.choose(POWERUP_TYPES);
+    spawnPowerUp(k, pos, choice);
+  }
 }

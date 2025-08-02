@@ -25,7 +25,7 @@ export function TutorialScene(k) {
     ]);
 
     let canClick = false;
-    k.wait(1.5, () => {
+    k.wait(0.5, () => {
       canClick = true;
     });
 

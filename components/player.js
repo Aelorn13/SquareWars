@@ -14,7 +14,7 @@ export function createPlayer(k) {
     {
       damage: 1,
       speed: 95,
-      luck: 0.2,
+      luck: 0.9,
       bulletSpeed: 400,
       isShooting: false,
       attackSpeed: 0.4,

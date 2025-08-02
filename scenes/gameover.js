@@ -19,7 +19,7 @@ export function defineGameOverScene(k, getScore) {
     ]);
 
     let canClick = false;
-    k.wait(1.5, () => {
+    k.wait(1, () => {
       canClick = true;
     });
 

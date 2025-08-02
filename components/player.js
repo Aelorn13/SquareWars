@@ -12,9 +12,10 @@ export function createPlayer(k) {
     k.health(3, 10),
     "player",
     {
+      projectile:1,
       damage: 1,
       speed: 95,
-      luck: 0.9,
+      luck: 0.2,
       bulletSpeed: 400,
       isShooting: false,
       attackSpeed: 0.4,
@@ -22,8 +23,7 @@ export function createPlayer(k) {
       dashDuration: 0.3, // seconds
       dashCooldown: 3, // seconds
       dashTimer: 0,
-      canDash: true,
-      isInvincible: false
+      isInvincible: false,
     },
   ]);
 
@@ -32,9 +32,17 @@ export function createPlayer(k) {
 
   // Movement and rotation logic
   player.onUpdate(() => {
-    if (player.dashTimer > 0) {
-      player.dashTimer -= k.dt(); // dt() gives delta time
+  if (player.dashTimer > 0) {
+    player.dashTimer -= k.dt();
+    if (player.dashTimer < 0) player.dashTimer = 0;
+  }
+  if (player.dashDurationTimer > 0) {
+    player.dashDurationTimer -= k.dt();
+    if (player.dashDurationTimer <= 0) {
+      player.isDashing = false;
+      player.dashDurationTimer = 0;
     }
+  }
 
     player.rotateTo(k.mousePos().angle(player.pos));
 
@@ -46,8 +54,9 @@ export function createPlayer(k) {
     dir = dir.unit();
 
     const moveSpeed = player.isDashing ? player.speed * 4 : player.speed;
-
     player.move(dir.scale(moveSpeed));
+     player.pos.x = Math.max(player.width / 2, Math.min(k.width() - player.width / 2, player.pos.x));
+  player.pos.y = Math.max(player.height / 2, Math.min(k.height() - player.height / 2, player.pos.y));
   });
 
   // Track keydowns/ups for direction
@@ -61,36 +70,17 @@ export function createPlayer(k) {
 
   // DASH on Space
   k.onKeyPress("space", () => {
-    if (!player.canDash || player.isDashing) return;
+  if (player.dashTimer > 0 || player.dashDurationTimer > 0) return;
 
-    player.isDashing = true;
-    player.canDash = false;
-    if (player.dashTimer <= 0) {
-      // perform dash
-      player.dashTimer = player.dashCooldown;
-
-      k.wait(player.dashDuration, () => {
-        player.isDashing = false;
-      });
-
-      k.wait(player.dashCooldown, () => {
-        player.canDash = true;
-      });
-    }
+  player.isDashing = true;
+  player.dashDurationTimer = player.dashDuration;
+  player.dashTimer = player.dashCooldown;
+  
   });
 
-  player.updateDashCooldown = () => {
-    if (!player.canDash) {
-      player._dashTimer += k.dt();
-      if (player._dashTimer >= player.dashCooldown && !player.isDashing) {
-        player.canDash = true;
-        player._dashTimer = 0;
-      }
-    }
-  };
-  player.getDashCooldownProgress = () => {
-    return 1 - Math.min(player.dashTimer / player.dashCooldown, 1);
-  };
+player.getDashCooldownProgress = () => {
+  return Math.max(0, Math.min(1, player.dashTimer / player.dashCooldown));
+};
 
   return player;
 }

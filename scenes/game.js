@@ -8,70 +8,59 @@ import {
 } from "../components/ui.js";
 import { setupShooting } from "../components/shooting.js";
 import { applyPowerUp } from "../components/powerup.js";
+
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
-    function inceaseScore(amount) {
+    let score = 0;
+    function increaseScore(amount) {
       score += amount;
     }
+    scoreRef.value = () => score;
+
+    // Player
+    const player = createPlayer(k);
+    setupShooting(k, player);
+
     // UI
     const scoreLabel = createScoreLabel(k);
-    let score = 0;
-    scoreRef.value = () => score;
+    drawHealthBar(k, player.hp());
+    const dashCooldownBar = drawDashCooldownBar(k);
 
     // Background
     k.add([
-      k.rect(k.height, k.width),
+      k.rect(k.width(), k.height()),
       k.pos(0, 0),
       k.color(20, 20, 20),
       k.z(-1),
       k.fixed(),
     ]);
 
-    // Player
-    const player = createPlayer(k);
-    drawHealthBar(k, player.hp());
-    const dashCooldownBar = drawDashCooldownBar(k);
-
-    // Attach shooting system
-    setupShooting(k, player);
-
+    let spawnInterval = 2;
+    let spawnTimer = 0;
     k.onUpdate(() => {
-      const progress = player.getDashCooldownProgress(); // 0 to 1
-      dashCooldownBar.width = dashCooldownBar.fullWidth * progress;
+      dashCooldownBar.width =
+        dashCooldownBar.fullWidth * (1 - player.getDashCooldownProgress());
+
+      spawnTimer -= k.dt();
+      if (spawnTimer <= 0) {
+        console.log(spawnInterval);
+        spawnEnemy(
+          k,
+          player,
+          () => drawHealthBar(k, player.hp()),
+          () => updateScoreLabel(scoreLabel, score),
+          increaseScore
+        );
+        spawnInterval = Math.max(0.5, spawnInterval - 0.02);
+        spawnTimer = spawnInterval;
+      }
     });
+
     player.onCollide("powerup", (powerUp) => {
       applyPowerUp(k, player, powerUp.type, () => {
         drawHealthBar(k, player.hp());
       });
       k.destroy(powerUp);
     });
-    // Spawn enemies
-    let spawnInterval = 2; // Start at 2 seconds
-    let spawnLoopCancelled = false;
-    function spawnEnemyLoop() {
-       if (spawnLoopCancelled) return;
-      spawnEnemy(
-        k,
-        player,
-        () => {
-          drawHealthBar(k, player.hp());
-        },
-        () => {
-          updateScoreLabel(scoreLabel, score);
-        },
-        inceaseScore
-      );
-      // Reduce interval over time (clamp to 0.5s)
-      if (spawnInterval > 0.5) {
-        spawnInterval -= 0.01;
-      }
-      setTimeout(spawnEnemyLoop, spawnInterval * 800);
-    }
-
-    // Start the loop
-    spawnEnemyLoop();
-     k.onSceneLeave(() => {
-    spawnLoopCancelled = true;
-  });
   });
 }

@@ -24,8 +24,7 @@ export function defineGameOverScene(k, getScore) {
     });
 
     k.onClick(() => {
-      if (!canClick) return;
-      k.go("game");
+      if (canClick) k.go("game");
     });
   });
 }

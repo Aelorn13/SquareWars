@@ -5,26 +5,29 @@ export const POWERUP_TYPES = [
   "speed",
   "invincibility",
 ];
+const DURATION_POWERBUFF = 10;
+
+const colorMap = {
+  rapidFire: [255, 255, 0],
+  heal: [207, 93, 183],
+  invincibility: [204, 228, 118],
+  speed: [98, 218, 202],
+  damage: [187, 30, 30],
+};
+
+const iconMap = {
+  rapidFire: "⚡",
+  heal: "❤️",
+  invincibility: "⭐",
+  speed: "🦵",
+  damage: "💪",
+};
+
 export function spawnPowerUp(k, pos, type) {
   const size = 20;
-  const colorMap = {
-    rapidFire: k.rgb(255, 255, 0),
-    heal: k.rgb(207, 93, 183, 1),
-    invincibility: k.rgb(204, 228, 118, 1),
-    speed: k.rgb(98, 218, 202, 1),
-    damage: k.rgb(187, 30, 30, 1),
-  };
-
-  const iconMap = {
-    rapidFire: "⚡",
-    heal: "❤️",
-    invincibility: "⭐",
-    speed: "🦵",
-    damage: "💪",
-  };
-  const color = colorMap[type] || k.rgb(200, 200, 200);
+  const color = k.rgb(...(colorMap[type] || [200, 200, 200]));
   const icon = iconMap[type] || "❓";
-  // Base square with collision and color
+
   const powerUp = k.add([
     k.rect(size, size),
     k.color(color),
@@ -40,9 +43,9 @@ export function spawnPowerUp(k, pos, type) {
   ]);
 
   powerUp.onUpdate(() => {
-    const pulse = Math.sin(k.time() * 6) * 0.2 + 0.8; // Range ~0.6 to 1.0
+    const pulse = Math.sin(k.time() * 6) * 0.2 + 0.8;
     powerUp.opacity = pulse;
-    powerUp.angle += 120 * k.dt(); // 120 degrees per second
+    powerUp.angle += 120 * k.dt();
   });
 
   // Icon overlay that follows the power-up
@@ -65,31 +68,30 @@ export function spawnPowerUp(k, pos, type) {
   ]);
   return powerUp;
 }
-
-export function applyPowerUp(k, player, type, onHealPickup) {
-function applyTemporaryStatBuff(obj, stat, multiplier, duration) {
+function applyTemporaryStatBuff(k, obj, stat, multiplier, duration) {
   if (!obj._buffData) obj._buffData = {};
-
-  // Cancel existing timeout if exists
-  if (obj._buffData[stat]?.timeout) {
-    obj._buffData[stat].timeout.cancel();
-  } else {
+  if (!obj._buffData[stat]) {
     obj._buffData[stat] = { original: obj[stat] };
     obj[stat] *= multiplier;
   }
-
+  // Cancel previous timeout if exists
+  if (obj._buffData[stat].timeout) {
+    obj._buffData[stat].timeout.cancel();
+  }
   obj._buffData[stat].timeout = k.wait(duration, () => {
     obj[stat] = obj._buffData[stat].original;
     delete obj._buffData[stat];
   });
 }
-const durationPowerbuff=10;
+
+export function applyPowerUp(k, player, type, onHealPickup) {
   switch (type) {
     case "heal":
       player.heal(2);
       onHealPickup?.();
       break;
     case "invincibility":
+      applyTemporaryStatBuff(k, player, "attackSpeed", 0.5, DURATION_POWERBUFF);
       if (player.isInvincible) return;
 
       player.isInvincible = true;
@@ -97,23 +99,23 @@ const durationPowerbuff=10;
         player.hidden = !player.hidden;
       });
 
-      k.wait(10, () => {
+      k.wait(DURATION_POWERBUFF, () => {
         player.isInvincible = false;
         player.hidden = false;
         flash.cancel();
       });
       break;
     case "rapidFire":
-      applyTemporaryStatBuff(player, "attackSpeed", 0.5,durationPowerbuff);
+      applyTemporaryStatBuff(k, player, "attackSpeed", 0.3, DURATION_POWERBUFF);
       break;
 
     case "damage":
-      applyTemporaryStatBuff(player, "damage", 2, durationPowerbuff);
+      applyTemporaryStatBuff(k, player, "damage", 2, DURATION_POWERBUFF);
       break;
 
     case "speed":
-      applyTemporaryStatBuff(player, "speed", 2, durationPowerbuff);
+      applyTemporaryStatBuff(k, player, "speed", 2, DURATION_POWERBUFF);
+      applyTemporaryStatBuff(k, player, "dashCooldown", 0.3, DURATION_POWERBUFF);
       break;
   }
 }
-

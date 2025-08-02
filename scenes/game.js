@@ -11,8 +11,8 @@ import { applyPowerUp } from "../components/powerup.js";
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
     function inceaseScore(amount) {
-  score += amount;
-}
+      score += amount;
+    }
     // UI
     const scoreLabel = createScoreLabel(k);
     let score = 0;
@@ -47,23 +47,27 @@ export function defineGameScene(k, scoreRef) {
     });
     // Spawn enemies
     let spawnInterval = 2; // Start at 2 seconds
-    let loopHandle;
+    function spawnEnemyLoop() {
+      spawnEnemy(
+        k,
+        player,
+        () => {
+          drawHealthBar(k, player.hp());
+        },
+        () => {
+          updateScoreLabel(scoreLabel, score);
+        },
+        inceaseScore
+      );
+      // Reduce interval over time (clamp to 0.5s)
+      if (spawnInterval > 0.5) {
+        spawnInterval -= 0.01;
+      }
 
- function spawnEnemyLoop() {
-        spawnEnemy(k, player,
-          () => {drawHealthBar(k, player.hp());},
-          () => {updateScoreLabel(scoreLabel, score);},
-          inceaseScore
-        );
-// Reduce interval over time (clamp to 0.5s)
-  if (spawnInterval > 0.5) {
-    spawnInterval -= 0.01;
-  }
+      setTimeout(spawnEnemyLoop, spawnInterval * 800);
+    }
 
-  setTimeout(spawnEnemyLoop, spawnInterval * 1000);
-}
-
-// Start the loop
-spawnEnemyLoop();
+    // Start the loop
+    spawnEnemyLoop();
   });
 }

@@ -10,6 +10,9 @@ import { setupShooting } from "../components/shooting.js";
 import { applyPowerUp } from "../components/powerup.js";
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
+    function inceaseScore(amount) {
+  score += amount;
+}
     // UI
     const scoreLabel = createScoreLabel(k);
     let score = 0;
@@ -37,25 +40,30 @@ export function defineGameScene(k, scoreRef) {
       dashCooldownBar.width = dashCooldownBar.fullWidth * progress;
     });
     player.onCollide("powerup", (powerUp) => {
-      applyPowerUp(k, player, powerUp.type,
-        () => {
-          drawHealthBar(k, player.hp());
-        });
+      applyPowerUp(k, player, powerUp.type, () => {
+        drawHealthBar(k, player.hp());
+      });
       k.destroy(powerUp);
     });
     // Spawn enemies
-    k.loop(1, () => {
-      spawnEnemy(
-        k,
-        player,
-        () => {
-          drawHealthBar(k, player.hp());
-        },
-        () => {
-          score++;
-          updateScoreLabel(scoreLabel, score);
-        }
-      );
-    });
+    let spawnInterval = 2; // Start at 2 seconds
+    let loopHandle;
+
+ function spawnEnemyLoop() {
+        spawnEnemy(k, player,
+          () => {drawHealthBar(k, player.hp());},
+          () => {updateScoreLabel(scoreLabel, score);},
+          inceaseScore
+        );
+// Reduce interval over time (clamp to 0.5s)
+  if (spawnInterval > 0.5) {
+    spawnInterval -= 0.01;
+  }
+
+  setTimeout(spawnEnemyLoop, spawnInterval * 1000);
+}
+
+// Start the loop
+spawnEnemyLoop();
   });
 }

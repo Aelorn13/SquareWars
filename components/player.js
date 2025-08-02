@@ -17,14 +17,13 @@ export function createPlayer(k) {
       luck: 0.2,
       bulletSpeed: 400,
       isShooting: false,
-      attackSpeed: 0.3,
+      attackSpeed: 0.4,
       isDashing: false,
       dashDuration: 0.3, // seconds
       dashCooldown: 3, // seconds
       dashTimer: 0,
       canDash: true,
-      isInvincible: false,
-      activePowerUps : {}
+      isInvincible: false
     },
   ]);
 

@@ -47,7 +47,9 @@ export function defineGameScene(k, scoreRef) {
     });
     // Spawn enemies
     let spawnInterval = 2; // Start at 2 seconds
+    let spawnLoopCancelled = false;
     function spawnEnemyLoop() {
+       if (spawnLoopCancelled) return;
       spawnEnemy(
         k,
         player,
@@ -63,11 +65,13 @@ export function defineGameScene(k, scoreRef) {
       if (spawnInterval > 0.5) {
         spawnInterval -= 0.01;
       }
-
       setTimeout(spawnEnemyLoop, spawnInterval * 800);
     }
 
     // Start the loop
     spawnEnemyLoop();
+     k.onSceneLeave(() => {
+    spawnLoopCancelled = true;
+  });
   });
 }

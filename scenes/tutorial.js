@@ -1,22 +1,20 @@
 export function TutorialScene(k) {
+  const row = 50;
+  const instructions = [
+    "Move: WASD /  Arrows",
+    "Fire: Left Mouse Button",
+    "Dash: SPACE",
+    "P: PAUSE",
+  ];
+
   k.scene("tutorial", () => {
-    k.add([
-      k.text("Move: WASD /  Arrows"),
-      k.anchor("left"),
-      k.pos(k.width() / 4, k.height() / 2 - 100),
-    ]);
-
-    k.add([
-      k.text(`Fire: Left Mouse Button`),
-      k.anchor("left"),
-      k.pos(k.width() / 4, k.height() / 2 - 50),
-    ]);
-
-    k.add([
-      k.text(`Dash: SPACE`),
-      k.anchor("left"),
-      k.pos(k.width() / 4, k.height() / 2),
-    ]);
+    instructions.forEach((text, i) => {
+      k.add([
+        k.text(text),
+        k.anchor("left"),
+        k.pos(k.width() / 4, k.height() / 2 - (instructions.length - i) * row + row),
+      ]);
+    });
 
     k.add([
       k.text("Click to START", { size: 24 }),

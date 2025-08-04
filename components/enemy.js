@@ -65,7 +65,8 @@ export function spawnEnemy(
   player,
   updateHealthBar,
   updateScoreLabel,
-  increaseScore
+  increaseScore,
+  sharedState
 ) {
   const spawnPoints = [
     k.vec2(k.width() / 2, k.height()),
@@ -104,6 +105,7 @@ export function spawnEnemy(
 
   // Move towards player
   enemy.onUpdate(() => {
+    if (sharedState.isPaused) return;
     enemy.moveTo(player.pos, enemy.speed);
   });
 
@@ -130,7 +132,7 @@ export function spawnEnemy(
 
       // Knockback effect (temporary slowdown)
       const originalSpeed = enemy.speed;
-      enemy.speed = originalSpeed * 0.5;
+      enemy.speed = originalSpeed * 0.3;
       k.wait(0.2, () => {
         enemy.speed = originalSpeed;
       });
@@ -143,14 +145,14 @@ export function spawnEnemy(
     k.destroy(enemy);
     increaseScore(enemy.score);
     updateScoreLabel?.();
-    dropPowerUp(k, player, enemy.pos);
+    dropPowerUp(k, player, enemy.pos,sharedState);
   });
 }
 
-function dropPowerUp(k, player, pos) {
+function dropPowerUp(k, player, pos, sharedState) {
   const dropChance = player.luck ?? 0;
   if (Math.random() < dropChance) {
     const choice = k.choose(POWERUP_TYPES);
-    spawnPowerUp(k, pos, choice);
+    spawnPowerUp(k, pos, choice, sharedState);
   }
 }

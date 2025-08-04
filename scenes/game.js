@@ -8,9 +8,12 @@ import {
 } from "../components/ui.js";
 import { setupShooting } from "../components/shooting.js";
 import { applyPowerUp } from "../components/powerup.js";
+import { keysPressed } from "../components/controls.js";
 
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
+    const sharedState = { isPaused: false };
+
     let score = 0;
     function increaseScore(amount) {
       score += amount;
@@ -18,38 +21,42 @@ export function defineGameScene(k, scoreRef) {
     scoreRef.value = () => score;
 
     // Player
-    const player = createPlayer(k);
-    setupShooting(k, player);
+    const player = createPlayer(k, sharedState);
+    setupShooting(k, player, sharedState);
 
     // UI
     const scoreLabel = createScoreLabel(k);
     drawHealthBar(k, player.hp());
     const dashCooldownBar = drawDashCooldownBar(k);
 
-    // Background
-    k.add([
-      k.rect(k.width(), k.height()),
-      k.pos(0, 0),
-      k.color(20, 20, 20),
-      k.z(-1),
-      k.fixed(),
-    ]);
-
     let spawnInterval = 2;
     let spawnTimer = 0;
+    
+    let pausePressed = false;
     k.onUpdate(() => {
+      //pause toggle
+      if (keysPressed["KeyP"] && !pausePressed) {
+        sharedState.isPaused = !sharedState.isPaused;
+        pauseLabel.hidden = !sharedState.isPaused;
+        pausePressed = true;
+      }
+      if (!keysPressed["KeyP"]) {
+        pausePressed = false;
+      }
+
+      if (sharedState.isPaused) return;
       dashCooldownBar.width =
         dashCooldownBar.fullWidth * (1 - player.getDashCooldownProgress());
 
       spawnTimer -= k.dt();
       if (spawnTimer <= 0) {
-        console.log(spawnInterval);
         spawnEnemy(
           k,
           player,
           () => drawHealthBar(k, player.hp()),
           () => updateScoreLabel(scoreLabel, score),
-          increaseScore
+          increaseScore,
+          sharedState
         );
         spawnInterval = Math.max(0.5, spawnInterval - 0.02);
         spawnTimer = spawnInterval;
@@ -62,5 +69,16 @@ export function defineGameScene(k, scoreRef) {
       });
       k.destroy(powerUp);
     });
+
+    const pauseLabel = k.add([
+      k.text("PAUSE", { size: 48 }),
+      k.anchor("center"),
+      k.pos(k.width() / 2, k.height() / 2),
+      k.color(255, 255, 255),
+      k.z(200),
+      k.fixed(),
+      { showOnPause: true },
+    ]);
+    pauseLabel.hidden = true;
   });
 }

@@ -23,7 +23,7 @@ const iconMap = {
   damage: "💪",
 };
 
-export function spawnPowerUp(k, pos, type) {
+export function spawnPowerUp(k, pos, type, sharedState) {
   const size = 20;
   const color = k.rgb(...(colorMap[type] || [200, 200, 200]));
   const icon = iconMap[type] || "❓";
@@ -37,15 +37,28 @@ export function spawnPowerUp(k, pos, type) {
     k.rotate(0),
     k.z(50),
     k.opacity(1),
-    k.lifespan(10, { fade: 0.5 }),
     "powerup",
     { type },
+    {duration : DURATION_POWERBUFF},
   ]);
 
+  const fadeTime = 1;
   powerUp.onUpdate(() => {
-    const pulse = Math.sin(k.time() * 6) * 0.2 + 0.8;
-    powerUp.opacity = pulse;
     powerUp.angle += 120 * k.dt();
+    if (sharedState.isPaused) return;
+    powerUp.duration -= k.dt();
+    if (powerUp.duration <= 0) {
+      k.destroy(powerUp);
+      return;
+    }
+    // Fade out in the last fadeTime seconds
+    if (powerUp.duration < fadeTime) {
+      powerUp.opacity = Math.max(0, powerUp.duration / fadeTime);
+    } else {
+      const pulse = Math.sin(k.time() * 6) * 0.2 + 0.8;
+      powerUp.opacity = pulse;
+    }
+    
   });
 
   // Icon overlay that follows the power-up

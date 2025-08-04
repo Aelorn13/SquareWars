@@ -1,6 +1,6 @@
 import { keysPressed } from "./controls.js";
 
-export function createPlayer(k) {
+export function createPlayer(k,sharedState) {
   const player = k.add([
     k.rect(28, 28),
     k.anchor("center"),
@@ -12,13 +12,13 @@ export function createPlayer(k) {
     k.health(3, 10),
     "player",
     {
-      projectile:1,
+      projectile: 1,
       damage: 1,
       speed: 95,
-      luck: 0.2,
+      luck: 0.3,
       bulletSpeed: 400,
       isShooting: false,
-      attackSpeed: 0.4,
+      attackSpeed: 0.5,
       isDashing: false,
       dashDuration: 0.3, // seconds
       dashCooldown: 3, // seconds
@@ -32,17 +32,18 @@ export function createPlayer(k) {
 
   // Movement and rotation logic
   player.onUpdate(() => {
-  if (player.dashTimer > 0) {
-    player.dashTimer -= k.dt();
-    if (player.dashTimer < 0) player.dashTimer = 0;
-  }
-  if (player.dashDurationTimer > 0) {
-    player.dashDurationTimer -= k.dt();
-    if (player.dashDurationTimer <= 0) {
-      player.isDashing = false;
-      player.dashDurationTimer = 0;
+    if (sharedState.isPaused) return;
+    if (player.dashTimer > 0) {
+      player.dashTimer -= k.dt();
+      if (player.dashTimer < 0) player.dashTimer = 0;
     }
-  }
+    if (player.dashDurationTimer > 0) {
+      player.dashDurationTimer -= k.dt();
+      if (player.dashDurationTimer <= 0) {
+        player.isDashing = false;
+        player.dashDurationTimer = 0;
+      }
+    }
 
     player.rotateTo(k.mousePos().angle(player.pos));
 
@@ -55,8 +56,14 @@ export function createPlayer(k) {
 
     const moveSpeed = player.isDashing ? player.speed * 4 : player.speed;
     player.move(dir.scale(moveSpeed));
-     player.pos.x = Math.max(player.width / 2, Math.min(k.width() - player.width / 2, player.pos.x));
-  player.pos.y = Math.max(player.height / 2, Math.min(k.height() - player.height / 2, player.pos.y));
+    player.pos.x = Math.max(
+      player.width / 2,
+      Math.min(k.width() - player.width / 2, player.pos.x)
+    );
+    player.pos.y = Math.max(
+      player.height / 2,
+      Math.min(k.height() - player.height / 2, player.pos.y)
+    );
   });
 
   // Track keydowns/ups for direction
@@ -70,17 +77,16 @@ export function createPlayer(k) {
 
   // DASH on Space
   k.onKeyPress("space", () => {
-  if (player.dashTimer > 0 || player.dashDurationTimer > 0) return;
+    if (player.dashTimer > 0 || player.dashDurationTimer > 0) return;
 
-  player.isDashing = true;
-  player.dashDurationTimer = player.dashDuration;
-  player.dashTimer = player.dashCooldown;
-  
+    player.isDashing = true;
+    player.dashDurationTimer = player.dashDuration;
+    player.dashTimer = player.dashCooldown;
   });
 
-player.getDashCooldownProgress = () => {
-  return Math.max(0, Math.min(1, player.dashTimer / player.dashCooldown));
-};
+  player.getDashCooldownProgress = () => {
+    return Math.max(0, Math.min(1, player.dashTimer / player.dashCooldown));
+  };
 
   return player;
 }

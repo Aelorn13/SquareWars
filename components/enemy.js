@@ -60,6 +60,36 @@ function fadeColor(original, fadeTo, ratio) {
   const b = Math.floor(original[2] * ratio + fadeTo[2] * (1 - ratio));
   return [r, g, b];
 }
+function dropPowerUp(k, player, pos, sharedState) {
+  const dropChance = player.luck ?? 0;
+  if (Math.random() < dropChance) {
+    const choice = k.choose(POWERUP_TYPES);
+    spawnPowerUp(k, pos, choice, sharedState);
+  }
+}
+function enemyDeathAnimation(k, enemy) {
+  // Animate scale down and fade out over 0.4 seconds
+  const duration = 0.4;
+  const startScale = 1;
+  const endScale = 0.1;
+  const startOpacity = 1;
+  const endOpacity = 0;
+
+  let t = 0;
+  enemy.onUpdate(() => {
+    t += k.dt();
+    const progress = Math.min(t / duration, 1);
+    const scale = startScale + (endScale - startScale) * progress;
+    const opacity = startOpacity + (endOpacity - startOpacity) * progress;
+    enemy.scale = k.vec2(scale, scale);
+    enemy.opacity = opacity;
+    if (progress >= 1) {
+      k.destroy(enemy);
+    }
+  });
+  enemy.solid = false;
+  enemy.area.enabled = false;
+}
 export function spawnEnemy(
   k,
   player,
@@ -142,17 +172,9 @@ export function spawnEnemy(
       return;
     }
 
-    k.destroy(enemy);
+    enemyDeathAnimation(k, enemy);
     increaseScore(enemy.score);
     updateScoreLabel?.();
     dropPowerUp(k, player, enemy.pos,sharedState);
   });
-}
-
-function dropPowerUp(k, player, pos, sharedState) {
-  const dropChance = player.luck ?? 0;
-  if (Math.random() < dropChance) {
-    const choice = k.choose(POWERUP_TYPES);
-    spawnPowerUp(k, pos, choice, sharedState);
-  }
 }

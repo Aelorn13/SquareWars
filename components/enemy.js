@@ -68,6 +68,9 @@ function dropPowerUp(k, player, pos, sharedState) {
   }
 }
 function enemyDeathAnimation(k, enemy) {
+  enemy.dead = true;
+  enemy.solid = false;
+  enemy.area.enabled = false;
   // Animate scale down and fade out over 0.4 seconds
   const duration = 0.4;
   const startScale = 1;
@@ -87,8 +90,6 @@ function enemyDeathAnimation(k, enemy) {
       k.destroy(enemy);
     }
   });
-  enemy.solid = false;
-  enemy.area.enabled = false;
 }
 export function spawnEnemy(
   k,
@@ -141,7 +142,7 @@ export function spawnEnemy(
 
   // When hitting player
   enemy.onCollide("player", () => {
-    if (player.isInvincible) return;
+    if (player.isInvincible || enemy.dead) return;
     player.hurt(enemy.damage);
     updateHealthBar?.();
     k.shake(10);
@@ -151,6 +152,8 @@ export function spawnEnemy(
 
   // When hit by bullet
   enemy.onCollide("bullet", (bullet) => {
+    if (enemy.dead) return;
+
     k.destroy(bullet);
     enemy.hurt(player.damage);
 
@@ -169,12 +172,11 @@ export function spawnEnemy(
       enemy.use(
         k.color(k.rgb(...fadeColor(enemy.originalColor, fadeTo, hpRatio)))
       );
-      return;
+    } else {
+      enemyDeathAnimation(k, enemy);
+      increaseScore(enemy.score);
+      updateScoreLabel?.();
+      dropPowerUp(k, player, enemy.pos, sharedState);
     }
-
-    enemyDeathAnimation(k, enemy);
-    increaseScore(enemy.score);
-    updateScoreLabel?.();
-    dropPowerUp(k, player, enemy.pos,sharedState);
   });
 }

@@ -1,11 +1,20 @@
+const bulletWidth = 10;
+const bulletHeight = 6;
 export function setupShooting(k, player, sharedState) {
   let canShoot = true;
 
   const shoot = () => {
     const dir = k.mousePos().sub(player.pos).unit();
     const hasDamageBuff = !!player._buffData?.damage;
+    let damageMultiplier = 1;
+    if (player._buffData && player._buffData.damage) {
+      damageMultiplier = player.damage / player._buffData.damage.original;
+    }
     const bullet = k.add([
-      k.rect(hasDamageBuff ? 10 : 6, hasDamageBuff ? 10 : 6),
+      k.rect(
+        hasDamageBuff ? bulletWidth : bulletHeight,
+        hasDamageBuff ? bulletWidth * damageMultiplier : bulletHeight * damageMultiplier
+      ),
       k.color(hasDamageBuff ? k.rgb(255, 0, 255) : k.rgb(255, 255, 0)),
       k.pos(player.pos),
       k.area(),

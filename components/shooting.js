@@ -1,5 +1,5 @@
-const bulletWidth = 10;
-const bulletHeight = 6;
+const bulletWidth = 8;
+const bulletHeight = 4;
 export function setupShooting(k, player, sharedState) {
   let canShoot = true;
 
@@ -12,8 +12,8 @@ export function setupShooting(k, player, sharedState) {
     }
     const bullet = k.add([
       k.rect(
-        hasDamageBuff ? bulletWidth : bulletHeight,
-        hasDamageBuff ? bulletWidth * damageMultiplier : bulletHeight * damageMultiplier
+        hasDamageBuff ? bulletWidth * damageMultiplier : bulletWidth,
+        hasDamageBuff ? bulletHeight * damageMultiplier : bulletHeight
       ),
       k.color(hasDamageBuff ? k.rgb(255, 0, 255) : k.rgb(255, 255, 0)),
       k.pos(player.pos),

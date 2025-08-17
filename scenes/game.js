@@ -9,14 +9,30 @@ import {
 import { setupShooting } from "../components/shooting.js";
 import { applyPowerUp } from "../components/powerup.js";
 import { keysPressed } from "../components/controls.js";
+import { maybeShowUpgrade } from "../components/upgrade.js";
 
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
-    const sharedState = { isPaused: false };
+    const sharedState = { isPaused: false, upgradeOpen: false };
 
     let score = 0;
+    let nextThresholdRef = { value: 10 };
+
+    const addScore = (delta) => {
+      score += delta;
+      updateScoreLabel(scoreLabel, score);
+    };
+
     function increaseScore(amount) {
-      score += amount;
+      addScore(amount);
+      maybeShowUpgrade(
+        k,
+        player,
+        sharedState,
+        score,
+        nextThresholdRef,
+        addScore
+      );
     }
     scoreRef.value = () => score;
 
@@ -31,7 +47,7 @@ export function defineGameScene(k, scoreRef) {
 
     let spawnInterval = 2;
     let spawnTimer = 0;
-    
+
     let pausePressed = false;
     k.onUpdate(() => {
       //pause toggle

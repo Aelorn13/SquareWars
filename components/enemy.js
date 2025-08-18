@@ -3,23 +3,33 @@ import { spawnPowerUp, POWERUP_TYPES } from "./powerup.js";
 const SUMMON_COOLDOWN = 9;
 const SHOOT_COOLDOWN = 2;
 const CHARGE_COOLDOWN = 5;
+
 function bossChargeAttack(k, boss, player) {
   if (boss.isCharging) return;
+
   const BOSS_SPEED_CHARGE_MULTIPLIER = 6;
-  const CHARGE_DURATION = 0.6; // how long the charge lasts
+  const CHARGE_DURATION = 0.6; // seconds
+  const CHARGE_UP_TIME = 1;    // charge up duration
 
   boss.isCharging = true;
+  boss.chargeTimer = 0;
+  boss.chargePhase = "charging"; // "charging" -> "moving"
 
-  // Lock direction toward the player
-  const dir = player.pos.sub(boss.pos).unit();
+  // Lock direction toward the player at start
+  boss.chargeDir = player.pos.sub(boss.pos).unit();
 
-  // Smooth charge-up → red flash
-  let t = 0;
-  const duration = 1;
+  // Reset color at start
+  boss.use(k.color(k.rgb(...boss.originalColor)));
+
   boss.onUpdate(() => {
-    if (boss.isCharging && t < duration) {
-      t += k.dt();
-      const progress = t / duration;
+    if (!boss.isCharging) return;
+
+    // Phase 1: charge up (color shift)
+    if (boss.chargePhase === "charging") {
+      boss.chargeTimer += k.dt();
+      const progress = Math.min(1, boss.chargeTimer / CHARGE_UP_TIME);
+
+      // Blend to red
       const r = Math.floor(
         boss.originalColor[0] * (1 - progress) + 200 * progress
       );
@@ -30,27 +40,32 @@ function bossChargeAttack(k, boss, player) {
         boss.originalColor[2] * (1 - progress) + 0 * progress
       );
       boss.use(k.color(k.rgb(r, g, b)));
+
+      if (boss.chargeTimer >= CHARGE_UP_TIME) {
+        // switch to moving phase
+        boss.chargePhase = "moving";
+        boss.chargeTimer = 0;
+        boss.use(k.color(k.rgb(...boss.originalColor)));
+      }
+    }
+
+    // Phase 2: move quickly
+    else if (boss.chargePhase === "moving") {
+      boss.chargeTimer += k.dt();
+      boss.pos = boss.pos.add(
+        boss.chargeDir.scale(boss.speed * BOSS_SPEED_CHARGE_MULTIPLIER * k.dt())
+      );
+
+      if (boss.chargeTimer >= CHARGE_DURATION) {
+        boss.isCharging = false;
+        boss.chargePhase = null;
+        boss.chargeTimer = 0;
+        boss.use(k.color(k.rgb(...boss.originalColor)));
+      }
     }
   });
-
-  // After charge-up, move fast in direction
-  k.wait(duration, () => {
-    boss.use(k.color(k.rgb(...boss.originalColor)));
-    let chargeTime = 0;
-
-    boss.onUpdate(() => {
-      if (!boss.isCharging) return;
-      if (chargeTime < CHARGE_DURATION) {
-        chargeTime += k.dt();
-        boss.pos = boss.pos.add(
-          dir.scale(boss.speed * BOSS_SPEED_CHARGE_MULTIPLIER * k.dt())
-        );
-      } else {
-        boss.isCharging = false;
-      }
-    });
-  });
 }
+
 //laser not used, looks bad
 function bossLaserAttack(k, boss, player) {
   if (boss.isAttacking) return;
@@ -474,10 +489,10 @@ export function spawnEnemy(
         k.wait(0.2, () => {
           enemy.speed = originalSpeed;
         });
+        enemy.use(
+          k.color(k.rgb(...fadeColor(enemy.originalColor, fadeTo, hpRatio)))
+        );
       }
-      enemy.use(
-        k.color(k.rgb(...fadeColor(enemy.originalColor, fadeTo, hpRatio)))
-      );
     } else {
       enemyDeathAnimation(k, enemy);
       increaseScore(enemy.score);

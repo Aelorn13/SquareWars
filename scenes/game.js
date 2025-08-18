@@ -47,6 +47,9 @@ export function defineGameScene(k, scoreRef) {
 
     let spawnInterval = 2;
     let spawnTimer = 0;
+    let bossSpawned = false;
+
+    const MINIMAL_SPAWN_INTERVAL = 0.5;
 
     let pausePressed = false;
     k.onUpdate(() => {
@@ -66,15 +69,31 @@ export function defineGameScene(k, scoreRef) {
 
       spawnTimer -= k.dt();
       if (spawnTimer <= 0) {
-        spawnEnemy(
-          k,
-          player,
-          () => drawHealthBar(k, player.hp()),
-          () => updateScoreLabel(scoreLabel, score),
-          increaseScore,
-          sharedState
-        );
-        spawnInterval = Math.max(0.5, spawnInterval - 0.02);
+        if (!bossSpawned && spawnInterval <= MINIMAL_SPAWN_INTERVAL) {
+          // Spawn boss instead of normal enemy
+          spawnEnemy(
+            k,
+            player,
+            () => drawHealthBar(k, player.hp()),
+            () => updateScoreLabel(scoreLabel, score),
+            increaseScore,
+            sharedState,
+            "boss" // force boss type
+          );
+          bossSpawned = true;
+        } else if (!bossSpawned) {
+          // Normal enemies
+          spawnEnemy(
+            k,
+            player,
+            () => drawHealthBar(k, player.hp()),
+            () => updateScoreLabel(scoreLabel, score),
+            increaseScore,
+            sharedState
+          );
+        }
+
+        spawnInterval = Math.max(MINIMAL_SPAWN_INTERVAL, spawnInterval - 0.02);
         spawnTimer = spawnInterval;
       }
     });

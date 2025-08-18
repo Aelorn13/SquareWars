@@ -3,6 +3,7 @@ import { defineGameScene } from "./scenes/game.js";
 import { defineGameOverScene } from "./scenes/gameover.js";
 import { TutorialScene } from "./scenes/tutorial.js";
 import { initControls } from "./components/controls.js";
+import { defineVictoryScene } from "./scenes/victory.js";
 
 const k = kaplay({
   width: 1024,
@@ -21,6 +22,7 @@ const scoreRef = { value: () => 0 };
 
 defineGameScene(k, scoreRef);
 defineGameOverScene(k, () => scoreRef.value());
+defineVictoryScene(k, () => scoreRef.value());
 TutorialScene(k);
 initControls();
 k.go("tutorial");

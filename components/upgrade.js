@@ -1,5 +1,5 @@
 // components/upgrade.js
-import { showUpgradeUI, cleanupUpgradeUI,updateScoreLabel } from "./ui.js";
+import { showUpgradeUI, cleanupUpgradeUI } from "./ui.js";
 
 export const rarities = [
   { name: "Common", color: [255, 255, 255], tier: 1, multiplier: 0.1 },
@@ -8,6 +8,17 @@ export const rarities = [
   { name: "Epic", color: [128, 0, 128], tier: 4, multiplier: 0.4 },
   { name: "Legendary", color: [255, 165, 0], tier: 5, multiplier: 0.5 },
 ];
+
+// Different base multipliers per stat
+const statMultipliers = {
+  damage: 1.0,       // scales normally
+  speed: 0.8,        // needs smaller boosts
+  luck: 1,
+  bulletSpeed: 1,    // moderate
+  attackSpeed: 0.5,
+  dashDuration: 2.0,
+  dashCooldown: 1,
+};
 
 export const upgrades = [
   { stat: "damage", name: "Damage Boost", icon: "🔫" },
@@ -22,11 +33,31 @@ export const upgrades = [
 // Weighted rarity roll
 function rollRarity() {
   const roll = Math.random();
-  if (roll < 0.5) return rarities[0]; // 50%
-  if (roll < 0.75) return rarities[1]; // 25%
-  if (roll < 0.9) return rarities[2]; // 15%
-  if (roll < 0.98) return rarities[3]; // 8%
-  return rarities[4]; // 2%
+  if (roll < 0.5) return rarities[0];   // 50%
+  if (roll < 0.75) return rarities[1];  // 25%
+  if (roll < 0.9) return rarities[2];   // 15%
+  if (roll < 0.98) return rarities[3];  // 8%
+  return rarities[4];                   // 2%
+}
+
+// Format upgrade into what UI expects
+function formatUpgrade(upgradeDef, rarity) {
+  const stat = upgradeDef.stat;
+  const baseMult = statMultipliers[stat] ?? 1.0;
+  const isInverse = stat === "dashCooldown" || stat === "attackSpeed";
+
+  // Calculate percentage change
+  const changePct = rarity.multiplier * baseMult * 100;
+  const displayChange = isInverse ? -changePct : changePct;
+
+  return {
+    icon: upgradeDef.icon,
+    name: upgradeDef.name,
+    bonusText: `${displayChange > 0 ? "+" : ""}${Math.round(displayChange)}%`,
+    color: rarity.color,
+    upgradeDef,
+    rarity,
+  };
 }
 
 export function maybeShowUpgrade(
@@ -50,7 +81,7 @@ export function maybeShowUpgrade(
       const idx = Math.floor(Math.random() * available.length);
       const upgradeDef = available.splice(idx, 1)[0]; // remove to avoid duplicates
       const rarity = rollRarity();
-      chosen.push({ upgradeDef, rarity });
+      chosen.push(formatUpgrade(upgradeDef, rarity));
     }
 
     showUpgradeUI(k, chosen, (picked) => {
@@ -65,20 +96,22 @@ export function maybeShowUpgrade(
     });
 
     // Scale next threshold
-    nextThresholdRef.value = Math.floor(nextThresholdRef.value * 1.5);
+    nextThresholdRef.value = Math.floor(nextThresholdRef.value * 1.5) + 5;
   }
 }
 
 export function applyUpgrade(player, upgradeDef, rarity) {
   const stat = upgradeDef.stat;
-  const change = player[stat] * rarity.multiplier;
+  const baseMult = statMultipliers[stat] ?? 1.0;
+
+  // actual numeric change
+  const change = player[stat] * rarity.multiplier * baseMult;
 
   if (stat === "dashCooldown" || stat === "attackSpeed") {
-    // smaller is better for these stats
+    // smaller is better
     player[stat] -= change;
-    if (player[stat] < 0.05) player[stat] = 0.05; // clamp
+    if (player[stat] < 0.05) player[stat] = 0.05; // clamp to avoid breaking
   } else {
-    // bigger is better
     player[stat] += change;
   }
 

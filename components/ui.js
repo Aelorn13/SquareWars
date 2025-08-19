@@ -1,5 +1,10 @@
 // --- Timer UI ---
-export function createTimerLabel(k, spawnInterval, MINIMAL_SPAWN_INTERVAL, INTERVAL_DECREASE) {
+export function createTimerLabel(
+  k,
+  spawnInterval,
+  MINIMAL_SPAWN_INTERVAL,
+  INTERVAL_DECREASE
+) {
   // calculate total seconds until cap
   const totalSeconds = Math.floor(
     (spawnInterval - MINIMAL_SPAWN_INTERVAL) / INTERVAL_DECREASE
@@ -18,7 +23,13 @@ export function createTimerLabel(k, spawnInterval, MINIMAL_SPAWN_INTERVAL, INTER
   return label;
 }
 
-export function updateTimerLabel(label, delta, MINIMAL_SPAWN_INTERVAL, INTERVAL_DECREASE, spawnInterval) {
+export function updateTimerLabel(
+  label,
+  delta,
+  MINIMAL_SPAWN_INTERVAL,
+  INTERVAL_DECREASE,
+  spawnInterval
+) {
   // only tick if spawnInterval > MINIMAL
   if (spawnInterval > MINIMAL_SPAWN_INTERVAL) {
     label.timeLeft = Math.max(0, label.timeLeft - delta);
@@ -54,7 +65,7 @@ export function createScoreLabel(k) {
   // Smaller label for the " / nextThreshold"
   const thresholdLabel = k.add([
     k.text("/ 10", { size: 12 }), // smaller font
-    k.pos(150, 28),               // slightly to the right of score
+    k.pos(150, 28), // slightly to the right of score
     k.layer("ui"),
     k.fixed(),
     k.z(100),
@@ -123,7 +134,7 @@ export function showUpgradeUI(k, chosen, onPick) {
   ]);
 
   const makeCard = (x, y, choice) => {
-    const frame = k.rgb(...choice.rarity.color);
+    const frame = k.rgb(...choice.color);
 
     const box = k.add([
       k.rect(200, 90, { radius: 10 }),
@@ -139,32 +150,37 @@ export function showUpgradeUI(k, chosen, onPick) {
       { choice },
     ]);
 
-    // title + stat line (rarity-colored text)
-  const label = k.add([
-    k.text(
-      `${choice.upgradeDef.icon} ${choice.upgradeDef.name}\n+${Math.round(
-        choice.rarity.multiplier * 100
-      )}% ${choice.upgradeDef.stat}`,
-      { size: 16, align: "center" }
-    ),
-    k.pos(x, y),
-    k.anchor("center"),
-    k.scale(1),         
-    k.fixed(),
-    k.z(501),
-    "upgradeUI",
-  ]);
+    // title (icon + name)
+    const titleLabel = k.add([
+      k.text(`${choice.icon} ${choice.name}`, { size: 18, align: "center" }),
+      k.pos(x, y - 15),
+      k.anchor("center"),
+      k.fixed(),
+      k.z(501),
+      "upgradeUI",
+    ]);
+
+    // bonus number (rarity-colored)
+    const bonusLabel = k.add([
+      k.text(choice.bonusText, { size: 20, align: "center" }),
+      k.pos(x, y + 15),
+      k.anchor("center"),
+      k.color(...choice.color),
+      k.fixed(),
+      k.z(501),
+      "upgradeUI",
+    ]);
 
     // hover scale feedback
     box.onHoverUpdate(() => {
       box.scale = k.vec2(1.1, 1.1);
-      label.scale = k.vec2(1.1, 1.1);
-
+      titleLabel.scale = k.vec2(1.1, 1.1);
+      bonusLabel.scale = k.vec2(1.1, 1.1);
     });
     box.onHoverEnd(() => {
       box.scale = k.vec2(1, 1);
-      label.scale = k.vec2(1, 1);
-
+      titleLabel.scale = k.vec2(1, 1);
+      bonusLabel.scale = k.vec2(1, 1);
     });
 
     box.onClick(() => onPick(choice));
@@ -214,3 +230,4 @@ export function showUpgradeUI(k, chosen, onPick) {
 export function cleanupUpgradeUI(k) {
   k.destroyAll("upgradeUI");
 }
+

@@ -42,7 +42,7 @@ export function createPauseLabel(k) {
 }
 
 export function createScoreLabel(k) {
-  const label = k.add([
+  const scoreLabel = k.add([
     k.text("Score: 0", { size: 24 }),
     k.pos(20, 20),
     k.layer("ui"),
@@ -50,11 +50,23 @@ export function createScoreLabel(k) {
     k.z(100),
     "scoreLabel",
   ]);
-  return label;
+
+  // Smaller label for the " / nextThreshold"
+  const thresholdLabel = k.add([
+    k.text("/ 10", { size: 12 }), // smaller font
+    k.pos(150, 28),               // slightly to the right of score
+    k.layer("ui"),
+    k.fixed(),
+    k.z(100),
+    "thresholdLabel",
+  ]);
+
+  return { scoreLabel, thresholdLabel };
 }
 
-export function updateScoreLabel(label, score) {
-  label.text = `Score: ${score}`;
+export function updateScoreLabel(labels, score, nextThreshold) {
+  labels.scoreLabel.text = `Score: ${score}`;
+  labels.thresholdLabel.text = `/ ${nextThreshold}`;
 }
 
 export function drawHealthBar(k, hp) {

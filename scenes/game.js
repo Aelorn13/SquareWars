@@ -24,9 +24,9 @@ export function defineGameScene(k, scoreRef) {
 
     const addScore = (delta) => {
       score += delta;
-      updateScoreLabel(scoreLabel, score);
+      updateScoreLabel(scoreLabel, score,nextThresholdRef.value);
     };
-
+    console.log(nextThresholdRef.value)
     function increaseScore(amount) {
       addScore(amount);
       maybeShowUpgrade(
@@ -79,7 +79,7 @@ export function defineGameScene(k, scoreRef) {
             k,
             player,
             () => drawHealthBar(k, player.hp()),
-            () => updateScoreLabel(scoreLabel, score),
+            () => updateScoreLabel(scoreLabel, score,nextThresholdRef.value),
             increaseScore,
             sharedState,
             "boss" // force boss type
@@ -91,7 +91,7 @@ export function defineGameScene(k, scoreRef) {
             k,
             player,
             () => drawHealthBar(k, player.hp()),
-            () => updateScoreLabel(scoreLabel, score),
+            () => updateScoreLabel(scoreLabel, score,nextThresholdRef.value),
             increaseScore,
             sharedState
           );

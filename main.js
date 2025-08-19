@@ -4,7 +4,6 @@ import { defineGameOverScene } from "./scenes/gameover.js";
 import { TutorialScene } from "./scenes/tutorial.js";
 import { initControls } from "./components/controls.js";
 import { defineVictoryScene } from "./scenes/victory.js";
-
 const k = kaplay({
   width: 1024,
   height: 768,

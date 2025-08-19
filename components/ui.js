@@ -1,3 +1,46 @@
+// --- Timer UI ---
+export function createTimerLabel(k, spawnInterval, MINIMAL_SPAWN_INTERVAL, INTERVAL_DECREASE) {
+  // calculate total seconds until cap
+  const totalSeconds = Math.floor(
+    (spawnInterval - MINIMAL_SPAWN_INTERVAL) / INTERVAL_DECREASE
+  );
+
+  const label = k.add([
+    k.text(`Time left: ${totalSeconds}`, { size: 20 }),
+    k.pos(20, 50), // just below score label
+    k.layer("ui"),
+    k.fixed(),
+    k.z(100),
+    "timerLabel",
+    { timeLeft: totalSeconds },
+  ]);
+
+  return label;
+}
+
+export function updateTimerLabel(label, delta, MINIMAL_SPAWN_INTERVAL, INTERVAL_DECREASE, spawnInterval) {
+  // only tick if spawnInterval > MINIMAL
+  if (spawnInterval > MINIMAL_SPAWN_INTERVAL) {
+    label.timeLeft = Math.max(0, label.timeLeft - delta);
+    label.text = `Time left: ${Math.ceil(label.timeLeft)}`;
+  } else {
+    label.text = "Max Difficulty!";
+  }
+}
+export function createPauseLabel(k) {
+  const pauseLabel = k.add([
+    k.text("PAUSE", { size: 48 }),
+    k.anchor("center"),
+    k.pos(k.width() / 2, k.height() / 2),
+    k.color(255, 255, 255),
+    k.z(200),
+    k.fixed(),
+    "pauseLabel",
+  ]);
+  pauseLabel.hidden = true; // hidden until pause is triggered
+  return pauseLabel;
+}
+
 export function createScoreLabel(k) {
   const label = k.add([
     k.text("Score: 0", { size: 24 }),

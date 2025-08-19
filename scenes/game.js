@@ -5,12 +5,16 @@ import {
   updateScoreLabel,
   drawHealthBar,
   drawDashCooldownBar,
+  createTimerLabel,
+  updateTimerLabel,
+  createPauseLabel 
 } from "../components/ui.js";
 import { setupShooting } from "../components/shooting.js";
 import { applyPowerUp } from "../components/powerup.js";
 import { keysPressed } from "../components/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade.js";
-
+const MINIMAL_SPAWN_INTERVAL = 0.5;
+const INTERVAL_DECREASE = 0.02;
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
     const sharedState = { isPaused: false, upgradeOpen: false };
@@ -44,12 +48,12 @@ export function defineGameScene(k, scoreRef) {
     const scoreLabel = createScoreLabel(k);
     drawHealthBar(k, player.hp());
     const dashCooldownBar = drawDashCooldownBar(k);
-
+    const pauseLabel = createPauseLabel(k);
     let spawnInterval = 2;
+    const timerLabel = createTimerLabel(k, spawnInterval, MINIMAL_SPAWN_INTERVAL, INTERVAL_DECREASE);
+
     let spawnTimer = 0;
     let bossSpawned = false;
-
-    const MINIMAL_SPAWN_INTERVAL = 0.5;
 
     let pausePressed = false;
     k.onUpdate(() => {
@@ -93,9 +97,13 @@ export function defineGameScene(k, scoreRef) {
           );
         }
 
-        spawnInterval = Math.max(MINIMAL_SPAWN_INTERVAL, spawnInterval - 0.02);
+        spawnInterval = Math.max(
+          MINIMAL_SPAWN_INTERVAL,
+          spawnInterval - INTERVAL_DECREASE
+        );
         spawnTimer = spawnInterval;
       }
+       updateTimerLabel(timerLabel, k.dt(), MINIMAL_SPAWN_INTERVAL, INTERVAL_DECREASE, spawnInterval);
     });
 
     player.onCollide("powerup", (powerUp) => {
@@ -104,16 +112,5 @@ export function defineGameScene(k, scoreRef) {
       });
       k.destroy(powerUp);
     });
-
-    const pauseLabel = k.add([
-      k.text("PAUSE", { size: 48 }),
-      k.anchor("center"),
-      k.pos(k.width() / 2, k.height() / 2),
-      k.color(255, 255, 255),
-      k.z(200),
-      k.fixed(),
-      { showOnPause: true },
-    ]);
-    pauseLabel.hidden = true;
   });
 }

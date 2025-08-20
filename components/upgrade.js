@@ -11,10 +11,10 @@ export const rarities = [
 
 // Different base multipliers per stat
 const statMultipliers = {
-  damage: 1.0, // scales normally
-  speed: 0.8, // needs smaller boosts
-  luck: 1,
-  bulletSpeed: 1, // moderate
+  damage: 1.0, 
+  speed: 0.8, 
+  luck: 0.4,
+  bulletSpeed: 1, 
   attackSpeed: 0.5,
   dashDuration: 2.0,
   dashCooldown: 1,

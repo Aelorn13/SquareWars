@@ -7,13 +7,13 @@ import {
   drawDashCooldownBar,
   createTimerLabel,
   updateTimerLabel,
-  createPauseLabel 
+  createPauseLabel,
 } from "../components/ui.js";
 import { setupShooting } from "../components/shooting.js";
 import { applyPowerUp } from "../components/powerup.js";
 import { keysPressed } from "../components/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade.js";
-const MINIMAL_SPAWN_INTERVAL = 0.20;
+const MINIMAL_SPAWN_INTERVAL = 0.2;
 const INTERVAL_DECREASE = 0.02;
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
@@ -24,7 +24,7 @@ export function defineGameScene(k, scoreRef) {
 
     const addScore = (delta) => {
       score += delta;
-      updateScoreLabel(scoreLabel, score,nextThresholdRef.value);
+      updateScoreLabel(scoreLabel, score, nextThresholdRef.value);
     };
     function increaseScore(amount) {
       addScore(amount);
@@ -49,11 +49,20 @@ export function defineGameScene(k, scoreRef) {
     const dashCooldownBar = drawDashCooldownBar(k);
     const pauseLabel = createPauseLabel(k);
     let spawnInterval = 2;
-    const timerLabel = createTimerLabel(k, spawnInterval, MINIMAL_SPAWN_INTERVAL, INTERVAL_DECREASE);
+    const START_SPAWN_INTERVAL = spawnInterval;
+    function clamp01(x) {
+      return Math.max(0, Math.min(1, x));
+    }
+
+    const timerLabel = createTimerLabel(
+      k,
+      spawnInterval,
+      MINIMAL_SPAWN_INTERVAL,
+      INTERVAL_DECREASE
+    );
 
     let spawnTimer = 0;
     let bossSpawned = false;
-
     let pausePressed = false;
     k.onUpdate(() => {
       //pause toggle
@@ -70,6 +79,14 @@ export function defineGameScene(k, scoreRef) {
       dashCooldownBar.width =
         dashCooldownBar.fullWidth * (1 - player.getDashCooldownProgress());
 
+      const denom = Math.max(
+        0.0001,
+        START_SPAWN_INTERVAL - MINIMAL_SPAWN_INTERVAL
+      );
+      const raw = (START_SPAWN_INTERVAL - spawnInterval) / denom;
+
+      sharedState.spawnProgress = clamp01(raw);
+
       spawnTimer -= k.dt();
       if (spawnTimer <= 0) {
         if (!bossSpawned && spawnInterval <= MINIMAL_SPAWN_INTERVAL) {
@@ -78,10 +95,12 @@ export function defineGameScene(k, scoreRef) {
             k,
             player,
             () => drawHealthBar(k, player.hp()),
-            () => updateScoreLabel(scoreLabel, score,nextThresholdRef.value),
+            () => updateScoreLabel(scoreLabel, score, nextThresholdRef.value),
             increaseScore,
             sharedState,
-            "boss" // force boss type
+            "boss", // force boss type
+            null,
+            sharedState.spawnProgress // optional; ignored for boss
           );
           bossSpawned = true;
         } else if (!bossSpawned) {
@@ -90,9 +109,12 @@ export function defineGameScene(k, scoreRef) {
             k,
             player,
             () => drawHealthBar(k, player.hp()),
-            () => updateScoreLabel(scoreLabel, score,nextThresholdRef.value),
+            () => updateScoreLabel(scoreLabel, score, nextThresholdRef.value),
             increaseScore,
-            sharedState
+            sharedState,
+            null, // no forced type
+            null, // no position override
+            sharedState.spawnProgress
           );
         }
 
@@ -102,7 +124,13 @@ export function defineGameScene(k, scoreRef) {
         );
         spawnTimer = spawnInterval;
       }
-       updateTimerLabel(timerLabel, k.dt(), MINIMAL_SPAWN_INTERVAL, INTERVAL_DECREASE, spawnInterval);
+      updateTimerLabel(
+        timerLabel,
+        k.dt(),
+        MINIMAL_SPAWN_INTERVAL,
+        INTERVAL_DECREASE,
+        spawnInterval
+      );
     });
 
     player.onCollide("powerup", (powerUp) => {

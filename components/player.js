@@ -20,7 +20,7 @@ export function createPlayer(k, sharedState) {
       projectile: 1,
       damage: 1,
       speed: 95,
-      luck: 0.2,
+      luck: 1,
       bulletSpeed: 350,
       isShooting: false,
       attackSpeed: 0.5,

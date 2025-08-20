@@ -1,7 +1,7 @@
 export function defineVictoryScene(k, getScore) {
   k.scene("victory", () => {
     k.add([
-      k.text("CONGLATURATIONS"),
+      k.text("VICTORY!!!"),
       k.anchor("center"),
       k.pos(k.width() / 2, k.height() / 2 - 100),
     ]);

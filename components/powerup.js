@@ -39,7 +39,7 @@ export function spawnPowerUp(k, pos, type, sharedState) {
     k.opacity(1),
     "powerup",
     { type },
-    {duration : DURATION_POWERBUFF},
+    { duration: DURATION_POWERBUFF },
   ]);
 
   const fadeTime = 1;
@@ -58,7 +58,6 @@ export function spawnPowerUp(k, pos, type, sharedState) {
       const pulse = Math.sin(k.time() * 6) * 0.2 + 0.8;
       powerUp.opacity = pulse;
     }
-    
   });
 
   // Icon overlay that follows the power-up
@@ -83,18 +82,34 @@ export function spawnPowerUp(k, pos, type, sharedState) {
 }
 function applyTemporaryStatBuff(k, obj, stat, multiplier, duration) {
   if (!obj._buffData) obj._buffData = {};
+
+  const now = Date.now();
+
   if (!obj._buffData[stat]) {
-    obj._buffData[stat] = { original: obj[stat] };
+    // First time applying this buff
+    obj._buffData[stat] = {
+      original: obj[stat],
+      endTime: now + duration * 1000,
+      timeout: null,
+    };
     obj[stat] *= multiplier;
+
+    const tick = () => {
+      const remaining = (obj._buffData[stat].endTime - Date.now()) / 1000;
+      if (remaining <= 0) {
+        obj[stat] = obj._buffData[stat].original;
+        delete obj._buffData[stat];
+      } else {
+        obj._buffData[stat].timeout = k.wait(Math.min(remaining, 0.1), tick);
+      }
+    };
+    tick();
+  } else {
+    // Buff already exists -> extend duration
+    obj._buffData[stat].endTime += duration * 1000; // stack duration
+    // optional: can change "reset to max" instead of stacking, use:
+    // obj._buffData[stat].endTime = now + duration * 1000;
   }
-  // Cancel previous timeout if exists
-  if (obj._buffData[stat].timeout) {
-    obj._buffData[stat].timeout.cancel();
-  }
-  obj._buffData[stat].timeout = k.wait(duration, () => {
-    obj[stat] = obj._buffData[stat].original;
-    delete obj._buffData[stat];
-  });
 }
 
 export function applyPowerUp(k, player, type, onHealPickup) {
@@ -104,20 +119,42 @@ export function applyPowerUp(k, player, type, onHealPickup) {
       onHealPickup?.();
       break;
     case "invincibility":
-      applyTemporaryStatBuff(k, player, "attackSpeed", 0.5, DURATION_POWERBUFF);
-      if (player.isInvincible) return;
+      if (!player._buffData) player._buffData = {};
+      if (!player._buffData.invincible) {
+        player.isInvincible = true;
 
-      player.isInvincible = true;
-      const flash = k.loop(0.1, () => {
-        player.hidden = !player.hidden;
-      });
+        const flash = k.loop(0.1, () => {
+          player.hidden = !player.hidden;
+        });
 
-      k.wait(DURATION_POWERBUFF, () => {
-        player.isInvincible = false;
-        player.hidden = false;
-        flash.cancel();
-      });
+        player._buffData.invincible = {
+          endTime: Date.now() + DURATION_POWERBUFF * 1000,
+          timeout: null,
+          flash,
+        };
+
+        const tick = () => {
+          const remaining =
+            (player._buffData.invincible.endTime - Date.now()) / 1000;
+          if (remaining <= 0) {
+            player.isInvincible = false;
+            player.hidden = false;
+            flash.cancel();
+            delete player._buffData.invincible;
+          } else {
+            player._buffData.invincible.timeout = k.wait(
+              Math.min(remaining, 0.1),
+              tick
+            );
+          }
+        };
+        tick();
+      } else {
+        // Extend duration
+        player._buffData.invincible.endTime += DURATION_POWERBUFF * 1000;
+      }
       break;
+
     case "rapidFire":
       applyTemporaryStatBuff(k, player, "attackSpeed", 0.3, DURATION_POWERBUFF);
       break;
@@ -128,7 +165,13 @@ export function applyPowerUp(k, player, type, onHealPickup) {
 
     case "speed":
       applyTemporaryStatBuff(k, player, "speed", 2, DURATION_POWERBUFF);
-      applyTemporaryStatBuff(k, player, "dashCooldown", 0.3, DURATION_POWERBUFF);
+      applyTemporaryStatBuff(
+        k,
+        player,
+        "dashCooldown",
+        0.3,
+        DURATION_POWERBUFF
+      );
       break;
   }
 }

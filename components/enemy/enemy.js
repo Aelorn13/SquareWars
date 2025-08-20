@@ -53,6 +53,7 @@ export function spawnEnemy(
       k.color(k.rgb(...type.color)),
       k.anchor("center"),
       k.area(),
+      k.body(),
       k.pos(pos),
       k.rotate(0),
       k.health(type.maxHp),

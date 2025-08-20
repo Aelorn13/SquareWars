@@ -44,7 +44,7 @@ function rollRarity() {
 function formatUpgrade(upgradeDef, rarity) {
   const stat = upgradeDef.stat;
   const baseMult = statMultipliers[stat] ?? 1.0;
-  const isInverse = stat === "dashCooldown" || stat === "attackSpeed";
+  const isInverse = stat === "dashCooldown";
 
   // Calculate percentage change
   const changePct = rarity.multiplier * baseMult * 100;

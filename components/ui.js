@@ -165,7 +165,7 @@ export function showUpgradeUI(k, chosen, onPick) {
       k.text(choice.bonusText, { size: 20, align: "center" }),
       k.pos(x, y + 15),
       k.anchor("center"),
-      k.color(...choice.color),
+      // k.color(...choice.color),
       k.fixed(),
       k.z(501),
       "upgradeUI",

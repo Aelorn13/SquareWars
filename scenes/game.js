@@ -1,5 +1,5 @@
 import { createPlayer } from "../components/player.js";
-import { spawnEnemy } from "../components/enemy.js";
+import { spawnEnemy } from "../components/enemy/enemy.js";
 import {
   createScoreLabel,
   updateScoreLabel,
@@ -13,7 +13,7 @@ import { setupShooting } from "../components/shooting.js";
 import { applyPowerUp } from "../components/powerup.js";
 import { keysPressed } from "../components/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade.js";
-const MINIMAL_SPAWN_INTERVAL = 0.5;
+const MINIMAL_SPAWN_INTERVAL = 0.20;
 const INTERVAL_DECREASE = 0.02;
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
@@ -26,7 +26,6 @@ export function defineGameScene(k, scoreRef) {
       score += delta;
       updateScoreLabel(scoreLabel, score,nextThresholdRef.value);
     };
-    console.log(nextThresholdRef.value)
     function increaseScore(amount) {
       addScore(amount);
       maybeShowUpgrade(

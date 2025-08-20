@@ -17,7 +17,7 @@ export function createPlayer(k, sharedState) {
     k.health(3, 10),
     "player",
     {
-      critChance: 0.1,
+      critChance: 0.2,
       critMultiplier: 2,
       projectile: 1,
       damage: 1,

@@ -17,7 +17,27 @@ const MINIMAL_SPAWN_INTERVAL = 0.2;
 const INTERVAL_DECREASE = 0.02;
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
-    const sharedState = { isPaused: false, upgradeOpen: false };
+    // --- Inner arena (5% margin on each side) ---
+    const ARENA_MARGIN = Math.floor(Math.min(k.width(), k.height()) * 0.05);
+    const ARENA = {
+      x: ARENA_MARGIN,
+      y: ARENA_MARGIN,
+      w: k.width() - ARENA_MARGIN * 2,
+      h: k.height() - ARENA_MARGIN * 2,
+    };
+
+    // visible floor so players "feel" the boundary
+    k.add([
+      k.rect(ARENA.w, ARENA.h),
+      k.pos(ARENA.x, ARENA.y),
+      k.color(20, 20, 20), // slightly lighter than global background [10,10,10]
+      k.outline(2, k.rgb(80, 80, 80)), // subtle frame
+      k.fixed(),
+      k.z(-50),
+    ]);
+
+
+    const sharedState = { isPaused: false, upgradeOpen: false, area: ARENA };
 
     let score = 0;
     let nextThresholdRef = { value: 10 };

@@ -1,10 +1,15 @@
 import { keysPressed } from "./controls.js";
 
-export function createPlayer(k,sharedState) {
+export function createPlayer(k, sharedState) {
   const player = k.add([
     k.rect(28, 28),
     k.anchor("center"),
-    k.pos(360, 360),
+    k.pos(
+      k.vec2(
+        sharedState.area.x + sharedState.area.w / 2,
+        sharedState.area.y + sharedState.area.h / 2
+      )
+    ),
     k.color(0, 0, 255),
     k.rotate(0),
     k.area(),
@@ -56,13 +61,13 @@ export function createPlayer(k,sharedState) {
 
     const moveSpeed = player.isDashing ? player.speed * 4 : player.speed;
     player.move(dir.scale(moveSpeed));
-    player.pos.x = Math.max(
-      player.width / 2,
-      Math.min(k.width() - player.width / 2, player.pos.x)
+    player.pos.x = Math.min(
+      Math.max(player.pos.x, sharedState.area.x),
+      sharedState.area.x + sharedState.area.w
     );
-    player.pos.y = Math.max(
-      player.height / 2,
-      Math.min(k.height() - player.height / 2, player.pos.y)
+    player.pos.y = Math.min(
+      Math.max(player.pos.y, sharedState.area.y),
+      sharedState.area.y + sharedState.area.h
     );
   });
 

@@ -38,7 +38,8 @@ function bossSummonMinions(
         sharedState,
         null,   // random type
         pos,     // near boss
-        sharedState.spawnProgress ?? 1
+        sharedState.spawnProgress ?? 1,
+        false
       );
     }
   });

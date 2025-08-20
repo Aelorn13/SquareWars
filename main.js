@@ -6,12 +6,12 @@ import { initControls } from "./components/controls.js";
 import { defineVictoryScene } from "./scenes/victory.js";
 const k = kaplay({
   width: 1024,
-  height: 768,
+  height: 820,
   letterBox: true,
   // scale: Math.min(window.innerWidth / 540, window.innerHeight / 960),
   debug: true,
   global: false,
-  background: [10, 10, 10],
+  background: [0, 0, 0],
   touchToMouse: true,
   debugKey: "f4",
 });

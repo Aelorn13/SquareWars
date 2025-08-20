@@ -11,13 +11,15 @@ export const rarities = [
 
 // Different base multipliers per stat
 const statMultipliers = {
-  damage: 1.0,       // scales normally
-  speed: 0.8,        // needs smaller boosts
+  damage: 1.0, // scales normally
+  speed: 0.8, // needs smaller boosts
   luck: 1,
-  bulletSpeed: 1,    // moderate
+  bulletSpeed: 1, // moderate
   attackSpeed: 0.5,
   dashDuration: 2.0,
   dashCooldown: 1,
+  critChance: 0.5,
+  critMultiplier: 2,
 };
 
 export const upgrades = [
@@ -28,16 +30,19 @@ export const upgrades = [
   { stat: "attackSpeed", name: "Attack Speed", icon: "⚡" },
   { stat: "dashDuration", name: "Dash Duration", icon: "⏱️" },
   { stat: "dashCooldown", name: "Dash Cooldown", icon: "♻️" },
+  { stat: "critChance", name: "Critical Chance", icon: "🎯" },
+  { stat: "critMultiplier", name: "Critical Damage", icon: "💥" },
 ];
+const additiveStats = ["luck", "critChance"];
 
 // Weighted rarity roll
 function rollRarity() {
   const roll = Math.random();
-  if (roll < 0.5) return rarities[0];   // 50%
-  if (roll < 0.75) return rarities[1];  // 25%
-  if (roll < 0.9) return rarities[2];   // 15%
-  if (roll < 0.98) return rarities[3];  // 8%
-  return rarities[4];                   // 2%
+  if (roll < 0.5) return rarities[0]; // 50%
+  if (roll < 0.75) return rarities[1]; // 25%
+  if (roll < 0.9) return rarities[2]; // 15%
+  if (roll < 0.98) return rarities[3]; // 8%
+  return rarities[4]; // 2%
 }
 
 // Format upgrade into what UI expects
@@ -104,16 +109,28 @@ export function applyUpgrade(player, upgradeDef, rarity) {
   const stat = upgradeDef.stat;
   const baseMult = statMultipliers[stat] ?? 1.0;
 
-  // actual numeric change
-  const change = player[stat] * rarity.multiplier * baseMult;
+  let change;
 
-  if (stat === "dashCooldown" || stat === "attackSpeed") {
-    // smaller is better
-    player[stat] -= change;
-    if (player[stat] < 0.05) player[stat] = 0.05; // clamp to avoid breaking
-  } else {
+  if (additiveStats.includes(stat)) {
+    // Additive: increase by a flat fraction of 1 (e.g., 5% per Common)
+    change = rarity.multiplier * baseMult; 
     player[stat] += change;
+
+    // Clamp between 0 and 1
+    if (player[stat] > 1) player[stat] = 1;
+  } else {
+    // Multiplicative / scaling for other stats
+    change = player[stat] * rarity.multiplier * baseMult;
+
+    if (stat === "dashCooldown" || stat === "attackSpeed") {
+      player[stat] -= change;
+      if (player[stat] < 0.05) player[stat] = 0.05;
+    } else {
+      player[stat] += change;
+    }
   }
 
   console.log(`Upgraded ${stat} → ${player[stat]}`);
 }
+
+

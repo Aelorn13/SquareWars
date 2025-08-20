@@ -4,6 +4,7 @@ export const POWERUP_TYPES = [
   "damage",
   "speed",
   "invincibility",
+  "alwaysCrit",
 ];
 const DURATION_POWERBUFF = 10;
 
@@ -13,6 +14,7 @@ const colorMap = {
   invincibility: [204, 228, 118],
   speed: [98, 218, 202],
   damage: [187, 30, 30],
+  alwaysCrit: [255, 100, 0],
 };
 
 const iconMap = {
@@ -21,6 +23,7 @@ const iconMap = {
   invincibility: "⭐",
   speed: "🦵",
   damage: "💪",
+  alwaysCrit: "🎯",
 };
 
 export function spawnPowerUp(k, pos, type, sharedState) {
@@ -80,7 +83,14 @@ export function spawnPowerUp(k, pos, type, sharedState) {
   ]);
   return powerUp;
 }
-function applyTemporaryStatBuff(k, obj, stat, multiplier, duration) {
+function applyTemporaryStatBuff(
+  k,
+  obj,
+  stat,
+  multiplier,
+  duration,
+  absolute = false
+) {
   if (!obj._buffData) obj._buffData = {};
 
   const now = Date.now();
@@ -92,7 +102,11 @@ function applyTemporaryStatBuff(k, obj, stat, multiplier, duration) {
       endTime: now + duration * 1000,
       timeout: null,
     };
-    obj[stat] *= multiplier;
+    if (absolute) {
+      obj[stat] = multiplier; // set absolute value
+    } else {
+      obj[stat] *= multiplier; // multiply
+    }
 
     const tick = () => {
       const remaining = (obj._buffData[stat].endTime - Date.now()) / 1000;
@@ -171,6 +185,16 @@ export function applyPowerUp(k, player, type, onHealPickup) {
         "dashCooldown",
         0.3,
         DURATION_POWERBUFF
+      );
+      break;
+    case "alwaysCrit":
+      applyTemporaryStatBuff(
+        k,
+        player,
+        "critChance",
+        1,
+        DURATION_POWERBUFF,
+        true
       );
       break;
   }

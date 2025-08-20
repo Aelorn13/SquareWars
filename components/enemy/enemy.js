@@ -1,6 +1,12 @@
 // components/enemy/enemy.js
 import { enemyTypes, chooseEnemyType } from "./enemyTypes.js";
-import { fadeColor, dropPowerUp, enemyDeathAnimation, pickEdgeSpawnPosFarFromPlayer, showSpawnTelegraph } from "./enemyUtils.js";
+import {
+  fadeColor,
+  dropPowerUp,
+  enemyDeathAnimation,
+  pickEdgeSpawnPosFarFromPlayer,
+  showSpawnTelegraph,
+} from "./enemyUtils.js";
 import { attachBossBrain } from "./boss.js";
 
 /**
@@ -37,12 +43,19 @@ export function spawnEnemy(
   }
 
   // choose spawn position
-  const defaultPos = pickEdgeSpawnPosFarFromPlayer(k, sharedState, player, 120, 28);
+  const defaultPos = pickEdgeSpawnPosFarFromPlayer(
+    k,
+    sharedState,
+    player,
+    120,
+    28
+  );
   const pos = posOverride ?? defaultPos;
 
   // choose enemy type (forceType overrides)
   const chosenType = forceType
-    ? (enemyTypes.find((t) => t.name === forceType) ?? chooseEnemyType(enemyTypes, progress))
+    ? enemyTypes.find((t) => t.name === forceType) ??
+      chooseEnemyType(enemyTypes, progress)
     : chooseEnemyType(enemyTypes, progress);
 
   // inner function that creates the enemy entity immediately
@@ -82,7 +95,23 @@ export function spawnEnemy(
     enemy.onCollide("bullet", (bullet) => {
       if (enemy.dead) return;
       k.destroy(bullet);
-      enemy.hurt(player.damage);
+      enemy.hurt(bullet.damage);
+      //additional visual crit effect
+      if (bullet.isCrit) {
+        for (let i = 0; i < 8; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 100 + 50;
+          const p = k.add([
+            k.circle(2),
+            k.color(255, 0, 0),
+            k.pos(enemy.pos),
+            k.anchor("center"),
+          ]);
+          const vel = k.vec2(Math.cos(angle), Math.sin(angle)).scale(speed);
+          k.tween(p.pos, p.pos.add(vel.scale(0.2)), 0.2, (v) => (p.pos = v));
+          k.wait(0.2, () => k.destroy(p));
+        }
+      }
 
       if (enemy.hp() > 0) {
         const hpRatio = Math.max(enemy.hp() / enemy.maxHp, 0.01);
@@ -93,12 +122,16 @@ export function spawnEnemy(
           enemy.speed = originalSpeed * 0.3;
           k.wait(0.2, () => (enemy.speed = originalSpeed));
         }
-        enemy.use(k.color(k.rgb(...fadeColor(enemy.originalColor, fadeTo, hpRatio))));
+        enemy.use(
+          k.color(k.rgb(...fadeColor(enemy.originalColor, fadeTo, hpRatio)))
+        );
       } else {
         enemyDeathAnimation(k, enemy);
         increaseScore?.(enemy.score);
         updateScoreLabel?.();
-        if (enemy.type === "boss") k.wait(0.5, () => k.go("victory"));
+        if (enemy.type === "boss") {
+          k.wait(0.5, () => k.go("victory"));
+        }
         dropPowerUp(k, player, enemy.pos, sharedState);
       }
     });

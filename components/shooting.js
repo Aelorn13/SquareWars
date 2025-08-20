@@ -3,36 +3,52 @@ const bulletHeight = 4;
 export function setupShooting(k, player, sharedState) {
   let canShoot = true;
 
-  const shoot = () => {
-    const dir = k.mousePos().sub(player.pos).unit();
-    const hasDamageBuff = !!player._buffData?.damage;
-    let damageMultiplier = 1;
-    if (player._buffData && player._buffData.damage) {
-      damageMultiplier = player.damage / player._buffData.damage.original;
-    }
-    const bullet = k.add([
-      k.rect(
-        hasDamageBuff ? bulletWidth * damageMultiplier : bulletWidth,
-        hasDamageBuff ? bulletHeight * damageMultiplier : bulletHeight
-      ),
-      k.color(hasDamageBuff ? k.rgb(255, 0, 255) : k.rgb(255, 255, 0)),
-      k.pos(player.pos),
-      k.area(),
-      k.anchor("center"),
-      k.offscreen({ destroy: true }),
-      k.rotate(player.angle),
-      "bullet",
-      {
-        originalVel: dir.scale(player.bulletSpeed),
-      },
-    ]);
+const shoot = () => {
+  const dir = k.mousePos().sub(player.pos).unit();
+  const hasDamageBuff = !!player._buffData?.damage;
+  let damageMultiplier = 1;
 
-    bullet.onUpdate(() => {
-      if (!sharedState.isPaused) {
-        bullet.pos = bullet.pos.add(bullet.originalVel.scale(k.dt()));
-      }
-    });
-  };
+  if (hasDamageBuff) {
+    damageMultiplier = player.damage / player._buffData.damage.original;
+  }
+
+  // Check crit
+  const isCrit = Math.random() < (player.critChance || 0);
+  const critMultiplier = isCrit ? (player.critMultiplier || 2) : 1;
+
+  // Final bullet damage
+  const bulletDamage = player.damage * critMultiplier;
+
+  // Bullet size
+  const width = (hasDamageBuff ? bulletWidth * damageMultiplier : bulletWidth) * critMultiplier;
+  const height = (hasDamageBuff ? bulletHeight * damageMultiplier : bulletHeight) * critMultiplier;
+
+  // Bullet color
+  let bulletColor = hasDamageBuff ? k.rgb(255, 0, 255) : k.rgb(255, 255, 0);
+  if (isCrit) bulletColor = k.rgb(255, 0, 0); // crit overrides color
+
+  const bullet = k.add([
+    k.rect(width, height),
+    k.color(bulletColor),
+    k.pos(player.pos),
+    k.area(),
+    k.anchor("center"),
+    k.offscreen({ destroy: true }),
+    k.rotate(player.angle),
+    "bullet",
+    {
+      originalVel: dir.scale(player.bulletSpeed),
+      damage: bulletDamage,   // <-- store damage in bullet
+      isCrit,                // optional, for effects
+    },
+  ]);
+
+  bullet.onUpdate(() => {
+    if (!sharedState.isPaused) {
+      bullet.pos = bullet.pos.add(bullet.originalVel.scale(k.dt()));
+    }
+  });
+};
 
   const tryShoot = () => {
     if (!canShoot) return;

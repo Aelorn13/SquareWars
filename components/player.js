@@ -19,7 +19,7 @@ export function createPlayer(k, sharedState) {
     {
       critChance: 0.2,
       critMultiplier: 2,
-      projectile: 1,
+      projectiles: 3,
       damage: 1,
       speed: 90,
       luck: 0.2,

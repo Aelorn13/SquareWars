@@ -8,7 +8,7 @@ import {
   createTimerLabel,
   updateTimerLabel,
   createPauseLabel,
-} from "../components/ui.js";
+} from "../components/ui/index.js";
 import { setupShooting } from "../components/shooting.js";
 import { applyPowerUp } from "../components/powerup.js";
 import { keysPressed } from "../components/controls.js";
@@ -30,7 +30,7 @@ export function defineGameScene(k, scoreRef) {
     k.add([
       k.rect(ARENA.w, ARENA.h),
       k.pos(ARENA.x, ARENA.y),
-      k.color(20, 20, 20), // slightly lighter than global background [10,10,10]
+      k.color(20, 20, 20), // slightly lighter than global background
       k.outline(2, k.rgb(80, 80, 80)), // subtle frame
       k.fixed(),
       k.z(-50),

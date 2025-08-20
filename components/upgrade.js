@@ -1,5 +1,5 @@
 // components/upgrade.js
-import { showUpgradeUI, cleanupUpgradeUI } from "./ui.js";
+import { showUpgradeUI, cleanupUpgradeUI } from "./ui/upgradeUI.js";
 
 export const rarities = [
   { name: "Common", color: [255, 255, 255], tier: 1, multiplier: 0.1 },

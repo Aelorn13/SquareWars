@@ -1,6 +1,6 @@
 // components/enemy/enemyUtils.js
-import { spawnPowerUp, POWERUP_TYPES } from "../powerup.js";
-
+import { POWERUP_TYPES } from "../powerup/powerupTypes.js";
+import { spawnPowerUp } from "../powerup/spawnPowerup.js";
 export function fadeColor(original, fadeTo, ratio) {
   const r = Math.floor(original[0] * ratio + fadeTo[0] * (1 - ratio));
   const g = Math.floor(original[1] * ratio + fadeTo[1] * (1 - ratio));

@@ -10,7 +10,7 @@ import {
   createPauseLabel,
 } from "../components/ui/index.js";
 import { setupShooting } from "../components/shooting.js";
-import { applyPowerUp } from "../components/powerup.js";
+import { applyPowerUp } from "../components/powerup/applyPowerup.js";
 import { keysPressed } from "../components/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade.js";
 const MINIMAL_SPAWN_INTERVAL = 0.2;

@@ -89,6 +89,26 @@ export function spawnEnemy(
       if (enemy.type !== "boss" || (enemy.chargeState ?? "idle") === "idle") {
         enemy.moveTo(player.pos, enemy.speed);
       }
+
+      if (enemy.dead) return; // already handled
+
+      let hpVal;
+      if (typeof enemy.hp === "function") {
+        hpVal = enemy.hp();
+      } else if (typeof enemy.hp === "number") {
+        hpVal = enemy.hp;
+      }
+
+      // skip until health is properly initialized
+      if (typeof hpVal !== "number" || Number.isNaN(hpVal)) return;
+
+      if (hpVal <= 0) {
+        enemyDeathAnimation(k, enemy);
+        increaseScore(enemy.score);
+        updateScoreLabel?.();
+        dropPowerUp(k, player, enemy.pos, sharedState);
+        // enemy.dead is set in enemyDeathAnimation
+      }
     });
 
     // bullet collision (player bullets)

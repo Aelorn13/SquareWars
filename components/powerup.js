@@ -5,7 +5,9 @@ export const POWERUP_TYPES = [
   "speed",
   "invincibility",
   "alwaysCrit",
+  "tripleProjectiles",   // <-- NEW
 ];
+
 const DURATION_POWERBUFF = 10;
 
 const colorMap = {
@@ -15,6 +17,7 @@ const colorMap = {
   speed: [98, 218, 202],
   damage: [187, 30, 30],
   alwaysCrit: [255, 100, 0],
+  tripleProjectiles: [200, 160, 255],  
 };
 
 const iconMap = {
@@ -24,6 +27,7 @@ const iconMap = {
   speed: "🦵",
   damage: "💪",
   alwaysCrit: "🎯",
+  tripleProjectiles: "🔱", 
 };
 
 export function spawnPowerUp(k, pos, type, sharedState) {
@@ -54,7 +58,6 @@ export function spawnPowerUp(k, pos, type, sharedState) {
       k.destroy(powerUp);
       return;
     }
-    // Fade out in the last fadeTime seconds
     if (powerUp.duration < fadeTime) {
       powerUp.opacity = Math.max(0, powerUp.duration / fadeTime);
     } else {
@@ -63,7 +66,6 @@ export function spawnPowerUp(k, pos, type, sharedState) {
     }
   });
 
-  // Icon overlay that follows the power-up
   k.add([
     k.text(icon, { size: 16 }),
     k.pos(pos.x, pos.y),
@@ -76,13 +78,14 @@ export function spawnPowerUp(k, pos, type, sharedState) {
           k.destroy(this);
         } else {
           this.pos = powerUp.pos;
-          this.angle = powerUp.angle; // Make it rotate together
+          this.angle = powerUp.angle;
         }
       },
     },
   ]);
   return powerUp;
 }
+
 function applyTemporaryStatBuff(
   k,
   obj,
@@ -96,16 +99,15 @@ function applyTemporaryStatBuff(
   const now = Date.now();
 
   if (!obj._buffData[stat]) {
-    // First time applying this buff
     obj._buffData[stat] = {
       original: obj[stat],
       endTime: now + duration * 1000,
       timeout: null,
     };
     if (absolute) {
-      obj[stat] = multiplier; // set absolute value
+      obj[stat] = multiplier;
     } else {
-      obj[stat] *= multiplier; // multiply
+      obj[stat] *= multiplier;
     }
 
     const tick = () => {
@@ -119,10 +121,7 @@ function applyTemporaryStatBuff(
     };
     tick();
   } else {
-    // Buff already exists -> extend duration
-    obj._buffData[stat].endTime += duration * 1000; // stack duration
-    // optional: can change "reset to max" instead of stacking, use:
-    // obj._buffData[stat].endTime = now + duration * 1000;
+    obj._buffData[stat].endTime += duration * 1000; // extend duration, no re-multiply
   }
 }
 
@@ -132,21 +131,19 @@ export function applyPowerUp(k, player, type, onHealPickup) {
       player.heal(2);
       onHealPickup?.();
       break;
+
     case "invincibility":
       if (!player._buffData) player._buffData = {};
       if (!player._buffData.invincible) {
         player.isInvincible = true;
-
         const flash = k.loop(0.1, () => {
           player.hidden = !player.hidden;
         });
-
         player._buffData.invincible = {
           endTime: Date.now() + DURATION_POWERBUFF * 1000,
           timeout: null,
           flash,
         };
-
         const tick = () => {
           const remaining =
             (player._buffData.invincible.endTime - Date.now()) / 1000;
@@ -164,7 +161,6 @@ export function applyPowerUp(k, player, type, onHealPickup) {
         };
         tick();
       } else {
-        // Extend duration
         player._buffData.invincible.endTime += DURATION_POWERBUFF * 1000;
       }
       break;
@@ -179,23 +175,17 @@ export function applyPowerUp(k, player, type, onHealPickup) {
 
     case "speed":
       applyTemporaryStatBuff(k, player, "speed", 2, DURATION_POWERBUFF);
-      applyTemporaryStatBuff(
-        k,
-        player,
-        "dashCooldown",
-        0.3,
-        DURATION_POWERBUFF
-      );
+      applyTemporaryStatBuff(k, player, "dashCooldown", 0.3, DURATION_POWERBUFF);
       break;
+
     case "alwaysCrit":
-      applyTemporaryStatBuff(
-        k,
-        player,
-        "critChance",
-        1,
-        DURATION_POWERBUFF,
-        true
-      );
+      applyTemporaryStatBuff(k, player, "critChance", 1, DURATION_POWERBUFF, true);
+      break;
+
+    case "tripleProjectiles":
+      // Temporarily multiply projectile count by 3 (duration stacks; multiplier does not)
+      // If your upgrades keep projectiles odd (for symmetric spread), odd * 3 stays odd.
+      applyTemporaryStatBuff(k, player, "projectiles", 3, DURATION_POWERBUFF);
       break;
   }
 }

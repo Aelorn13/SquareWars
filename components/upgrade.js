@@ -14,10 +14,10 @@ const statMultipliers = {
   damage: 1.0,
   speed: 0.8,
   luck: 0.4,
-  bulletSpeed: 1,
+  bulletSpeed: 3,
   attackSpeed: 0.5,
-  dashDuration: 2.0,
-  dashCooldown: 1,
+  dashDuration: 3.0,
+  dashCooldown: 1.5,
   critChance: 0.5,
   critMultiplier: 2,
   // projectiles is handled as a special-case (flat +2 / +4)
@@ -33,7 +33,7 @@ export const upgrades = [
   { stat: "dashCooldown",  name: "Dash Cooldown",    icon: "♻️" },
   { stat: "critChance",    name: "Critical Chance",  icon: "🎯" },
   { stat: "critMultiplier",name: "Critical Damage",  icon: "💥" },
-  { stat: "projectiles",   name: "Multi-Shot",       icon: "🔱" }, // NEW
+  { stat: "projectiles",   name: "Multi-Shot",       icon: "🔱" }, 
 ];
 
 const additiveStats = ["luck", "critChance"];

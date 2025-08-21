@@ -5,7 +5,7 @@ export const POWERUP_TYPES = [
   "speed",
   "invincibility",
   "alwaysCrit",
-  "tripleProjectiles",   // <-- NEW
+  "tripleProjectiles",  
 ];
 
 const DURATION_POWERBUFF = 10;
@@ -183,8 +183,6 @@ export function applyPowerUp(k, player, type, onHealPickup) {
       break;
 
     case "tripleProjectiles":
-      // Temporarily multiply projectile count by 3 (duration stacks; multiplier does not)
-      // If your upgrades keep projectiles odd (for symmetric spread), odd * 3 stays odd.
       applyTemporaryStatBuff(k, player, "projectiles", 3, DURATION_POWERBUFF);
       break;
   }

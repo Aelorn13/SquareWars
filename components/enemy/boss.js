@@ -5,39 +5,38 @@ export const SUMMON_COOLDOWN = 9;
 export const SHOOT_COOLDOWN = 2;
 export const CHARGE_COOLDOWN = 5;
 
-// --- helpers used by boss brain ---
+// --- Utility functions ---
 
-function bossSummonMinions(
-  k,
-  boss,
-  player,
-  updateHealthBar,
-  updateScoreLabel,
-  increaseScore,
-  sharedState,
-  count = 3
-) {
-  // small green telegraph
-  boss._telegraphT = 0;
-  boss._telegraphLen = 0.4;
+function lerpColor(from, to, t) {
+  return [
+    Math.floor(from[0] * (1 - t) + to[0] * t),
+    Math.floor(from[1] * (1 - t) + to[1] * t),
+    Math.floor(from[2] * (1 - t) + to[2] * t),
+  ];
+}
+
+// Trigger a color telegraph animation on the boss
+function startTelegraph(boss, toColor, duration, returnToOriginal = true) {
+  boss._telegraphProgress = 0;
+  boss._telegraphDuration = duration;
   boss._telegraphFrom = boss.originalColor;
-  boss._telegraphTo = [0, 200, 0];
-  boss._telegraphBack = true;
+  boss._telegraphTo = toColor;
+  boss._telegraphReturn = returnToOriginal;
+}
 
-  k.wait(boss._telegraphLen, () => {
+// --- Boss actions ---
+
+function bossSummonMinions(k, boss, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState, count = 3) {
+  startTelegraph(boss, [0, 200, 0], 0.4); // green flash
+
+  k.wait(0.4, () => {
     for (let i = 0; i < count; i++) {
       const offset = k.vec2(k.rand(-100, 100), k.rand(-100, 100));
       const pos = boss.pos.add(offset);
 
-      spawnEnemy(
-        k,
-        player,
-        updateHealthBar,
-        updateScoreLabel,
-        increaseScore,
-        sharedState,
-        null,   // random type
-        pos,     // near boss
+      spawnEnemy(k, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState,
+        null, // random type
+        pos,  // near boss
         sharedState.spawnProgress ?? 1,
         false
       );
@@ -46,12 +45,7 @@ function bossSummonMinions(
 }
 
 function bossSpreadShot(k, boss, sharedState, damage = 2, speed = 120, count = 12) {
-  // orange telegraph
-  boss._telegraphT = 0;
-  boss._telegraphLen = 0.25;
-  boss._telegraphFrom = boss.originalColor;
-  boss._telegraphTo = [200, 100, 0];
-  boss._telegraphBack = true;
+  startTelegraph(boss, [200, 100, 0], 0.25); // orange flash
 
   const step = (Math.PI * 2) / count;
   for (let i = 0; i < count; i++) {
@@ -67,12 +61,14 @@ function bossSpreadShot(k, boss, sharedState, damage = 2, speed = 120, count = 1
       { vel: dir.scale(speed), damage },
     ]);
     bullet.onUpdate(() => {
-      if (!sharedState.isPaused) bullet.pos = bullet.pos.add(bullet.vel.scale(k.dt()));
+      if (!sharedState.isPaused) {
+        bullet.pos = bullet.pos.add(bullet.vel.scale(k.dt()));
+      }
     });
   }
 }
 
-// Sets up a state-driven charge (no nested onUpdate registration)
+// Prepare the boss to charge at player
 function startCharge(boss, player) {
   if (boss.chargeState !== "idle") return;
   boss.chargeState = "windup";
@@ -80,17 +76,10 @@ function startCharge(boss, player) {
   boss.chargeDir = player.pos.sub(boss.pos).unit();
 }
 
-// call once when creating boss
-export function attachBossBrain(
-  k,
-  boss,
-  player,
-  updateHealthBar,
-  updateScoreLabel,
-  increaseScore,
-  sharedState
-) {
-  // prevent duplicate global listeners across runs
+// --- Brain attachment ---
+
+export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState) {
+  // Prevent multiple global bullet collision handlers
   if (!sharedState._bossBulletHook) {
     sharedState._bossBulletHook = true;
     k.onCollide("player", "bossBullet", (p, bullet) => {
@@ -102,43 +91,42 @@ export function attachBossBrain(
     });
   }
 
-  // init boss state
+  // Initialise boss state
   boss.phase = 1;
-  boss.summonCooldown = SUMMON_COOLDOWN;
-  boss.shootCooldown = SHOOT_COOLDOWN;
-  boss.chargeCooldown = CHARGE_COOLDOWN;
+  boss.cooldowns = {
+    summon: SUMMON_COOLDOWN,
+    shoot: SHOOT_COOLDOWN,
+    charge: CHARGE_COOLDOWN,
+  };
   boss.chargeState = "idle"; // "idle" | "windup" | "moving"
   boss.chargeTimer = 0;
   boss.chargeDir = k.vec2(0, 0);
 
-  // simple color telegraph driver (used by summon/spread)
   boss.onUpdate(() => {
     if (sharedState.isPaused || boss.dead) return;
 
-    // color telegraph (optional)
-    if (boss._telegraphT != null) {
-      boss._telegraphT += k.dt();
-      const p = Math.min(1, boss._telegraphT / boss._telegraphLen);
-      const r = Math.floor(boss._telegraphFrom[0] * (1 - p) + boss._telegraphTo[0] * p);
-      const g = Math.floor(boss._telegraphFrom[1] * (1 - p) + boss._telegraphTo[1] * p);
-      const b = Math.floor(boss._telegraphFrom[2] * (1 - p) + boss._telegraphTo[2] * p);
-      boss.use(k.color(k.rgb(r, g, b)));
+    // --- Telegraph animation ---
+    if (boss._telegraphProgress != null) {
+      boss._telegraphProgress += k.dt();
+      const p = Math.min(1, boss._telegraphProgress / boss._telegraphDuration);
+      boss.use(k.color(k.rgb(...lerpColor(boss._telegraphFrom, boss._telegraphTo, p))));
+
       if (p >= 1) {
-        if (boss._telegraphBack) {
-          // fade back quickly
-          boss._telegraphFrom = [r, g, b];
+        if (boss._telegraphReturn) {
+          // Fade back quickly
+          boss._telegraphFrom = boss._telegraphTo;
           boss._telegraphTo = boss.originalColor;
-          boss._telegraphLen = 0.2;
-          boss._telegraphT = 0;
-          boss._telegraphBack = false;
+          boss._telegraphDuration = 0.2;
+          boss._telegraphProgress = 0;
+          boss._telegraphReturn = false;
         } else {
-          boss._telegraphT = null;
+          boss._telegraphProgress = null;
           boss.use(k.color(k.rgb(...boss.originalColor)));
         }
       }
     }
 
-    // phase logic / transitions
+    // --- Phase transitions ---
     const hpRatio = boss.hp() / boss.maxHp;
     if (hpRatio <= 0.6 && boss.phase === 1) {
       boss.phase = 2;
@@ -149,36 +137,34 @@ export function attachBossBrain(
       boss.speed *= 1.4;
     }
 
-    // cooldown ticking
-    boss.summonCooldown -= k.dt();
-    boss.shootCooldown -= k.dt();
-    boss.chargeCooldown -= k.dt();
+    // --- Cooldowns ---
+    boss.cooldowns.summon -= k.dt();
+    boss.cooldowns.shoot -= k.dt();
+    boss.cooldowns.charge -= k.dt();
 
-    // actions
-    if (boss.summonCooldown <= 0) {
+    // --- Abilities ---
+    if (boss.cooldowns.summon <= 0) {
       const count = boss.phase === 1 ? 3 : boss.phase === 2 ? 5 : 8;
-      bossSummonMinions(
-        k, boss, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState, count
-      );
-      boss.summonCooldown = SUMMON_COOLDOWN;
+      bossSummonMinions(k, boss, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState, count);
+      boss.cooldowns.summon = SUMMON_COOLDOWN;
     }
 
-    if (boss.phase >= 2 && boss.shootCooldown <= 0) {
+    if (boss.phase >= 2 && boss.cooldowns.shoot <= 0) {
       if (boss.phase === 2) bossSpreadShot(k, boss, sharedState, 2, 120, 12);
       else bossSpreadShot(k, boss, sharedState, 3, 160, 18);
-      boss.shootCooldown = SHOOT_COOLDOWN;
+      boss.cooldowns.shoot = SHOOT_COOLDOWN;
     }
 
-    if (boss.phase === 1 && boss.chargeCooldown <= 0 && boss.chargeState === "idle") {
+    if (boss.phase === 1 && boss.cooldowns.charge <= 0 && boss.chargeState === "idle") {
       startCharge(boss, player);
-      boss.chargeCooldown = CHARGE_COOLDOWN;
+      boss.cooldowns.charge = CHARGE_COOLDOWN;
     }
-    if (boss.phase === 3 && boss.chargeCooldown <= 0 && boss.chargeState === "idle") {
+    if (boss.phase === 3 && boss.cooldowns.charge <= 0 && boss.chargeState === "idle") {
       startCharge(boss, player);
-      boss.chargeCooldown = CHARGE_COOLDOWN * 4;
+      boss.cooldowns.charge = CHARGE_COOLDOWN * 4;
     }
 
-    // charge state machine
+    // --- Charge state machine ---
     const CHARGE_UP = 1.0;
     const CHARGE_DURATION = 0.6;
     const MULT = 6;
@@ -186,11 +172,7 @@ export function attachBossBrain(
     if (boss.chargeState === "windup") {
       boss.chargeTimer += k.dt();
       // fade to red during windup
-      const p = Math.min(1, boss.chargeTimer / CHARGE_UP);
-      const r = Math.floor(boss.originalColor[0] * (1 - p) + 200 * p);
-      const g = Math.floor(boss.originalColor[1] * (1 - p) + 0 * p);
-      const b = Math.floor(boss.originalColor[2] * (1 - p) + 0 * p);
-      boss.use(k.color(k.rgb(r, g, b)));
+      boss.use(k.color(k.rgb(...lerpColor(boss.originalColor, [200, 0, 0], boss.chargeTimer / CHARGE_UP))));
       if (boss.chargeTimer >= CHARGE_UP) {
         boss.chargeTimer = 0;
         boss.chargeState = "moving";

@@ -1,4 +1,3 @@
-// components/powerup/index.js
 import { POWERUP_TYPES, DURATION_POWERBUFF } from "./powerupTypes.js";
 import { spawnPowerUp } from "./spawnPowerup.js";
 import { applyTemporaryStatBuff, spawnShockwave } from "./applyEffect.js";

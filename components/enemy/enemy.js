@@ -141,10 +141,11 @@ export function spawnEnemy(
           const originalSpeed = enemy.speed;
           enemy.speed = originalSpeed * 0.3;
           k.wait(0.2, () => (enemy.speed = originalSpeed));
+
+          enemy.use(
+            k.color(k.rgb(...fadeColor(enemy.originalColor, fadeTo, hpRatio)))
+          );
         }
-        enemy.use(
-          k.color(k.rgb(...fadeColor(enemy.originalColor, fadeTo, hpRatio)))
-        );
       } else {
         enemyDeathAnimation(k, enemy);
         increaseScore?.(enemy.score);

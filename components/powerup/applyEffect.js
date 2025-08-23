@@ -1,79 +1,131 @@
-// components/powerup/buffs.js
-
-// applyTemporaryStatBuff:
-// - multiplies (or sets absolute if `absolute === true`) the stat
-// - stores original value in obj._buffData[stat].original
-// - stacks duration by extending endTime if buff exists
-// - cancels/reschedules a single k.wait timer for expiration
-export function applyTemporaryStatBuff(k, obj, stat, multiplier, duration, absolute = false) {
+// ==============================
+// applyTemporaryStatBuff
+// ==============================
+// Layered, time-limited stat buffing that plays nice with permanent upgrades.
+// - Keeps a base snapshot per stat in obj._baseStats (set on first buff).
+// - Active buffs live in obj._buffLayers[stat].
+// - Extending a buff schedules expiry for the *existing* entry (not a new one).
+// - When no buffs are left, the stat is restored to base and base is synced to
+//   current value (so future buffs use the latest base).
+export function applyTemporaryStatBuff(
+  k,
+  obj,
+  stat,
+  multiplier,
+  durationSeconds,
+  absolute = false,
+) {
   if (!obj) return;
-  if (!obj._buffData) obj._buffData = {};
 
-  const now = Date.now();
+  const layers = (obj._buffLayers ??= {});
+  const base   = (obj._baseStats  ??= {});
+  const now    = Date.now();
+  const durMs  = Math.max(0, durationSeconds * 1000);
 
-  // first application
-  if (!obj._buffData[stat]) {
-    obj._buffData[stat] = {
-      original: obj[stat],
-      endTime: now + duration * 1000,
-      timer: null,
-      absolute: !!absolute,
-    };
+  // First time we ever buff this stat → snapshot base from current value
+  if (base[stat] === undefined) {
+    base[stat] = Number(obj[stat]) || 0;
+  }
 
-    if (absolute) {
-      obj[stat] = multiplier;
-    } else {
-      obj[stat] = obj[stat] * multiplier;
+  // Compute effective value from base + all active buffs
+  const recompute = () => {
+    let val = base[stat];
+    const arr = layers[stat] || [];
+
+    if (arr.length) {
+      let absoluteSeen = false;
+      for (const b of arr) {
+        if (b.absolute) {
+          val = b.multiplier;      // absolute overrides everything
+          absoluteSeen = true;
+        } else if (!absoluteSeen) {
+          val *= b.multiplier;     // multiplicative layer
+        }
+      }
     }
+    obj[stat] = val;
 
-    const schedule = () => {
-      const data = obj._buffData[stat];
-      if (!data) return;
-      const remainingMs = Math.max(0, data.endTime - Date.now());
-      if (data.timer) data.timer.cancel?.();
-      data.timer = k.wait(Math.max(0.001, remainingMs / 1000), () => {
-        // restore original value
-        obj[stat] = data.original;
-        // cleanup
-        if (data.timer) data.timer.cancel?.();
-        delete obj._buffData[stat];
-      });
-    };
+    // If no active buffs remain, sync base to current so future buffs
+    // start from the latest permanently-upgraded value.
+    if (!layers[stat] || layers[stat].length === 0) {
+      base[stat] = Number(obj[stat]) || 0;
+    }
+  };
 
-    schedule();
-  } else {
-    // already active -> extend duration (stack)
-    const data = obj._buffData[stat];
-    data.endTime += duration * 1000;
-    // reschedule timer
-    if (data.timer) data.timer.cancel?.();
-    const remainingMs = Math.max(0, data.endTime - Date.now());
-    data.timer = k.wait(Math.max(0.001, remainingMs / 1000), () => {
-      obj[stat] = data.original;
-      if (data.timer) data.timer.cancel?.();
-      delete obj._buffData[stat];
+  const schedule = (buff) => {
+    const remaining = Math.max(0.001, (buff.endTime - Date.now()) / 1000);
+    buff.timer?.cancel?.();
+    buff.timer = k.wait(remaining, () => {
+      // remove this exact buff
+      const arr = layers[stat];
+      if (arr) {
+        const idx = arr.indexOf(buff);
+        if (idx >= 0) arr.splice(idx, 1);
+        if (arr.length === 0) delete layers[stat];
+      }
+      recompute();
     });
+  };
+
+  const arr = (layers[stat] ??= []);
+  // “Same signature” buff: same mode + same multiplier → just extend
+  const existing = arr.find(b => b.absolute === !!absolute && b.multiplier === multiplier);
+
+  if (existing) {
+    existing.endTime += durMs;
+    schedule(existing);      // ⬅schedule for the *existing* entry
+  } else {
+    const entry = {
+      absolute: !!absolute,
+      multiplier,
+      endTime: now + durMs,
+      timer: null,
+    };
+    arr.push(entry);
+    recompute();
+    schedule(entry);
   }
 }
 
 
-// spawnShockwave:
-// - visual ring made of small segments
-// - uses a snapshot of existing enemies at moment of spawn (so enemies spawned later are safe)
+
+
+
+// ==============================
+// spawnShockwave
+// ==============================
+/**
+ * Spawns a circular "shockwave" that expands from `centerPos`, damages each
+ * enemy (present at cast time) once when the ring reaches them, and then fades.
+ *
+ * Notes:
+ * - snapshot enemies at the moment of cast so *newly spawned* enemies
+ *   are not affected (prevents "dying on spawn" issues).
+ * - Visual ring is composed of `SEGMENTS` little rounded squares for a light,
+ *   cheap effect. We precompute unit direction vectors to reduce Math work.
+ */
 export function spawnShockwave(k, centerPos, opts = {}) {
-  const DAMAGE = opts.damage ?? 5;
+  const DAMAGE     = opts.damage    ?? 5;
   const MAX_RADIUS = opts.maxRadius ?? 320;
-  const SPEED = opts.speed ?? 600; // px/sec
-  const SEGMENTS = Math.max(6, opts.segments ?? 28);
-  const SEG_SIZE = Math.max(6, opts.segSize ?? 10);
-  const SEG_COLOR = opts.color ?? k.rgb(200, 200, 255);
+  const SPEED      = opts.speed     ?? 600; // px / second
+  const SEGMENTS   = Math.max(6, opts.segments ?? 28);
+  const SEG_SIZE   = Math.max(6, opts.segSize ?? 10);
+  const SEG_COLOR  = opts.color     ?? k.rgb(200, 200, 255);
 
-  // snapshot of enemies existing now (so we don't hit newly spawned enemies)
-  const initialEnemies = (k.get?.("enemy") || []).slice();
+  // Snapshot of enemies *now*: protects enemies that spawn later.
+  const enemySnapshot = ((k.get && k.get("enemy")) || []).slice();
 
-  const segs = new Array(SEGMENTS);
+  // Precompute evenly distributed unit vectors around the circle.
+  const dir = new Array(SEGMENTS);
   for (let i = 0; i < SEGMENTS; i++) {
-    segs[i] = k.add([
+    const a = (i / SEGMENTS) * Math.PI * 2;
+    dir[i] = k.vec2(Math.cos(a), Math.sin(a));
+  }
+
+  // Create visual ring segments
+  const segments = new Array(SEGMENTS);
+  for (let i = 0; i < SEGMENTS; i++) {
+    segments[i] = k.add([
       k.rect(SEG_SIZE, SEG_SIZE, { radius: SEG_SIZE / 2 }),
       k.color(SEG_COLOR),
       k.pos(centerPos.x, centerPos.y),
@@ -83,38 +135,51 @@ export function spawnShockwave(k, centerPos, opts = {}) {
     ]);
   }
 
-  const hit = new Set();
+  // Track which enemies we've already damaged
+  const hitOnce = new Set();
 
-  k.add([
+  // Controller drives expansion + collision checks
+  const controller = k.add([
     {
       center: centerPos.clone(),
       radius: 0,
-      update() {
-        this.radius += SPEED * k.dt();
-        const progress = Math.min(1, this.radius / MAX_RADIUS);
+      speed: SPEED,
 
+      update() {
+        // Expand the ring
+        this.radius += this.speed * k.dt();
+        const t = Math.min(1, this.radius / MAX_RADIUS); // 0..1 progress
+        const alpha = Math.max(0, 1 - t);                // fade out over time
+
+        // Position & fade segments
         for (let i = 0; i < SEGMENTS; i++) {
-          const a = (i / SEGMENTS) * Math.PI * 2;
-          const pos = this.center.add(k.vec2(Math.cos(a), Math.sin(a)).scale(this.radius));
-          const s = segs[i];
+          const s = segments[i];
           if (!s) continue;
-          if (typeof s.exists === "function" && !s.exists()) continue;
-          s.pos = pos;
-          s.opacity = Math.max(0, 1 - progress);
-          const scale = 1 + 0.6 * (1 - Math.abs(0.5 - progress));
-          s.scale = k.vec2(scale, scale);
+          if (s.exists && !s.exists()) continue;
+
+          // center + direction * radius
+          s.pos = this.center.add(dir[i].scale(this.radius));
+          s.opacity = alpha;
+
+          // A gentle "breathing" scale as the ring travels
+          const pulse = 1 + 0.6 * (1 - Math.abs(0.5 - t) * 2); // 1..1.6..1
+          s.scale = k.vec2(pulse, pulse);
         }
 
-        for (const e of initialEnemies) {
+        // Damage each snapshot enemy at most once as the ring passes
+        for (const e of enemySnapshot) {
           if (!e) continue;
-          if (typeof e.exists === "function" && !e.exists()) continue;
+          if (e.exists && !e.exists()) continue;
           if (e.dead) continue;
           if (!e.pos) continue;
-          if (hit.has(e)) continue;
+          if (hitOnce.has(e)) continue;
 
-          const d = e.pos.dist(this.center);
-          const eRadius = Math.max(e.width ?? 0, e.height ?? 0) * 0.5;
-          if (d <= this.radius + eRadius) {
+          // Treat enemy as a circle using half of max(width,height)
+          const enemyRadius =
+            Math.max(e.width ?? 0, e.height ?? 0) * 0.5;
+
+          // If ring's radius reaches enemy's center (expanded by enemyRadius), hit it
+          if (e.pos.dist(this.center) <= this.radius + enemyRadius) {
             try {
               if (typeof e.hurt === "function") {
                 e.hurt(DAMAGE);
@@ -122,15 +187,16 @@ export function spawnShockwave(k, centerPos, opts = {}) {
                 e.hp = Math.max(0, e.hp - DAMAGE);
               }
             } catch (err) {
-              console.warn("Shockwave: error applying damage to enemy", err);
+              console.warn("Shockwave: couldn't apply damage:", err);
             }
-            hit.add(e);
+            hitOnce.add(e);
           }
         }
 
+        // Cleanup when the wave finishes expanding
         if (this.radius >= MAX_RADIUS) {
-          for (const s of segs) {
-            if (s && typeof s.exists === "function" && s.exists()) k.destroy(s);
+          for (const s of segments) {
+            if (s && s.exists && s.exists()) k.destroy(s);
           }
           k.destroy(this);
         }
@@ -138,7 +204,7 @@ export function spawnShockwave(k, centerPos, opts = {}) {
     },
   ]);
 
-  // central flash
+  // Quick central flash for feedback
   const flash = k.add([
     k.text("💥", { size: 32 }),
     k.pos(centerPos.x, centerPos.y),
@@ -146,6 +212,10 @@ export function spawnShockwave(k, centerPos, opts = {}) {
     k.z(220),
   ]);
   k.wait(0.36, () => {
-    if (flash && typeof flash.exists === "function" && flash.exists()) k.destroy(flash);
+    if (flash && flash.exists && flash.exists()) k.destroy(flash);
   });
+
+  // Optional: return controller if caller wants to tweak/track it
+  return controller;
 }
+

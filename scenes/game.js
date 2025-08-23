@@ -12,7 +12,8 @@ import {
 import { setupShooting } from "../components/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
 import { keysPressed } from "../components/controls.js";
-import { maybeShowUpgrade } from "../components/upgrade.js";
+import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
+
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const INTERVAL_DECREASE = 0.02;
 export function defineGameScene(k, scoreRef) {

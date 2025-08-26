@@ -7,13 +7,18 @@
 // - Extending a buff schedules expiry for the *existing* entry (not a new one).
 // - When no buffs are left, the stat is restored to base and base is synced to
 //   current value (so future buffs use the latest base).
+// Extended to support additive buffs (for stats like projectiles).
+// Modes:
+// - multiplier (default): val *= multiplier
+// - absolute: val = multiplier
+// - additive: val = base + amount
 export function applyTemporaryStatBuff(
   k,
   obj,
   stat,
-  multiplier,
+  value,
   durationSeconds,
-  absolute = false,
+  mode = "multiplier", // "multiplier" | "absolute" | "additive"
 ) {
   if (!obj) return;
 
@@ -35,11 +40,15 @@ export function applyTemporaryStatBuff(
     if (arr.length) {
       let absoluteSeen = false;
       for (const b of arr) {
-        if (b.absolute) {
-          val = b.multiplier;      // absolute overrides everything
+        if (b.mode === "absolute") {
+          val = b.value;
           absoluteSeen = true;
         } else if (!absoluteSeen) {
-          val *= b.multiplier;     // multiplicative layer
+          if (b.mode === "multiplier") {
+            val *= b.value;
+          } else if (b.mode === "additive") {
+            val += b.value;
+          }
         }
       }
     }
@@ -56,7 +65,6 @@ export function applyTemporaryStatBuff(
     const remaining = Math.max(0.001, (buff.endTime - Date.now()) / 1000);
     buff.timer?.cancel?.();
     buff.timer = k.wait(remaining, () => {
-      // remove this exact buff
       const arr = layers[stat];
       if (arr) {
         const idx = arr.indexOf(buff);
@@ -68,16 +76,16 @@ export function applyTemporaryStatBuff(
   };
 
   const arr = (layers[stat] ??= []);
-  // “Same signature” buff: same mode + same multiplier → just extend
-  const existing = arr.find(b => b.absolute === !!absolute && b.multiplier === multiplier);
+  // “Same signature” buff: same mode + same value → just extend
+  const existing = arr.find(b => b.mode === mode && b.value === value);
 
   if (existing) {
     existing.endTime += durMs;
-    schedule(existing);      // ⬅schedule for the *existing* entry
+    schedule(existing);
   } else {
     const entry = {
-      absolute: !!absolute,
-      multiplier,
+      mode,
+      value,
       endTime: now + durMs,
       timer: null,
     };
@@ -86,7 +94,6 @@ export function applyTemporaryStatBuff(
     schedule(entry);
   }
 }
-
 
 
 

@@ -75,7 +75,7 @@ export function applyPowerUp(k, player, type, onHealPickup) {
       break;
 
     case "tripleProjectiles":
-      applyTemporaryStatBuff(k, player, "projectiles", 3, DURATION_POWERBUFF);
+      applyTemporaryStatBuff(k, player, "projectiles", 2, DURATION_POWERBUFF,"additive");
       break;
 
     case "bomb":

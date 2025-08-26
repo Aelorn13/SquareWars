@@ -58,11 +58,11 @@ export function applyPowerUp(k, player, type, onHealPickup) {
     }
 
     case "rapidFire":
-      applyTemporaryStatBuff(k, player, "attackSpeed", 0.3, DURATION_POWERBUFF);
+      applyTemporaryStatBuff(k, player, "attackSpeed", 0.4, DURATION_POWERBUFF);
       break;
 
     case "damage":
-      applyTemporaryStatBuff(k, player, "damage", 2, DURATION_POWERBUFF);
+      applyTemporaryStatBuff(k, player, "damage", 1, DURATION_POWERBUFF, "additive");
       break;
 
     case "speed":

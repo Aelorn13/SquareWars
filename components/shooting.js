@@ -3,25 +3,25 @@ const BASE_BULLET_SIZE = 8;
 const DEFAULT_BASE_SPREAD_DEG = 10;
 const MIN_ATTACK_SPEED = 0.04;
 
+// Damage scaling when using multiple projectiles.
+// Example: 3 projectiles → 0.70, 5 projectiles → 0.65, 7 → 0.60, etc.
+function getProjectileDamageScale(numProjectiles) {
+  if (numProjectiles <= 1) return 1;         // single bullet = 100%
+  if (numProjectiles === 3) return 0.70;     // baseline for spread shots
+  const extra = numProjectiles - 3;          // every extra projectile reduces damage
+  return Math.max(0.1, 0.70 - 0.05 * extra); // floor at 10% so it never hits 0
+}
+
 export function setupShooting(k, player, sharedState) {
   let canShoot = true;
   const toRad = (deg) => (deg * Math.PI) / 180;
 
   // Return ratio: currentDamage / baseDamage (>= 0). Falls back to 1 if no base found.
   const getDamageBuffMultiplier = () => {
-    // Prefer canonical base snapshot (created by setBaseStat or by buff system)
     const baseFromBaseStats = player._baseStats?.damage;
     if (typeof baseFromBaseStats === "number" && baseFromBaseStats !== 0) {
       return player.damage / baseFromBaseStats;
     }
-
-    // Backwards-compat: older code used player._buffData.damage.original
-    const legacyOrig = player._buffData?.damage?.original;
-    if (typeof legacyOrig === "number" && legacyOrig !== 0) {
-      return player.damage / legacyOrig;
-    }
-
-    // No information -> no size/colour buff
     return 1;
   };
 
@@ -39,6 +39,7 @@ export function setupShooting(k, player, sharedState) {
     const spreadDeg =
       numProjectiles === 1 ? 0 : baseSpreadDeg * Math.sqrt(numProjectiles);
 
+    // Calculate projectile offsets
     const offsetsDeg = [];
     if (numProjectiles === 1) {
       offsetsDeg.push(0);
@@ -53,8 +54,9 @@ export function setupShooting(k, player, sharedState) {
     const isCritShot = Math.random() < critChance;
     const critMul = isCritShot ? (player.critMultiplier ?? 2) : 1;
 
-    // Damage per bullet (player.damage already includes permanent buffs)
-    const damagePerBullet = player.damage * critMul;
+    // Final per-bullet damage scaling
+    const projectileScale = getProjectileDamageScale(numProjectiles);
+    const damagePerBullet = player.damage * critMul * projectileScale;
 
     for (let i = 0; i < offsetsDeg.length; i++) {
       const angle = baseAngle + toRad(offsetsDeg[i]);

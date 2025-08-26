@@ -1,9 +1,6 @@
 import { keysPressed } from "./controls.js";
 import { setupPlayerCosmetics } from "./playerCosmetics.js";
 const BASE_PLAYER_SIZE = 28;
-const BASE_PLAYER_DAMAGE = 1;
-const BASE_PLAYER_SPEED = 90;
-const BASE_PLAYER_ATTACK_SPEED = 0.5;
 export function createPlayer(k, sharedState) {
   const player = k.add([
     k.rect(BASE_PLAYER_SIZE, BASE_PLAYER_SIZE),
@@ -25,12 +22,12 @@ export function createPlayer(k, sharedState) {
       critChance: 0.1,
       critMultiplier: 2,
       projectiles: 1,
-      damage: BASE_PLAYER_DAMAGE,
-      speed: BASE_PLAYER_SPEED,
+      damage: 1,
+      speed: 90,
       luck: 0.15,
       bulletSpeed: 350,
       isShooting: false,
-      attackSpeed: BASE_PLAYER_ATTACK_SPEED,
+      attackSpeed: 0.5,
       isDashing: false,
       dashDuration: 0.3, // seconds
       dashCooldown: 3, // seconds
@@ -99,7 +96,16 @@ export function createPlayer(k, sharedState) {
   player.getDashCooldownProgress = () => {
     return Math.max(0, Math.min(1, player.dashTimer / player.dashCooldown));
   };
-    setupPlayerCosmetics(k, player);
+  setupPlayerCosmetics(k, player);
 
+  player._baseStats = {
+    damage: player.damage,
+    speed: player.speed,
+    attackSpeed: player.attackSpeed,
+    bulletSpeed: player.bulletSpeed,
+    projectiles: player.projectiles,
+    critChance: player.critChance,
+    luck: player.luck,
+  };
   return player;
 }

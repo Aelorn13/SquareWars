@@ -81,7 +81,9 @@ export function spawnEnemy(
         dead: false,
       },
     ]);
-
+    enemy._baseStats = {
+      speed: enemy.speed,
+    }
     // default movement / chase
     enemy.rotateTo(player.pos.angle(enemy.pos));
     enemy.onUpdate(() => {
@@ -138,9 +140,9 @@ export function spawnEnemy(
         const fadeTo = [240, 240, 240];
         if (enemy.type === "rageTank") enemy.speed *= 1 + (1 - hpRatio) - 0.1;
         if (enemy.type !== "boss") {
-          const originalSpeed = enemy.speed;
-          enemy.speed = originalSpeed * 0.3;
-          k.wait(0.2, () => (enemy.speed = originalSpeed));
+          // const originalSpeed = enemy.speed;
+          enemy.speed = enemy.speed * 0.3;
+          k.wait(0.2, () => (enemy.speed = enemy._baseStats.speed));
 
           enemy.use(
             k.color(k.rgb(...fadeColor(enemy.originalColor, fadeTo, hpRatio)))

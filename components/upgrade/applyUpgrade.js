@@ -42,7 +42,6 @@ export function applyUpgrade(player, upgradeDef, rarity) {
     setPermanentBaseAndRecompute(player, stat, newBase);
     if (stat =="attackSpeed"){
       player._cosmetics?.recomputeAttackColourTarget?.();
-      console.log("!!111")
     }
     console.log(`Upgraded ${stat} → base=${newBase}, visible=${player[stat]}`);
   } else {

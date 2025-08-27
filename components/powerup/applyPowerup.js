@@ -71,7 +71,7 @@ export function applyPowerUp(k, player, type, onHealPickup) {
       break;
 
     case "alwaysCrit":
-      applyTemporaryStatBuff(k, player, "critChance", 1, DURATION_POWERBUFF, true);
+      applyTemporaryStatBuff(k, player, "critChance", 1, DURATION_POWERBUFF, "absolute");
       break;
 
     case "tripleProjectiles":

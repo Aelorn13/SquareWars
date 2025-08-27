@@ -40,6 +40,10 @@ export function applyUpgrade(player, upgradeDef, rarity) {
   if (stat === "dashCooldown" || stat === "attackSpeed") {
     const newBase = Math.max(0.05, baseVal - delta); // smaller = better
     setPermanentBaseAndRecompute(player, stat, newBase);
+    if (stat =="attackSpeed"){
+      player._cosmetics?.recomputeAttackColourTarget?.();
+      console.log("!!111")
+    }
     console.log(`Upgraded ${stat} → base=${newBase}, visible=${player[stat]}`);
   } else {
     const newBase = baseVal + delta;

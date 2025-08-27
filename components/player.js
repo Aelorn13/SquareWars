@@ -25,7 +25,7 @@ export function createPlayer(k, sharedState) {
       damage: 1,
       speed: 90,
       luck: 0.15,
-      bulletSpeed: 350,
+      bulletSpeed: 300,
       isShooting: false,
       attackSpeed: 0.5,
       isDashing: false,
@@ -96,7 +96,6 @@ export function createPlayer(k, sharedState) {
   player.getDashCooldownProgress = () => {
     return Math.max(0, Math.min(1, player.dashTimer / player.dashCooldown));
   };
-  setupPlayerCosmetics(k, player);
 
   player._baseStats = {
     damage: player.damage,
@@ -107,5 +106,7 @@ export function createPlayer(k, sharedState) {
     critChance: player.critChance,
     luck: player.luck,
   };
+    setupPlayerCosmetics(k, player);
+
   return player;
 }

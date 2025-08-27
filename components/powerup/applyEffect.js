@@ -53,7 +53,9 @@ export function applyTemporaryStatBuff(
       }
     }
     obj[stat] = val;
-
+    if (stat === "attackSpeed") {
+  obj._cosmetics?.recomputeAttackColourTarget?.();
+}
     // If no active buffs remain, sync base to current so future buffs
     // start from the latest permanently-upgraded value.
     if (!layers[stat] || layers[stat].length === 0) {

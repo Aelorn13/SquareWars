@@ -1,5 +1,5 @@
 // components/shooting.js
-const BASE_BULLET_SIZE = 8;
+const BASE_BULLET_SIZE = 6;
 const DEFAULT_BASE_SPREAD_DEG = 10;
 const MIN_ATTACK_SPEED = 0.04;
 

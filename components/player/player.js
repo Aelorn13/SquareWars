@@ -1,5 +1,5 @@
 import { keysPressed } from "./controls.js";
-import { setupPlayerCosmetics,rebuildBarrelsAsEntities } from "./playerCosmetics.js";
+import { setupPlayerCosmetics,rebuildBarrelsAsEntities } from "./cosmetics/playerCosmetic.js";
 const BASE_PLAYER_SIZE = 28;
 export function createPlayer(k, sharedState) {
   const player = k.add([

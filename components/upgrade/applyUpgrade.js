@@ -41,7 +41,7 @@ export function applyUpgrade(player, upgradeDef, rarity) {
     const newBase = Math.max(0.05, baseVal - delta); // smaller = better
     setPermanentBaseAndRecompute(player, stat, newBase);
     if (stat =="attackSpeed"){
-      player._cosmetics?.recomputeAttackColourTarget?.();
+      player._cosmetics?.updateAttackSpeedColor?.();
     }
     console.log(`Upgraded ${stat} → base=${newBase}, visible=${player[stat]}`);
   } else {

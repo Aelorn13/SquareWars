@@ -1,5 +1,5 @@
 import { keysPressed } from "./controls.js";
-import { setupPlayerCosmetics } from "./playerCosmetics.js";
+import { setupPlayerCosmetics,rebuildBarrelsAsEntities } from "./playerCosmetics.js";
 const BASE_PLAYER_SIZE = 28;
 export function createPlayer(k, sharedState) {
   const player = k.add([
@@ -27,7 +27,7 @@ export function createPlayer(k, sharedState) {
       luck: 0.15,
       bulletSpeed: 300,
       isShooting: false,
-      attackSpeed: 0.5,
+      attackSpeed: 0.55,
       isDashing: false,
       dashDuration: 0.3, // seconds
       dashCooldown: 3, // seconds
@@ -37,7 +37,7 @@ export function createPlayer(k, sharedState) {
   ]);
 
   // Add barrel as a child
-  player.add([k.rect(25, 8), k.pos(-6, -4), k.color(255, 255, 0)]);
+  // player.add([k.rect(25, 8), k.pos(-6, -4), k.color(255, 255, 0)]);
 
   // Movement and rotation logic
   player.onUpdate(() => {
@@ -107,6 +107,6 @@ export function createPlayer(k, sharedState) {
     luck: player.luck,
   };
     setupPlayerCosmetics(k, player);
-
+  rebuildBarrelsAsEntities(k, player, { width: 32, height: 6, colour: [255,220,20], rounded: false, inset: 16 });
   return player;
 }

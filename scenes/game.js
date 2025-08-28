@@ -1,4 +1,4 @@
-import { createPlayer } from "../components/player.js";
+import { createPlayer } from "../components/player/player.js";
 import { spawnEnemy } from "../components/enemy/enemy.js";
 import {
   createScoreLabel,
@@ -9,9 +9,9 @@ import {
   updateTimerLabel,
   createPauseLabel,
 } from "../components/ui/index.js";
-import { setupShooting } from "../components/shooting.js";
+import { setupShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
-import { keysPressed } from "../components/controls.js";
+import { keysPressed } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 
 const MINIMAL_SPAWN_INTERVAL = 0.2;

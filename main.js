@@ -2,7 +2,7 @@ import kaplay from "https://unpkg.com/kaplay@3001.0.19/dist/kaplay.mjs";
 import { defineGameScene } from "./scenes/game.js";
 import { defineGameOverScene } from "./scenes/gameover.js";
 import { TutorialScene } from "./scenes/tutorial.js";
-import { initControls } from "./components/controls.js";
+import { initControls } from "./components/player/controls.js";
 import { defineVictoryScene } from "./scenes/victory.js";
 const k = kaplay({
   width: 1024,

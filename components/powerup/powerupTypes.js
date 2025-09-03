@@ -1,16 +1,15 @@
-// components/powerup/types.js
 export const DURATION_POWERBUFF = 10;
 
-export const POWERUP_TYPES = [
-  "heal",
-  "rapidFire",
-  "damage",
-  "speed",
-  "invincibility",
-  "alwaysCrit",
-  "tripleProjectiles",
-  "bomb",
-];
+export const POWERUP_TYPES = {
+  HEAL: "heal",
+  RAPID_FIRE: "rapidFire",
+  DAMAGE: "damage",
+  SPEED: "speed",
+  INVINCIBILITY: "invincibility",
+  ALWAYS_CRIT: "alwaysCrit",
+  TRIPLE_PROJECTILES: "tripleProjectiles",
+  BOMB: "bomb",
+};
 
 export const colorMap = {
   rapidFire: [255, 255, 0],

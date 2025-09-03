@@ -9,16 +9,24 @@ import {
   updateTimerLabel,
   createPauseLabel,
 } from "../components/ui/index.js";
-import { setupShooting } from "../components/player/shooting.js";
+import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
 import { keysPressed } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 
-const MINIMAL_SPAWN_INTERVAL = 0.2;
-const INTERVAL_DECREASE = 0.02;
+// Constants for enemy spawning
+const MINIMAL_SPAWN_INTERVAL = 0.2; // The fastest enemies can spawn
+const INTERVAL_DECREASE = 0.02; // How much the spawn interval decreases over time
+
+/**
+ * Defines the main game scene.
+ * @param {kaboomCtx} k - The Kaboom.js/kaplay context object.
+ * @param {Ref<Function>} scoreRef - A reference to a function that returns the current score.
+ */
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
-    // --- Inner arena (5% margin on each side) ---
+    // --- Game Arena Setup ---
+    // Define an inner arena with a 5% margin for visual boundaries.
     const ARENA_MARGIN = Math.floor(Math.min(k.width(), k.height()) * 0.05);
     const ARENA = {
       x: ARENA_MARGIN,
@@ -27,138 +35,165 @@ export function defineGameScene(k, scoreRef) {
       h: k.height() - ARENA_MARGIN * 2,
     };
 
-    // visible floor so players "feel" the boundary
+    // Add a visual floor for the arena to clearly show boundaries.
     k.add([
       k.rect(ARENA.w, ARENA.h),
       k.pos(ARENA.x, ARENA.y),
-      k.color(20, 20, 20), // slightly lighter than global background
-      k.outline(2, k.rgb(80, 80, 80)), // subtle frame
-      k.fixed(),
-      k.z(-50),
+      k.color(20, 20, 20), // Slightly darker background for the play area
+      k.outline(2, k.rgb(80, 80, 80)), // Subtle border
+      k.fixed(), // Stays in place relative to the camera
+      k.z(-50), // Render behind other game objects
+      "gameArena", // Tag for easy reference if needed
     ]);
 
-
-    const sharedState = { isPaused: false, upgradeOpen: false, area: ARENA };
-
-    let score = 0;
-    let nextThresholdRef = { value: 10 };
-
-    const addScore = (delta) => {
-      score += delta;
-      updateScoreLabel(scoreLabel, score, nextThresholdRef.value);
+    // --- Game State Management ---
+    // Centralized object for managing shared game state across components.
+    const gameState = {
+      isPaused: false,
+      isUpgradePanelOpen: false, // Renamed for clarity
+      area: ARENA, // Reference to the game arena dimensions
+      spawnProgress: 0, // Current progress towards minimal spawn interval (0-1)
     };
-    function increaseScore(amount) {
-      addScore(amount);
+
+    // Score and upgrade threshold
+    let currentScore = 0;
+    // nextUpgradeScoreThresholdRef holds the score value at which the next upgrade becomes available.
+    const nextUpgradeScoreThresholdRef = { value: 10 };
+
+    /**
+     * Updates the score and checks for upgrade availability.
+     * @param {number} amount - The amount to add to the score.
+     */
+    const addScore = (amount) => {
+      currentScore += amount;
+      updateScoreLabel(
+        scoreLabel,
+        currentScore,
+        nextUpgradeScoreThresholdRef.value
+      );
       maybeShowUpgrade(
         k,
         player,
-        sharedState,
-        score,
-        nextThresholdRef,
+        gameState,
+        currentScore,
+        nextUpgradeScoreThresholdRef,
         addScore
       );
-    }
-    scoreRef.value = () => score;
+    };
 
-    // Player
-    const player = createPlayer(k, sharedState);
-    setupShooting(k, player, sharedState);
+    // Expose the current score via the scoreRef for external access (e.g., end screen).
+    scoreRef.value = () => currentScore;
 
-    // UI
+    // --- Player Setup ---
+    const player = createPlayer(k, gameState);
+    setupPlayerShooting(k, player, gameState);
+
+    // --- User Interface (UI) Elements ---
     const scoreLabel = createScoreLabel(k);
-    drawHealthBar(k, player.hp());
+    drawHealthBar(k, player.hp()); // Initial health bar draw
     const dashCooldownBar = drawDashCooldownBar(k);
     const pauseLabel = createPauseLabel(k);
-    let spawnInterval = 2;
-    const START_SPAWN_INTERVAL = spawnInterval;
-    function clamp01(x) {
-      return Math.max(0, Math.min(1, x));
-    }
 
+    // Initial spawn interval for enemies.
+    let enemySpawnInterval = 2;
+    const initialEnemySpawnInterval = enemySpawnInterval; // Store initial for calculating progress.
+
+    // UI element for displaying spawn timer progress.
     const timerLabel = createTimerLabel(
       k,
-      spawnInterval,
+      enemySpawnInterval,
       MINIMAL_SPAWN_INTERVAL,
       INTERVAL_DECREASE
     );
 
-    let spawnTimer = 0;
-    let bossSpawned = false;
-    let pausePressed = false;
+    // --- Game Loop Variables ---
+    let timeUntilNextSpawn = enemySpawnInterval;
+    let isBossSpawned = false;
+    let wasPauseKeyPreviouslyPressed = false; // To prevent multiple toggles on a single press.
+
+    // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
-      //pause toggle
-      if (keysPressed["KeyP"] && !pausePressed) {
-        sharedState.isPaused = !sharedState.isPaused;
-        pauseLabel.hidden = !sharedState.isPaused;
-        pausePressed = true;
-      }
-      if (!keysPressed["KeyP"]) {
-        pausePressed = false;
+      // Handle Pause Toggle
+      if (keysPressed["KeyP"]) {
+        if (!wasPauseKeyPreviouslyPressed) {
+          gameState.isPaused = !gameState.isPaused;
+          pauseLabel.hidden = !gameState.isPaused;
+          wasPauseKeyPreviouslyPressed = true;
+        }
+      } else {
+        wasPauseKeyPreviouslyPressed = false;
       }
 
-      if (sharedState.isPaused) return;
+      // If paused, stop all game logic.
+      if (gameState.isPaused || gameState.isUpgradePanelOpen) return; // Also pause if upgrade panel is open
+
+      // Update Dash Cooldown UI
       dashCooldownBar.width =
-        dashCooldownBar.fullWidth * (1 - player.getDashCooldownProgress());
+        dashCooldownBar.fullWidth * player.getDashCooldownProgress();
 
-      const denom = Math.max(
-        0.0001,
-        START_SPAWN_INTERVAL - MINIMAL_SPAWN_INTERVAL
-      );
-      const raw = (START_SPAWN_INTERVAL - spawnInterval) / denom;
+      // Calculate and update enemy spawn progress (0 to 1).
+      // This helps visualize how close the game is to max difficulty.
+      const spawnIntervalRange =
+        initialEnemySpawnInterval - MINIMAL_SPAWN_INTERVAL;
+      gameState.spawnProgress =
+        1 -
+        (enemySpawnInterval - MINIMAL_SPAWN_INTERVAL) /
+          Math.max(0.0001, spawnIntervalRange);
+      gameState.spawnProgress = k.clamp(0, 1, gameState.spawnProgress); // Ensure between 0 and 1
 
-      sharedState.spawnProgress = clamp01(raw);
+      // Update Spawn Timer
+      timeUntilNextSpawn -= k.dt();
+      if (timeUntilNextSpawn <= 0) {
+        // Determine enemy type to spawn
+        const shouldSpawnBoss =
+          !isBossSpawned && enemySpawnInterval <= MINIMAL_SPAWN_INTERVAL;
 
-      spawnTimer -= k.dt();
-      if (spawnTimer <= 0) {
-        if (!bossSpawned && spawnInterval <= MINIMAL_SPAWN_INTERVAL) {
-          // Spawn boss instead of normal enemy
-          spawnEnemy(
-            k,
-            player,
-            () => drawHealthBar(k, player.hp()),
-            () => updateScoreLabel(scoreLabel, score, nextThresholdRef.value),
-            increaseScore,
-            sharedState,
-            "boss", // force boss type
-            null,
-            sharedState.spawnProgress // optional; ignored for boss
-          );
-          bossSpawned = true;
-        } else if (!bossSpawned) {
-          // Normal enemies
-          spawnEnemy(
-            k,
-            player,
-            () => drawHealthBar(k, player.hp()),
-            () => updateScoreLabel(scoreLabel, score, nextThresholdRef.value),
-            increaseScore,
-            sharedState,
-            null, // no forced type
-            null, // no position override
-            sharedState.spawnProgress
-          );
+        spawnEnemy(
+          k,
+          player,
+          () => drawHealthBar(k, player.hp()), // Callback to update health UI
+          () =>
+            updateScoreLabel(
+              scoreLabel,
+              currentScore,
+              nextUpgradeScoreThresholdRef.value
+            ), // Callback to update score UI
+          addScore,
+          gameState,
+          shouldSpawnBoss ? "boss" : null, // Force boss type if conditions met
+          null, // No position override
+          gameState.spawnProgress // Pass spawn progress for enemy scaling
+        );
+
+        if (shouldSpawnBoss) {
+          isBossSpawned = true;
         }
 
-        spawnInterval = Math.max(
+        // Decrease spawn interval, making enemies spawn faster over time.
+        enemySpawnInterval = Math.max(
           MINIMAL_SPAWN_INTERVAL,
-          spawnInterval - INTERVAL_DECREASE
+          enemySpawnInterval - INTERVAL_DECREASE
         );
-        spawnTimer = spawnInterval;
+        timeUntilNextSpawn = enemySpawnInterval; // Reset timer for the next spawn
       }
+
+      // Update the spawn timer UI
       updateTimerLabel(
         timerLabel,
-        k.dt(),
+        k.dt(), // Time elapsed since last frame
         MINIMAL_SPAWN_INTERVAL,
         INTERVAL_DECREASE,
-        spawnInterval
+        enemySpawnInterval
       );
     });
 
+    // --- Event Handlers ---
+    // Handle player collision with power-ups.
     player.onCollide("powerup", (powerUp) => {
       applyPowerUp(k, player, powerUp.type, () => {
-        drawHealthBar(k, player.hp());
+        drawHealthBar(k, player.hp()); // Update health UI after applying power-up
       });
-      k.destroy(powerUp);
+      k.destroy(powerUp); // Remove the power-up from the game
     });
   });
 }

@@ -1,12 +1,36 @@
 // components/enemy/boss.js
 import { spawnEnemy } from "./enemy.js";
 
+// --- Constants ---
+// Cooldown durations for various boss abilities, in seconds.
 export const SUMMON_COOLDOWN = 9;
 export const SHOOT_COOLDOWN = 2;
 export const CHARGE_COOLDOWN = 5;
 
+// Telegraph animation durations for different actions.
+const TELEGRAPH_SUMMON_DURATION = 0.4;
+const TELEGRAPH_SPREAD_SHOT_DURATION = 0.25;
+const TELEGRAPH_CHARGE_WINDUP = 1.0;
+const TELEGRAPH_FADE_OUT_DURATION = 0.2;
+
+// Boss colors for telegraphing actions.
+const COLOR_SUMMON_TELEGRAPH = [0, 200, 0]; // Green for summoning minions
+const COLOR_SPREAD_SHOT_TELEGRAPH = [200, 100, 0]; // Orange for spread shot
+const COLOR_CHARGE_TELEGRAPH = [200, 0, 0]; // Red for charging
+
+// Charge ability specific constants
+const CHARGE_MOVE_DURATION = 0.6; // How long the boss moves during a charge
+const CHARGE_SPEED_MULTIPLIER = 6; // Multiplier for boss speed during charge
+
 // --- Utility functions ---
 
+/**
+ * Linearly interpolates between two RGB colors.
+ * @param {number[]} from - The starting RGB color [r, g, b].
+ * @param {number[]} to - The ending RGB color [r, g, b].
+ * @param {number} t - The interpolation factor (0.0 to 1.0).
+ * @returns {number[]} The interpolated RGB color.
+ */
 function lerpColor(from, to, t) {
   return [
     Math.floor(from[0] * (1 - t) + to[0] * t),
@@ -15,7 +39,13 @@ function lerpColor(from, to, t) {
   ];
 }
 
-// Trigger a color telegraph animation on the boss
+/**
+ * Initiates a visual telegraph animation for the boss, changing its color.
+ * @param {object} boss - The boss game object.
+ * @param {number[]} toColor - The target RGB color for the telegraph.
+ * @param {number} duration - How long the color change takes.
+ * @param {boolean} [returnToOriginal=true] - If true, the color will fade back to the original after the telegraph.
+ */
 function startTelegraph(boss, toColor, duration, returnToOriginal = true) {
   boss._telegraphProgress = 0;
   boss._telegraphDuration = duration;
@@ -26,165 +56,274 @@ function startTelegraph(boss, toColor, duration, returnToOriginal = true) {
 
 // --- Boss actions ---
 
+/**
+ * Makes the boss summon a specified number of minions.
+ * @param {object} k - The Kaboom.js context.
+ * @param {object} boss - The boss game object.
+ * @param {object} player - The player game object.
+ * @param {function} updateHealthBar - Function to update the player's health bar.
+ * @param {function} updateScoreLabel - Function to update the score display.
+ * @param {function} increaseScore - Function to increase the player's score.
+ * @param {object} sharedState - Global game state object (e.g., for pause status).
+ * @param {number} [count=3] - The number of minions to summon.
+ */
 function bossSummonMinions(k, boss, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState, count = 3) {
-  startTelegraph(boss, [0, 200, 0], 0.4); // green flash
+  startTelegraph(boss, COLOR_SUMMON_TELEGRAPH, TELEGRAPH_SUMMON_DURATION);
 
-  k.wait(0.4, () => {
+  // After the telegraph, spawn the minions
+  k.wait(TELEGRAPH_SUMMON_DURATION, () => {
     for (let i = 0; i < count; i++) {
+      // Calculate a random offset near the boss for minion spawn position
       const offset = k.vec2(k.rand(-100, 100), k.rand(-100, 100));
-      const pos = boss.pos.add(offset);
+      const spawnPosition = boss.pos.add(offset);
 
-      spawnEnemy(k, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState,
-        null, // random type
-        pos,  // near boss
-        sharedState.spawnProgress ?? 1,
-        false
+      spawnEnemy(
+        k,
+        player,
+        updateHealthBar,
+        updateScoreLabel,
+        increaseScore,
+        sharedState,
+        null, // random enemy type
+        spawnPosition, // spawn near boss
+        sharedState.spawnProgress ?? 1, // Use sharedState.spawnProgress or default to 1
+        false // Do not immediately aggro (adjust as per game logic)
       );
     }
   });
 }
 
+/**
+ * Makes the boss fire bullets in a full circle (spread shot).
+ * @param {object} k - The Kaboom.js context.
+ * @param {object} boss - The boss game object.
+ * @param {object} sharedState - Global game state object.
+ * @param {number} [damage=2] - Damage dealt by each bullet.
+ * @param {number} [speed=120] - Speed of the bullets.
+ * @param {number} [count=12] - Number of bullets to fire.
+ */
 function bossSpreadShot(k, boss, sharedState, damage = 2, speed = 120, count = 12) {
-  startTelegraph(boss, [200, 100, 0], 0.25); // orange flash
+  startTelegraph(boss, COLOR_SPREAD_SHOT_TELEGRAPH, TELEGRAPH_SPREAD_SHOT_DURATION);
 
-  const step = (Math.PI * 2) / count;
-  for (let i = 0; i < count; i++) {
-    const dir = k.vec2(Math.cos(step * i), Math.sin(step * i));
-    const bullet = k.add([
-      k.rect(8, 8),
-      k.color(k.rgb(255, 120, 0)),
-      k.pos(boss.pos),
-      k.area(),
-      k.anchor("center"),
-      k.offscreen({ destroy: true }),
-      "bossBullet",
-      { vel: dir.scale(speed), damage },
-    ]);
-    bullet.onUpdate(() => {
-      if (!sharedState.isPaused) {
-        bullet.pos = bullet.pos.add(bullet.vel.scale(k.dt()));
-      }
-    });
-  }
+  // Wait for telegraph to complete before shooting
+  k.wait(TELEGRAPH_SPREAD_SHOT_DURATION, () => {
+    const angleStep = (Math.PI * 2) / count; // Angle between each bullet
+
+    for (let i = 0; i < count; i++) {
+      const direction = k.vec2(Math.cos(angleStep * i), Math.sin(angleStep * i));
+      const bullet = k.add([
+        k.rect(8, 8),
+        k.color(k.rgb(255, 120, 0)), // Orange color for boss bullets
+        k.pos(boss.pos),
+        k.area(),
+        k.anchor("center"),
+        k.offscreen({ destroy: true }), // Destroy bullet when it goes off-screen
+        "bossBullet", // Tag for collision detection
+        { vel: direction.scale(speed), damage }, // Custom component for velocity and damage
+      ]);
+
+      // Update bullet position only when game is not paused
+      bullet.onUpdate(() => {
+        if (!sharedState.isPaused) {
+          bullet.pos = bullet.pos.add(bullet.vel.scale(k.dt()));
+        }
+      });
+    }
+  });
 }
 
-// Prepare the boss to charge at player
+/**
+ * Initiates the boss's charge sequence towards the player.
+ * The charge has two states: "windup" and "moving".
+ * @param {object} boss - The boss game object.
+ * @param {object} player - The player game object.
+ */
 function startCharge(boss, player) {
+  // Only start charge if boss is idle
   if (boss.chargeState !== "idle") return;
+
   boss.chargeState = "windup";
   boss.chargeTimer = 0;
-  boss.chargeDir = player.pos.sub(boss.pos).unit();
+  // Calculate the direction towards the player
+  boss.chargeDirection = player.pos.sub(boss.pos).unit();
+  // Start telegraphing the charge (color changes to red)
+  startTelegraph(boss, COLOR_CHARGE_TELEGRAPH, TELEGRAPH_CHARGE_WINDUP, false);
 }
 
 // --- Brain attachment ---
 
+/**
+ * Attaches the main AI logic to the boss game object.
+ * This includes handling phase transitions, abilities, cooldowns, and charge mechanics.
+ * @param {object} k - The Kaboom.js context.
+ * @param {object} boss - The boss game object.
+ * @param {object} player - The player game object.
+ * @param {function} updateHealthBar - Function to update the player's health bar.
+ * @param {function} updateScoreLabel - Function to update the score display.
+ * @param {function} increaseScore - Function to increase the player's score.
+ * @param {object} sharedState - Global game state object (e.g., for pause status).
+ */
 export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState) {
-  // Prevent multiple global bullet collision handlers
+  // --- Global Collision Handler for Boss Bullets ---
+  // Ensure this handler is only registered once globally to prevent multiple executions.
   if (!sharedState._bossBulletHook) {
-    sharedState._bossBulletHook = true;
+    sharedState._bossBulletHook = true; // Mark as registered
     k.onCollide("player", "bossBullet", (p, bullet) => {
+      // If player is invincible, ignore collision
       if (p.isInvincible) return;
-      p.hurt(bullet.damage ?? 2);
-      updateHealthBar?.();
-      k.destroy(bullet);
-      if (p.hp() <= 0) k.go("gameover");
+
+      p.hurt(bullet.damage ?? 2); // Player takes damage
+      updateHealthBar?.(); // Update health bar if available
+      k.destroy(bullet); // Destroy the bullet
+
+      // If player's HP drops to 0 or below, trigger game over
+      if (p.hp() <= 0) {
+        k.go("gameover");
+      }
     });
   }
 
-  // Initialise boss state
-  boss.phase = 1;
+  // --- Initialise Boss State ---
+  boss.phase = 1; // Current boss phase
   boss.cooldowns = {
     summon: SUMMON_COOLDOWN,
     shoot: SHOOT_COOLDOWN,
     charge: CHARGE_COOLDOWN,
   };
-  boss.chargeState = "idle"; // "idle" | "windup" | "moving"
-  boss.chargeTimer = 0;
-  boss.chargeDir = k.vec2(0, 0);
+  // Charge state machine: "idle" | "windup" | "moving"
+  boss.chargeState = "idle";
+  boss.chargeTimer = 0; // Timer for charge duration
+  boss.chargeDirection = k.vec2(0, 0); // Direction of the charge
 
+  // Store the boss's original color to return to after telegraphs
+  // This assumes `boss.color` is set during boss creation and can be read.
+  // If not, you might need to explicitly set `boss.originalColor` during boss creation.
+  boss.originalColor = boss.color ? [boss.color.r, boss.color.g, boss.color.b] : [255, 255, 255]; // Default to white if not set
+
+  // --- Boss Update Loop ---
   boss.onUpdate(() => {
+    // If game is paused or boss is dead, do nothing
     if (sharedState.isPaused || boss.dead) return;
 
-    // --- Telegraph animation ---
+    // --- Telegraph Animation Update ---
     if (boss._telegraphProgress != null) {
       boss._telegraphProgress += k.dt();
-      const p = Math.min(1, boss._telegraphProgress / boss._telegraphDuration);
-      boss.use(k.color(k.rgb(...lerpColor(boss._telegraphFrom, boss._telegraphTo, p))));
+      // Calculate progress (0.0 to 1.0)
+      const progressRatio = Math.min(1, boss._telegraphProgress / boss._telegraphDuration);
 
-      if (p >= 1) {
+      // Apply the interpolated color to the boss
+      boss.use(k.color(k.rgb(...lerpColor(boss._telegraphFrom, boss._telegraphTo, progressRatio))));
+
+      // Check if telegraph animation is complete
+      if (progressRatio >= 1) {
         if (boss._telegraphReturn) {
-          // Fade back quickly
+          // If returning to original color, set up a quick fade back
           boss._telegraphFrom = boss._telegraphTo;
           boss._telegraphTo = boss.originalColor;
-          boss._telegraphDuration = 0.2;
+          boss._telegraphDuration = TELEGRAPH_FADE_OUT_DURATION; // Quicker fade out
           boss._telegraphProgress = 0;
-          boss._telegraphReturn = false;
+          boss._telegraphReturn = false; // No longer returning
         } else {
+          // Animation finished, reset telegraph state and ensure original color is applied
           boss._telegraphProgress = null;
           boss.use(k.color(k.rgb(...boss.originalColor)));
         }
       }
     }
 
-    // --- Phase transitions ---
+    // --- Phase Transitions ---
     const hpRatio = boss.hp() / boss.maxHp;
+
+    // Phase 1 to Phase 2 transition
     if (hpRatio <= 0.6 && boss.phase === 1) {
       boss.phase = 2;
-      boss.speed *= 1.2;
+      boss.speed *= 1.2; // Increase speed
+      // Consider adding a visual or audio cue for phase change
     }
+    // Phase 2 to Phase 3 transition
     if (hpRatio <= 0.3 && boss.phase === 2) {
       boss.phase = 3;
-      boss.speed *= 1.4;
+      boss.speed *= 1.4; // Further increase speed
+      // Consider adding a visual or audio cue for phase change
     }
 
-    // --- Cooldowns ---
+    // --- Cooldown Management ---
+    // Decrease all ability cooldowns by elapsed time
     boss.cooldowns.summon -= k.dt();
     boss.cooldowns.shoot -= k.dt();
     boss.cooldowns.charge -= k.dt();
 
-    // --- Abilities ---
+    // --- Ability Activation Logic ---
+
+    // Summon Minions ability
     if (boss.cooldowns.summon <= 0) {
-      const count = boss.phase === 1 ? 3 : boss.phase === 2 ? 5 : 8;
-      bossSummonMinions(k, boss, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState, count);
-      boss.cooldowns.summon = SUMMON_COOLDOWN;
+      let minionCount;
+      if (boss.phase === 1) minionCount = 3;
+      else if (boss.phase === 2) minionCount = 5;
+      else minionCount = 8; // Phase 3
+
+      bossSummonMinions(k, boss, player, updateHealthBar, updateScoreLabel, increaseScore, sharedState, minionCount);
+      boss.cooldowns.summon = SUMMON_COOLDOWN; // Reset cooldown
     }
 
+    // Spread Shot ability (only from Phase 2 onwards)
     if (boss.phase >= 2 && boss.cooldowns.shoot <= 0) {
-      if (boss.phase === 2) bossSpreadShot(k, boss, sharedState, 2, 120, 12);
-      else bossSpreadShot(k, boss, sharedState, 3, 160, 18);
-      boss.cooldowns.shoot = SHOOT_COOLDOWN;
-    }
+      let bulletDamage = 2;
+      let bulletSpeed = 120;
+      let bulletCount = 12;
 
-    if (boss.phase === 1 && boss.cooldowns.charge <= 0 && boss.chargeState === "idle") {
-      startCharge(boss, player);
-      boss.cooldowns.charge = CHARGE_COOLDOWN;
-    }
-    if (boss.phase === 3 && boss.cooldowns.charge <= 0 && boss.chargeState === "idle") {
-      startCharge(boss, player);
-      boss.cooldowns.charge = CHARGE_COOLDOWN * 4;
-    }
-
-    // --- Charge state machine ---
-    const CHARGE_UP = 1.0;
-    const CHARGE_DURATION = 0.6;
-    const MULT = 6;
-
-    if (boss.chargeState === "windup") {
-      boss.chargeTimer += k.dt();
-      // fade to red during windup
-      boss.use(k.color(k.rgb(...lerpColor(boss.originalColor, [200, 0, 0], boss.chargeTimer / CHARGE_UP))));
-      if (boss.chargeTimer >= CHARGE_UP) {
-        boss.chargeTimer = 0;
-        boss.chargeState = "moving";
-        boss.use(k.color(k.rgb(...boss.originalColor)));
+      if (boss.phase === 3) {
+        bulletDamage = 3;
+        bulletSpeed = 160;
+        bulletCount = 18;
       }
-    } else if (boss.chargeState === "moving") {
-      boss.chargeTimer += k.dt();
-      boss.pos = boss.pos.add(boss.chargeDir.scale(boss.speed * MULT * k.dt()));
-      if (boss.chargeTimer >= CHARGE_DURATION) {
-        boss.chargeTimer = 0;
-        boss.chargeState = "idle";
+
+      bossSpreadShot(k, boss, sharedState, bulletDamage, bulletSpeed, bulletCount);
+      boss.cooldowns.shoot = SHOOT_COOLDOWN; // Reset cooldown
+    }
+
+    // Charge ability
+    const canCharge = boss.cooldowns.charge <= 0 && boss.chargeState === "idle";
+
+    if (canCharge) {
+      if (boss.phase === 1) {
+        startCharge(boss, player);
+        boss.cooldowns.charge = CHARGE_COOLDOWN; // Reset for Phase 1
+      } else if (boss.phase === 3) {
+        // Phase 3 charge has a longer cooldown to balance increased difficulty
+        startCharge(boss, player);
+        boss.cooldowns.charge = CHARGE_COOLDOWN * 4; // Longer cooldown for Phase 3
       }
+    }
+
+    // --- Charge State Machine Update ---
+    switch (boss.chargeState) {
+      case "windup":
+        boss.chargeTimer += k.dt();
+        // The telegraph function already handles the color change during windup
+        // No direct color manipulation needed here as `startTelegraph` was called.
+        if (boss.chargeTimer >= TELEGRAPH_CHARGE_WINDUP) {
+          boss.chargeTimer = 0;
+          boss.chargeState = "moving";
+          // Ensure boss color resets to original after windup telegraph finishes
+          // This is handled by `startTelegraph`'s `_telegraphReturn` logic.
+        }
+        break;
+
+      case "moving":
+        boss.chargeTimer += k.dt();
+        // Move the boss in the calculated charge direction
+        boss.pos = boss.pos.add(boss.chargeDirection.scale(boss.speed * CHARGE_SPEED_MULTIPLIER * k.dt()));
+        if (boss.chargeTimer >= CHARGE_MOVE_DURATION) {
+          boss.chargeTimer = 0;
+          boss.chargeState = "idle"; // Return to idle state
+        }
+        break;
+
+      case "idle":
+      default:
+        // Do nothing when idle
+        break;
     }
   });
 }

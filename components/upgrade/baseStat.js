@@ -1,65 +1,103 @@
-// Helpers for managing permanent base values and recomputing visible stat
-// when temporary buff layers exist.
+// Manages permanent base values and recomputes visible stats
+// when temporary buff layers are active.
+
+// Defines the structure for temporary buffs.
+// type BuffLayer = {
+//   absolute?: boolean;  // If true, this layer sets the stat to 'value' directly.
+//   value?: number;     // The value to use if 'absolute' is true.
+//   multiplier?: number; // Multiplies the current stat value.
+//   endTime?: number;   // Timestamp when the buff expires.
+//   timer?: any;        // Optional timer ID for clearing the buff.
+// }
 
 /**
- * inferPermanentBase(obj, stat)
- * - returns the permanent/base value for obj[stat].
- * - if _baseStats[stat] already exists, returns it.
- * - otherwise attempts to infer it by reversing multiplicative active layers.
- * - if an "absolute" layer exists we can't safely reverse — fallback to current value.
- * - stores the inferred value into obj._baseStats[stat] for future use.
+ * Calculates or retrieves the permanent base value for a specific stat.
+ *
+ * If a base value is already stored, it's returned directly.
+ * Otherwise, it attempts to infer the base by reversing multiplicative buffs.
+ * If an 'absolute' buff exists, safe inference isn't possible, so the current
+ * visible stat value is used as the base.
+ * The inferred or retrieved base value is then stored for future use.
+ *
+ * @param {object} entity - The object (e.g., character) containing stats and buff layers.
+ * @param {string} statName - The name of the stat (e.g., 'attack', 'defense').
+ * @returns {number} The permanent base value of the stat.
  */
-export function inferPermanentBase(obj, stat) {
-  obj._baseStats ??= {};
-  if (obj._baseStats[stat] !== undefined) return obj._baseStats[stat];
+export function getPermanentBase(entity, statName) {
+  entity._baseStats ??= {}; // Initialize _baseStats if it doesn't exist.
 
-  const layers = (obj._buffLayers ?? {});
-  const arr = layers[stat] ?? [];
-
-  if (arr.length === 0) {
-    obj._baseStats[stat] = Number(obj[stat]) || 0;
-    return obj._baseStats[stat];
+  // If the base stat is already stored, return it directly.
+  if (entity._baseStats[statName] !== undefined) {
+    return entity._baseStats[statName];
   }
 
-  for (const b of arr) {
-    if (b.absolute) {
-      obj._baseStats[stat] = Number(obj[stat]) || 0;
-      return obj._baseStats[stat];
-    }
+  // Get all active buff layers for this stat.
+  const activeBuffs = entity._buffLayers?.[statName] ?? [];
+
+  // If no buffs are active, the current visible stat *is* the base.
+  if (activeBuffs.length === 0) {
+    const baseValue = Number(entity[statName]) || 0;
+    entity._baseStats[statName] = baseValue;
+    return baseValue;
   }
 
-  let prod = 1;
-  for (const b of arr) prod *= b.multiplier;
-  const inferred = (Number(obj[stat]) || 0) / (prod || 1);
-  obj._baseStats[stat] = inferred;
-  return inferred;
+  // Check for any 'absolute' buffs which prevent reliable reversal.
+  // If found, the current visible stat is treated as the base.
+  if (activeBuffs.some(buff => buff.absolute)) {
+    const baseValue = Number(entity[statName]) || 0;
+    entity._baseStats[statName] = baseValue;
+    return baseValue;
+  }
+
+  // If no absolute buffs, infer the base by reversing multiplicative buffs.
+  let totalMultiplier = 1;
+  for (const buff of activeBuffs) {
+    totalMultiplier *= (buff.multiplier ?? 1); // Default to 1 if multiplier is undefined
+  }
+
+  // Calculate the inferred base by dividing the current stat by the total multiplier.
+  // Handle division by zero if totalMultiplier is 0 (though unlikely with sane buffs).
+  const currentVisibleStat = Number(entity[statName]) || 0;
+  const inferredBase = totalMultiplier !== 0 ? currentVisibleStat / totalMultiplier : 0;
+
+  entity._baseStats[statName] = inferredBase;
+  return inferredBase;
 }
 
 /**
- * setPermanentBaseAndRecompute(obj, stat, newBase)
- * - stores the new permanent base and then reapplies active temporary layers
- *   (stored in obj._buffLayers) to compute final visible obj[stat].
+ * Sets a new permanent base value for a stat and immediately recomputes its
+ * visible value by applying all active temporary buff layers.
  *
- * Note: temporary layers are expected to be objects: { absolute:bool, multiplier:number, endTime, timer }
+ * @param {object} entity - The object (e.g., character) containing stats and buff layers.
+ * @param {string} statName - The name of the stat (e.g., 'attack', 'defense').
+ * @param {number} newBaseValue - The new permanent base value for the stat.
  */
-export function setPermanentBaseAndRecompute(obj, stat, newBase) {
-  obj._baseStats ??= {};
-  obj._baseStats[stat] = Number(newBase);
+export function setPermanentBaseAndRecompute(entity, statName, newBaseValue) {
+  entity._baseStats ??= {}; // Ensure _baseStats exists.
+  // Store the new permanent base value.
+  entity._baseStats[statName] = Number(newBaseValue);
 
-  const layers = (obj._buffLayers ?? {});
-  const arr = layers[stat] ?? [];
+  // Get all active buff layers for this stat.
+  const activeBuffs = entity._buffLayers?.[statName] ?? [];
 
-  let val = obj._baseStats[stat];
-  if (arr.length) {
-    let absoluteSeen = false;
-    for (const b of arr) {
-      if (b.absolute) {
-        val = b.multiplier;
-        absoluteSeen = true;
-      } else if (!absoluteSeen) {
-        val *= b.multiplier;
-      }
+  // Start with the stored permanent base value.
+  let computedValue = entity._baseStats[statName];
+  let absoluteBuffApplied = false;
+
+  // Apply buffs in order. Absolute buffs override all previous calculations
+  // and subsequent multiplicative buffs only apply if no absolute buff has been seen.
+  for (const buff of activeBuffs) {
+    if (buff.absolute) {
+      // An absolute buff sets the value directly, overriding anything before it.
+      // Use 'value' field for absolute buffs.
+      computedValue = buff.value ?? 0;
+      absoluteBuffApplied = true;
+    } else if (!absoluteBuffApplied) {
+      // Only apply multiplicative buffs if no absolute buff has taken effect.
+      computedValue *= (buff.multiplier ?? 1); // Default to 1 if multiplier is undefined
     }
   }
-  obj[stat] = val;
+
+  // Update the entity's visible stat with the newly computed value.
+  entity[statName] = computedValue;
 }

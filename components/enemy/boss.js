@@ -29,6 +29,10 @@ const PHASE_COLORS = {
 const CHARGE_MOVE_DURATION = 0.6; // How long the boss moves during a charge
 const CHARGE_SPEED_MULTIPLIER = 6; // Multiplier for boss speed during charge
 
+// New constants for vulnerability
+const VULNERABILITY_DURATION = 1.5; // Boss vulnerable for 1.5 seconds after charge
+export const VULNERABILITY_DAMAGE_MULTIPLIER = 2; // Takes 2x damage when vulnerable
+
 // --- Utility functions ---
 
 /**
@@ -208,8 +212,11 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
   boss.chargeState = "idle";
   boss.chargeTimer = 0; // Timer for charge duration
   boss.chargeDirection = k.vec2(0, 0); // Direction of the charge
+  boss.isVulnerable = false; // NEW: Boss vulnerability flag
 
-  // Set the initial originalColor based on Phase 1
+  // Store the boss's original color to return to after telegraphs
+  // This assumes `boss.color` is set during boss creation and can be read.
+  // If not, you might need to explicitly set `boss.originalColor` during boss creation.
   boss.originalColor = PHASE_COLORS[1];
   // Apply the initial phase color immediately
   boss.use(k.color(k.rgb(...boss.originalColor)));
@@ -227,7 +234,13 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
       const progressRatio = Math.min(1, boss._telegraphProgress / boss._telegraphDuration);
 
       // Apply the interpolated color to the boss
-      boss.use(k.color(k.rgb(...lerpColor(boss._telegraphFrom, boss._telegraphTo, progressRatio))));
+      // If boss is vulnerable, make it flash a bright color, otherwise use telegraph lerp
+      if (boss.isVulnerable && boss._telegraphProgress % 0.2 < 0.1) { // Simple flash effect
+          boss.use(k.color(k.rgb(255, 255, 100))); // Bright yellow flash
+      } else {
+          boss.use(k.color(k.rgb(...lerpColor(boss._telegraphFrom, boss._telegraphTo, progressRatio))));
+      }
+
 
       // Check if telegraph animation is complete
       if (progressRatio >= 1) {
@@ -241,7 +254,10 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
         } else {
           // Animation finished, reset telegraph state and ensure original color is applied
           boss._telegraphProgress = null;
-          boss.use(k.color(k.rgb(...boss.originalColor)));
+          // Only apply original color if not currently vulnerable
+          if (!boss.isVulnerable) {
+              boss.use(k.color(k.rgb(...boss.originalColor)));
+          }
         }
       }
     }
@@ -264,8 +280,10 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
     // Update boss color if phase has changed
     if (boss.phase !== previousPhase) {
       boss.originalColor = PHASE_COLORS[boss.phase];
-      // Immediately apply the new phase color
-      boss.use(k.color(k.rgb(...boss.originalColor)));
+      // Immediately apply the new phase color (unless currently vulnerable)
+      if (!boss.isVulnerable) {
+          boss.use(k.color(k.rgb(...boss.originalColor)));
+      }
       // You could also add a temporary flash or animation here to highlight the phase change
     }
 
@@ -324,12 +342,9 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
       case "windup":
         boss.chargeTimer += k.dt();
         // The telegraph function already handles the color change during windup
-        // No direct color manipulation needed here as `startTelegraph` was called.
         if (boss.chargeTimer >= TELEGRAPH_CHARGE_WINDUP) {
           boss.chargeTimer = 0;
           boss.chargeState = "moving";
-          // Ensure boss color resets to original after windup telegraph finishes
-          // This is handled by `startTelegraph`'s `_telegraphReturn` logic.
         }
         break;
 
@@ -340,6 +355,19 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
         if (boss.chargeTimer >= CHARGE_MOVE_DURATION) {
           boss.chargeTimer = 0;
           boss.chargeState = "idle"; // Return to idle state
+
+          // NEW: Trigger vulnerability after charge finishes
+          boss.isVulnerable = true;
+          // Apply a visual cue for vulnerability (e.g., a rapid flash)
+          startTelegraph(boss, [255, 255, 100], VULNERABILITY_DURATION, false); // Flash yellow, don't return via telegraph system
+
+          k.wait(VULNERABILITY_DURATION, () => {
+            boss.isVulnerable = false;
+            // Restore original color when vulnerability ends, if no other telegraph is active
+            if (boss._telegraphProgress === null) {
+                boss.use(k.color(k.rgb(...boss.originalColor)));
+            }
+          });
         }
         break;
 

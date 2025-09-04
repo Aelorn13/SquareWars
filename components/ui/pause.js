@@ -16,7 +16,7 @@ export function createPauseLabel(k) {
     k.color(255, 255, 255),                  // Set text color to white
     k.z(Z_INDEX),                            // Ensure it renders above other elements
     k.fixed(),                               // Keep it fixed relative to the camera
-    "pauseLabel",                            // Tag for easy reference and manipulation
+    "pauseLabel",                            // Tag 
   ]);
 
   pauseLabel.hidden = true; // Initialize the label as hidden

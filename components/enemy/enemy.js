@@ -7,7 +7,7 @@ import {
   pickEdgeSpawnPosFarFromPlayer,
   showSpawnTelegraph,
 } from "./enemyUtils.js";
-import { attachBossBrain } from "./boss.js";
+import { attachBossBrain, VULNERABILITY_DAMAGE_MULTIPLIER  } from "./boss.js";
 
 /**
  * Spawns an enemy entity into the game world.
@@ -139,7 +139,23 @@ export function spawnEnemy(
       if (enemy.dead) return; // Prevent actions on an already dead enemy.
 
       k.destroy(projectile); // Projectile is consumed on hit.
-      enemy.hurt(projectile.damage); // Apply damage to the enemy.
+
+       let damageToApply = projectile.damage; // Start with base damage
+
+      if (enemy.type === "boss" && enemy.isVulnerable) {
+        damageToApply *= VULNERABILITY_DAMAGE_MULTIPLIER;
+        k.add([
+          k.text("CRIT!", { size: 16 }),
+          k.color(255, 255, 0), // Yellow text
+          k.pos(enemy.pos.add(k.rand(-20, 20), k.rand(-20, 20))),
+          k.lifespan(0.5),
+          k.move(k.UP, 40),
+          k.opacity(1),
+        ]);
+        k.shake(3); //  screen shake xdd
+      }
+
+      enemy.hurt(damageToApply); // Apply calculated damage to the enemy.
 
       // Visual feedback for critical hits.
       if (projectile.isCrit) {

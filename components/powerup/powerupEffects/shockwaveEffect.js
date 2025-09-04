@@ -25,8 +25,8 @@ export function spawnShockwave(k, centerPos, opts = {}) {
     damage = 5,
     maxRadius = 320,
     speed = 600, // px / second
-    segmentsCount = Math.max(6, opts.segments ?? 28), // Renamed for clarity, min 6 segments
-    segmentSize = Math.max(6, opts.segSize ?? 10),    // Renamed for clarity, min 6 size
+    segmentsCount = Math.max(6, opts.segments ?? 28), 
+    segmentSize = Math.max(6, opts.segSize ?? 10),   
     segmentColor = opts.color ?? k.rgb(200, 200, 255),
   } = opts;
 

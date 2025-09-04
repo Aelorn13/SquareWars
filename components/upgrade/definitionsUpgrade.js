@@ -1,5 +1,3 @@
-// Definitions, tuning knobs and rarity utilities.
-
 /**
  * Defines the different rarities available for upgrades.
  * Each rarity has a name, color, tier, stat multiplier, and weight for rolling.

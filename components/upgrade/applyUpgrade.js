@@ -36,12 +36,11 @@ export function applyUpgrade(player, upgradeDef, rarity) {
   const statScale = StatScalingMultipliers[statName] ?? 1.0;
 
   // Initialize base value for the stat. For movementSpeed, ensure a starting value if none exists.
-  // This addresses the "visible=Nan" bug for movementSpeed.
   let currentBaseValue;
   if (statName === "movementSpeed") {
-    currentBaseValue = getPermanentBase(player, statName) || 100; // Assuming 100 as a reasonable default base speed. Adjust if needed.
+    currentBaseValue = getPermanentBase(player, statName) || player._baseStats.speed; 
   } else {
-    currentBaseValue = getPermanentBase(player, statName) || 0;
+    currentBaseValue = getPermanentBase(player, statName) || player._baseStats[statName];
   }
 
   let newBaseValue;

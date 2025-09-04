@@ -18,6 +18,13 @@ const COLOR_SUMMON_TELEGRAPH = [0, 200, 0]; // Green for summoning minions
 const COLOR_SPREAD_SHOT_TELEGRAPH = [200, 100, 0]; // Orange for spread shot
 const COLOR_CHARGE_TELEGRAPH = [200, 0, 0]; // Red for charging
 
+// Boss base colors for each phase (darker variations)
+const PHASE_COLORS = {
+  1: [60, 20, 20],   // Dark reddish
+  2: [60, 40, 20],   // Dark orange-ish
+  3: [40, 20, 60]    // Dark purplish (example for phase 3)
+};
+
 // Charge ability specific constants
 const CHARGE_MOVE_DURATION = 0.6; // How long the boss moves during a charge
 const CHARGE_SPEED_MULTIPLIER = 6; // Multiplier for boss speed during charge
@@ -47,9 +54,16 @@ function lerpColor(from, to, t) {
  * @param {boolean} [returnToOriginal=true] - If true, the color will fade back to the original after the telegraph.
  */
 function startTelegraph(boss, toColor, duration, returnToOriginal = true) {
+  // Ensure that if a telegraph is already ongoing, it completes or transitions smoothly
+  if (boss._telegraphProgress != null && boss._telegraphProgress < boss._telegraphDuration) {
+    // If a telegraph is active, blend from the current display color, not originalColor
+    boss._telegraphFrom = [boss.color.r, boss.color.g, boss.color.b];
+  } else {
+    boss._telegraphFrom = boss.originalColor; // Start from the current phase color
+  }
+
   boss._telegraphProgress = 0;
   boss._telegraphDuration = duration;
-  boss._telegraphFrom = boss.originalColor;
   boss._telegraphTo = toColor;
   boss._telegraphReturn = returnToOriginal;
 }
@@ -195,10 +209,11 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
   boss.chargeTimer = 0; // Timer for charge duration
   boss.chargeDirection = k.vec2(0, 0); // Direction of the charge
 
-  // Store the boss's original color to return to after telegraphs
-  // This assumes `boss.color` is set during boss creation and can be read.
-  // If not, you might need to explicitly set `boss.originalColor` during boss creation.
-  boss.originalColor = boss.color ? [boss.color.r, boss.color.g, boss.color.b] : [255, 255, 255]; // Default to white if not set
+  // Set the initial originalColor based on Phase 1
+  boss.originalColor = PHASE_COLORS[1];
+  // Apply the initial phase color immediately
+  boss.use(k.color(k.rgb(...boss.originalColor)));
+
 
   // --- Boss Update Loop ---
   boss.onUpdate(() => {
@@ -219,7 +234,7 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
         if (boss._telegraphReturn) {
           // If returning to original color, set up a quick fade back
           boss._telegraphFrom = boss._telegraphTo;
-          boss._telegraphTo = boss.originalColor;
+          boss._telegraphTo = boss.originalColor; // Fade back to the current phase color
           boss._telegraphDuration = TELEGRAPH_FADE_OUT_DURATION; // Quicker fade out
           boss._telegraphProgress = 0;
           boss._telegraphReturn = false; // No longer returning
@@ -233,19 +248,27 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
 
     // --- Phase Transitions ---
     const hpRatio = boss.hp() / boss.maxHp;
+    const previousPhase = boss.phase; // Store current phase to detect changes
 
     // Phase 1 to Phase 2 transition
     if (hpRatio <= 0.6 && boss.phase === 1) {
       boss.phase = 2;
       boss.speed *= 1.2; // Increase speed
-      // Consider adding a visual or audio cue for phase change
     }
     // Phase 2 to Phase 3 transition
     if (hpRatio <= 0.3 && boss.phase === 2) {
       boss.phase = 3;
       boss.speed *= 1.4; // Further increase speed
-      // Consider adding a visual or audio cue for phase change
     }
+
+    // Update boss color if phase has changed
+    if (boss.phase !== previousPhase) {
+      boss.originalColor = PHASE_COLORS[boss.phase];
+      // Immediately apply the new phase color
+      boss.use(k.color(k.rgb(...boss.originalColor)));
+      // You could also add a temporary flash or animation here to highlight the phase change
+    }
+
 
     // --- Cooldown Management ---
     // Decrease all ability cooldowns by elapsed time
@@ -292,7 +315,7 @@ export function attachBossBrain(k, boss, player, updateHealthBar, updateScoreLab
       } else if (boss.phase === 3) {
         // Phase 3 charge has a longer cooldown to balance increased difficulty
         startCharge(boss, player);
-        boss.cooldowns.charge = CHARGE_COOLDOWN * 4; // Longer cooldown for Phase 3
+        boss.cooldowns.charge = CHARGE_COOLDOWN * 2; // Longer cooldown for Phase 3
       }
     }
 

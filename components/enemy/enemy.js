@@ -237,5 +237,4 @@ function enemyDeathLogic(k, enemy, player, increaseScore, updateScoreLabel, shar
   increaseScore?.(enemy.score); // Update player score
   updateScoreLabel?.(); // Refresh score display
   dropPowerUp(k, player, enemy.pos, sharedState); // Drop power-up at enemy's position
-  // Note: enemy.dead is typically set to true within enemyDeathAnimation
 }

@@ -18,7 +18,7 @@ export function createPlayer(k, sharedState) {
     bulletSpreadDeg: 10,
     critChance: 0.1,
     critMultiplier: 2,
-    projectiles: 3,
+    projectiles: 1,
     damage: 1,
     speed: 90,
     luck: 0.2,

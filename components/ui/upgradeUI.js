@@ -1,11 +1,16 @@
 // components/ui/upgradeUI.js
-// showUpgradeUI expects "chosen" to be pre-formatted upgrade objects:
-// { icon, name, bonusText, color: [r,g,b], upgradeDef, rarity }
-export function showUpgradeUI(k, chosen, onPick) {
-  const cx = k.width() / 2;
-  const cy = k.height() / 2;
+/**
+ * Displays an upgrade selection UI to the player.
+ * @param {object} k - The Kaboom.js context object.
+ * @param {Array<object>} chosenUpgrades - An array of pre-formatted upgrade objects:
+ *   { icon, name, bonusText, color: [r,g,b], upgradeDef, rarity }
+ * @param {function} onPick - Callback function when an upgrade is chosen or skipped.
+ */
+export function showUpgradeUI(k, chosenUpgrades, onPick) {
+  const centerX = k.width() / 2;
+  const centerY = k.height() / 2;
 
-  // dark overlay
+  // Dim background to focus on the UI
   k.add([
     k.rect(k.width(), k.height()),
     k.color(0, 0, 0),
@@ -16,13 +21,19 @@ export function showUpgradeUI(k, chosen, onPick) {
     "upgradeUI",
   ]);
 
-  const makeCard = (x, y, choice) => {
-    const frame = k.rgb(...choice.color);
+  /**
+   * Creates an upgrade card UI element.
+   * @param {number} x - X position of the card.
+   * @param {number} y - Y position of the card.
+   * @param {object} upgradeChoice - The upgrade data for this card.
+   */
+  const createUpgradeCard = (x, y, upgradeChoice) => {
+    const frameColor = k.rgb(...upgradeChoice.color);
 
-    const box = k.add([
+    const cardBox = k.add([
       k.rect(200, 90, { radius: 10 }),
       k.color(40, 40, 40),
-      k.outline(4, frame),
+      k.outline(4, frameColor),
       k.pos(x, y),
       k.anchor("center"),
       k.area(),
@@ -30,12 +41,11 @@ export function showUpgradeUI(k, chosen, onPick) {
       k.fixed(),
       k.z(500),
       "upgradeUI",
-      { choice },
+      { upgradeChoice }, // Attach upgrade data directly to the component
     ]);
 
-    // title (icon + name)
-    const titleLabel = k.add([
-      k.text(`${choice.icon} ${choice.name}`, { size: 18, align: "center" }),
+    const titleText = k.add([
+      k.text(`${upgradeChoice.icon} ${upgradeChoice.name}`, { size: 18, align: "center" }),
       k.pos(x, y - 15),
       k.anchor("center"),
       k.fixed(),
@@ -43,45 +53,49 @@ export function showUpgradeUI(k, chosen, onPick) {
       "upgradeUI",
     ]);
 
-    // bonus number (rarity-colored)
-    const bonusLabel = k.add([
-      k.text(choice.bonusText, { size: 20, align: "center" }),
+    const bonusText = k.add([
+      k.text(upgradeChoice.bonusText, { size: 20, align: "center" }),
       k.pos(x, y + 15),
       k.anchor("center"),
-      k.color(...choice.color),
+      k.color(...upgradeChoice.color),
       k.fixed(),
       k.z(501),
       "upgradeUI",
     ]);
 
-    // hover scale feedback
-    box.onHoverUpdate(() => {
-      box.scale = k.vec2(1.1, 1.1);
-      titleLabel.scale = k.vec2(1.1, 1.1);
-      bonusLabel.scale = k.vec2(1.1, 1.1);
-    });
-    box.onHoverEnd(() => {
-      box.scale = k.vec2(1, 1);
-      titleLabel.scale = k.vec2(1, 1);
-      bonusLabel.scale = k.vec2(1, 1);
+    // Apply hover scaling to card elements
+    cardBox.onHoverUpdate(() => {
+      const scaleFactor = k.vec2(1.1, 1.1);
+      cardBox.scale = scaleFactor;
+      titleText.scale = scaleFactor;
+      bonusText.scale = scaleFactor;
     });
 
-    box.onClick(() => onPick(choice));
+    cardBox.onHoverEnd(() => {
+      const normalScale = k.vec2(1, 1);
+      cardBox.scale = normalScale;
+      titleText.scale = normalScale;
+      bonusText.scale = normalScale;
+    });
+
+    cardBox.onClick(() => onPick(upgradeChoice));
   };
 
-  makeCard(cx - 230, cy, chosen[0]);
-  makeCard(cx, cy, chosen[1]);
-  makeCard(cx + 230, cy, chosen[2]);
+  // Position and create upgrade cards
+  const cardSpacing = 230;
+  createUpgradeCard(centerX - cardSpacing, centerY, chosenUpgrades[0]);
+  createUpgradeCard(centerX, centerY, chosenUpgrades[1]);
+  createUpgradeCard(centerX + cardSpacing, centerY, chosenUpgrades[2]);
 
-  // Skip button
-  const skipX = cx + 320;
-  const skipY = cy - 140;
+  // Skip button positioning
+  const skipButtonX = centerX + 320;
+  const skipButtonY = centerY - 140;
 
-  const skipBtn = k.add([
+  const skipButton = k.add([
     k.rect(140, 36, { radius: 8 }),
     k.color(90, 90, 90),
     k.outline(2, k.rgb(220, 220, 220)),
-    k.pos(skipX, skipY),
+    k.pos(skipButtonX, skipButtonY),
     k.anchor("center"),
     k.area(),
     k.scale(1),
@@ -92,7 +106,7 @@ export function showUpgradeUI(k, chosen, onPick) {
 
   k.add([
     k.text("Skip (+10 score)", { size: 14 }),
-    k.pos(skipX, skipY),
+    k.pos(skipButtonX, skipButtonY),
     k.anchor("center"),
     k.color(255, 255, 255),
     k.fixed(),
@@ -100,16 +114,21 @@ export function showUpgradeUI(k, chosen, onPick) {
     "upgradeUI",
   ]);
 
-  skipBtn.onHoverUpdate(() => {
-    skipBtn.scale = k.vec2(1.06, 1.06);
+  // Apply hover scaling to skip button
+  skipButton.onHoverUpdate(() => {
+    skipButton.scale = k.vec2(1.06, 1.06);
   });
-  skipBtn.onHoverEnd(() => {
-    skipBtn.scale = k.vec2(1, 1);
+  skipButton.onHoverEnd(() => {
+    skipButton.scale = k.vec2(1, 1);
   });
 
-  skipBtn.onClick(() => onPick("skip"));
+  skipButton.onClick(() => onPick("skip"));
 }
 
+/**
+ * Destroys all UI elements related to the upgrade selection.
+ * @param {object} k - The Kaboom.js context object.
+ */
 export function cleanupUpgradeUI(k) {
   k.destroyAll("upgradeUI");
 }

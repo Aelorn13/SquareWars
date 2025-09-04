@@ -67,9 +67,9 @@ export const ENEMY_TYPES = [
     name: "boss",
     score: 20,
     spawnChanceWeight: 0, // Boss is ignored by the standard picker
-    color: [40, 40, 40],
+    color: [60, 20, 20],
     size: 80,
-    maxHp: 100,
+    maxHp: 180,
     speed: 80,
     damage: 9,
     rarity: 99, // Rarity value ensures it's not affected by normal rarity bias

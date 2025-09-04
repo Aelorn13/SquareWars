@@ -16,7 +16,7 @@ import { keysPressed } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 
 // Constants for enemy spawning
-const MINIMAL_SPAWN_INTERVAL = 1.95; // The fastest enemies can spawn
+const MINIMAL_SPAWN_INTERVAL = 0.2; // The fastest enemies can spawn
 const INTERVAL_DECREASE = 0.02; // How much the spawn interval decreases over time
 
 /**

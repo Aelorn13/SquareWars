@@ -21,7 +21,7 @@
 export const ENEMY_TYPES = [
   {
     name: "normal",
-    score: 1,
+    score: 2,
     spawnChanceWeight: 80,
     color: [245, 74, 74],
     size: 32,
@@ -32,7 +32,7 @@ export const ENEMY_TYPES = [
   },
   {
     name: "fast",
-    score: 1,
+    score: 3,
     spawnChanceWeight: 15,
     color: [248, 175, 39],
     size: 28,
@@ -43,7 +43,7 @@ export const ENEMY_TYPES = [
   },
   {
     name: "tank",
-    score: 2,
+    score: 4,
     spawnChanceWeight: 10,
     color: [100, 100, 255],
     size: 40,
@@ -54,7 +54,7 @@ export const ENEMY_TYPES = [
   },
   {
     name: "rageTank",
-    score: 3,
+    score: 6,
     spawnChanceWeight: 3,
     color: [153, 36, 27],
     size: 36,

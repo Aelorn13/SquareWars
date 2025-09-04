@@ -7,7 +7,7 @@ import {
   pickEdgeSpawnPosFarFromPlayer,
   showSpawnTelegraph,
 } from "./enemyUtils.js";
-import { attachBossBrain, VULNERABILITY_DAMAGE_MULTIPLIER  } from "./boss.js";
+import { attachBossBrain, VULNERABILITY_DAMAGE_MULTIPLIER } from "./boss.js";
 
 /**
  * Spawns an enemy entity into the game world.
@@ -130,7 +130,14 @@ export function spawnEnemy(
 
       // Handle enemy death when HP drops to or below zero.
       if (currentHp <= 0) {
-        enemyDeathLogic(k, enemy, player, increaseScore, updateScoreLabel, sharedState);
+        enemyDeathLogic(
+          k,
+          enemy,
+          player,
+          increaseScore,
+          updateScoreLabel,
+          sharedState
+        );
       }
     });
 
@@ -140,7 +147,7 @@ export function spawnEnemy(
 
       k.destroy(projectile); // Projectile is consumed on hit.
 
-       let damageToApply = projectile.damage; // Start with base damage
+      let damageToApply = projectile.damage; // Start with base damage
 
       if (enemy.type === "boss" && enemy.isVulnerable) {
         damageToApply *= VULNERABILITY_DAMAGE_MULTIPLIER;
@@ -168,7 +175,9 @@ export function spawnEnemy(
             k.pos(enemy.pos),
             k.anchor("center"),
           ]);
-          const velocity = k.vec2(Math.cos(angle), Math.sin(angle)).scale(speed);
+          const velocity = k
+            .vec2(Math.cos(angle), Math.sin(angle))
+            .scale(speed);
           k.tween(
             critParticle.pos,
             critParticle.pos.add(velocity.scale(0.2)),
@@ -198,12 +207,21 @@ export function spawnEnemy(
           // Interpolate enemy color towards white based on health ratio.
           const hitColor = [240, 240, 240];
           enemy.use(
-            k.color(k.rgb(...interpolateColor(enemy.originalColor, hitColor, hpRatio)))
+            k.color(
+              k.rgb(...interpolateColor(enemy.originalColor, hitColor, hpRatio))
+            )
           );
         }
       } else {
         // Enemy defeated by projectile.
-        enemyDeathLogic(k, enemy, player, increaseScore, updateScoreLabel, sharedState);
+        enemyDeathLogic(
+          k,
+          enemy,
+          player,
+          increaseScore,
+          updateScoreLabel,
+          sharedState
+        );
         if (enemy.type === "boss") {
           k.wait(0.5, () => k.go("victory")); // Transition to victory screen for boss
         }
@@ -227,18 +245,28 @@ export function spawnEnemy(
   };
 
   // === 5. Handle Spawn Telegraph or Immediate Spawn ===
-  if (spawnPositionOverride || !showTelegraph) {
-    // If a specific position is given or telegraphing is explicitly disabled, spawn immediately.
-    return createEnemyEntity();
-  } else {
-    // Otherwise, show a telegraph animation, then spawn after a delay.
+  if (forceType === "boss") {
+    // Special handling for boss to always return the boss object, even if telegraphed
     const TELEGRAPH_DURATION_SECONDS = 0.6;
     showSpawnTelegraph(k, actualSpawnPosition, sharedState, TELEGRAPH_DURATION_SECONDS);
-    k.wait(TELEGRAPH_DURATION_SECONDS, () => {
-      createEnemyEntity();
+    return new Promise(resolve => {
+      k.wait(TELEGRAPH_DURATION_SECONDS, () => {
+        const bossEntity = createEnemyEntity();
+        resolve(bossEntity);
+      });
     });
-    // Return nothing as the enemy will be spawned later.
-    return;
+  } else {
+    // For non-bosses or if not forced as boss, behave as before
+    if (spawnPositionOverride || !showTelegraph) {
+      return createEnemyEntity();
+    } else {
+      const TELEGRAPH_DURATION_SECONDS = 0.6;
+      showSpawnTelegraph(k, actualSpawnPosition, sharedState, TELEGRAPH_DURATION_SECONDS);
+      k.wait(TELEGRAPH_DURATION_SECONDS, () => {
+        createEnemyEntity();
+      });
+      return null; // Non-bosses return null if telegraphed (or handle differently if needed)
+    }
   }
 }
 
@@ -246,9 +274,16 @@ export function spawnEnemy(
  * Handles the common logic for an enemy's death.
  * This function is extracted to avoid duplication in onUpdate and onCollide.
  */
-function enemyDeathLogic(k, enemy, player, increaseScore, updateScoreLabel, sharedState) {
+function enemyDeathLogic(
+  k,
+  enemy,
+  player,
+  increaseScore,
+  updateScoreLabel,
+  sharedState
+) {
   if (enemy.dead) return; // Prevent double-triggering death logic
-
+     enemy.dead = true;
   enemyDeathAnimation(k, enemy); // Visual death effect
   increaseScore?.(enemy.score); // Update player score
   updateScoreLabel?.(); // Refresh score display

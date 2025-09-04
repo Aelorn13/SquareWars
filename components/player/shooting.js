@@ -7,7 +7,7 @@ const MIN_FIRE_RATE = 0.04; // Minimum time between shots in seconds
 function getMultiProjectileDamageScale(numProjectiles) {
   if (numProjectiles <= 1) return 1; // Single projectile gets 100% damage.
   if (numProjectiles === 3) return 0.70; // Baseline for 3 projectiles.
-  
+
   // For every projectile beyond 3, damage is reduced.
   const extraProjectiles = numProjectiles - 3;
   // Floor at 10% to prevent damage from hitting zero or going negative.
@@ -41,7 +41,7 @@ export function setupPlayerShooting(k, player, gameState) {
 
     // Calculate projectile count, defaulting to 1.
     const numProjectiles = Math.max(1, Math.floor(player.projectiles || 1));
-    
+
     // Determine total spread angle for multiple projectiles.
     const baseSpreadDegrees = player.bulletSpreadDeg ?? DEFAULT_BULLET_SPREAD_DEG;
     const totalSpreadDegrees =
@@ -68,6 +68,15 @@ export function setupPlayerShooting(k, player, gameState) {
     const multiProjectileDamageScale = getMultiProjectileDamageScale(numProjectiles);
     const damagePerProjectile = player.damage * critDamageMultiplier * multiProjectileDamageScale;
 
+    // Calculate projectile size based on current damage vs. base damage and crit multiplier.
+    // Damage buff no longer affects size, only color.
+    const basePlayerDamage = player._baseStats?.damage || player.damage; // Use current damage if base not found
+    const damageSizeMultiplier = player.damage / basePlayerDamage;
+    const projectileSize = Math.max(
+      2,
+      BASE_PROJECTILE_SIZE * damageSizeMultiplier * critDamageMultiplier,
+    );
+
     // Iterate through each projectile to create and launch it.
     for (const offsetDeg of projectileAngleOffsetsDeg) {
       const finalProjectileAngleRad = baseShotAngleRad + degToRad(offsetDeg);
@@ -75,10 +84,6 @@ export function setupPlayerShooting(k, player, gameState) {
         Math.cos(finalProjectileAngleRad),
         Math.sin(finalProjectileAngleRad),
       );
-
-      // Scale projectile size based on damage buffs and critical hits for visual feedback.
-      const sizeMultiplier = damageBuffMultiplier * critDamageMultiplier;
-      const projectileSize = Math.max(2, BASE_PROJECTILE_SIZE * sizeMultiplier);
 
       // Determine projectile color: magenta for damage buff, red for critical, yellow otherwise.
       let projectileColor = hasDamageBuff ? k.rgb(255, 0, 255) : k.rgb(255, 255, 0);
@@ -118,7 +123,7 @@ export function setupPlayerShooting(k, player, gameState) {
 
     // Calculate fire rate, ensuring it's not faster than MIN_FIRE_RATE.
     const fireRate = Math.max(MIN_FIRE_RATE, player.attackSpeed || 0.1);
-    
+
     // Reset canFire after the cooldown period.
     k.wait(fireRate, () => {
       canFire = true;

@@ -3,8 +3,8 @@
  * Each rarity has a name, color, tier, stat multiplier, and weight for rolling.
  */
 export const RarityDefinitions = [
-  { name: "Common",    color: [255, 255, 255], tier: 1, multiplier: 0.1, weight: 50 },
-  { name: "Uncommon",  color: [0, 255, 0],     tier: 2, multiplier: 0.2, weight: 25 },
+  { name: "Common",    color: [255, 255, 255], tier: 1, multiplier: 0.1, weight: 40 },
+  { name: "Uncommon",  color: [0, 255, 0],     tier: 2, multiplier: 0.2, weight: 30 },
   { name: "Rare",      color: [0, 0, 255],     tier: 3, multiplier: 0.3, weight: 15 },
   { name: "Epic",      color: [128, 0, 128],   tier: 4, multiplier: 0.4, weight: 8  },
   { name: "Legendary", color: [255, 165, 0],   tier: 5, multiplier: 0.5, weight: 2  },
@@ -17,10 +17,10 @@ export const RarityDefinitions = [
 export const StatScalingMultipliers = {
   damage: 1.0,
   speed: 0.8,
-  luck: 0.4,
+  luck: 0.5,
   bulletSpeed: 3,
   attackSpeed: 0.5,
-  dashDuration: 3.0,
+  dashDuration: 5.0,
   dashCooldown: 1.5,
   critChance: 0.5,
   critMultiplier: 2,

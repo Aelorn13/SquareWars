@@ -48,6 +48,6 @@ export function createScoreLabel(k) {
  * @param {number} nextThreshold - The score value for the next threshold.
  */
 export function updateScoreLabel(labels, score, nextThreshold) {
-  labels.scoreLabel.text = `${SCORE_LABEL_TEXT_PREFIX}${score}`;
+  labels.scoreLabel.text = `${SCORE_LABEL_TEXT_PREFIX}${score} `;
   labels.thresholdLabel.text = `/ ${nextThreshold}`;
 }

@@ -4,14 +4,15 @@ const MIN_FIRE_RATE = 0.04; // Minimum time between shots in seconds
 
 // Calculates damage scaling for multiple projectiles.
 // Returns a multiplier (0.1 to 1) based on the number of projectiles.
+const MULTIPLE_PROJECTILE_SCALLING = 0.6;
 function getMultiProjectileDamageScale(numProjectiles) {
   if (numProjectiles <= 1) return 1; // Single projectile gets 100% damage.
-  if (numProjectiles === 3) return 0.70; // Baseline for 3 projectiles.
+  if (numProjectiles === 3) return MULTIPLE_PROJECTILE_SCALLING; // Baseline for 3 projectiles.
 
   // For every projectile beyond 3, damage is reduced.
   const extraProjectiles = numProjectiles - 3;
   // Floor at 10% to prevent damage from hitting zero or going negative.
-  return Math.max(0.1, 0.70 - 0.05 * extraProjectiles);
+  return Math.max(0.1, MULTIPLE_PROJECTILE_SCALLING - 0.05 * extraProjectiles);
 }
 
 export function setupPlayerShooting(k, player, gameState) {

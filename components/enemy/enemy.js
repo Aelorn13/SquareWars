@@ -1,4 +1,3 @@
-// components/enemy/enemy.js
 import { ENEMY_TYPES, chooseEnemyType } from "./enemyTypes.js";
 import {
   interpolateColor,
@@ -7,7 +6,8 @@ import {
   pickEdgeSpawnPosFarFromPlayer,
   showSpawnTelegraph,
 } from "./enemyUtils.js";
-import { attachBossBrain, VULNERABILITY_DAMAGE_MULTIPLIER } from "./boss.js";
+import { attachBossBrain } from "./boss/index.js";
+import {VULNERABILITY_DAMAGE_MULTIPLIER} from "./boss/constants.js"
 
 /**
  * Spawns an enemy entity into the game world.

@@ -1,126 +1,89 @@
-import { POWERUP_TYPES, DURATION_POWERBUFF } from "./powerupTypes.js";
-import { spawnPowerUp } from "./spawnPowerup.js";
-import { applyTemporaryStatBuff} from "./powerupEffects/temporaryStatBuffEffect.js";
+/**
+ * @file Handles the application of power-up effects to the player or game world.
+ */
+
+import { POWERUP_CONFIG, DEFAULT_POWERUP_DURATION } from "./powerupTypes.js";
+import { applyTemporaryStatBuff } from "./powerupEffects/temporaryStatBuffEffect.js";
 import { spawnShockwave } from "./powerupEffects/shockwaveEffect.js";
 
-export { POWERUP_TYPES, DURATION_POWERBUFF, spawnPowerUp };
-
-// A small helper to ensure player._buffData exists
-function ensureBuffData(player) {
-  if (!player._buffData) {
-    player._buffData = {};
-  }
-}
-
 /**
- * Manages the invincibility buff for a player.
- * Applies invincibility, sets up a visual flash, and schedules its removal.
- * If invincibility is already active, it extends the duration.
- * @param {object} k - The game engine instance (e.g., Kaboom.js 'k').
- * @param {object} player - The player object to apply the buff to.
+ * Manages the invincibility buff, extending its duration if already active.
+ * @param {object} k - The Kaboom.js context.
+ * @param {object} player - The player entity.
  */
 function handleInvincibilityBuff(k, player) {
-  ensureBuffData(player);
-
+  player._buffData = player._buffData || {};
   const buffKey = "invincibility";
-  let buff = player._buffData[buffKey];
+  let activeBuff = player._buffData[buffKey];
 
-  if (!buff) {
-    // Apply initial invincibility
-    player.isInvincible = true;
-    // Create a flashing effect for visual feedback
-    const flashEffect = k.loop(0.1, () => (player.hidden = !player.hidden));
-
-    buff = {
-      // Calculate the end time for the buff
-      endTime: Date.now() + DURATION_POWERBUFF * 1000,
-      // Placeholder for the timer that will remove the buff
-      removalTimer: null,
-      // Store the flashing effect to cancel it later
-      flashEffect,
-    };
-    player._buffData[buffKey] = buff;
+  if (activeBuff) {
+    // If already invincible, extend the duration and reset the removal timer.
+    activeBuff.endTime += DEFAULT_POWERUP_DURATION * 1000;
+    activeBuff.removalTimer.cancel();
   } else {
-    // If already invincible, extend the duration
-    buff.endTime += DURATION_POWERBUFF * 1000;
+    // If not, apply the effect for the first time.
+    player.isInvincible = true;
+    const flashEffect = k.loop(0.1, () => (player.hidden = !player.hidden));
+    activeBuff = {
+      endTime: Date.now() + DEFAULT_POWERUP_DURATION * 1000,
+      flashEffect: flashEffect,
+    };
+    player._buffData[buffKey] = activeBuff;
   }
 
-  // Schedule or reschedule the buff removal
-  if (buff.removalTimer) {
-    buff.removalTimer.cancel?.(); // Cancel any existing timer to prevent duplicates
-  }
-
-  const remainingDurationMs = Math.max(0, buff.endTime - Date.now());
-  // Set a new timer to remove the buff after the calculated duration
-  buff.removalTimer = k.wait(Math.max(0.001, remainingDurationMs / 1000), () => {
+  // Schedule the removal of the invincibility effect.
+  const remainingDurationMs = Math.max(0, activeBuff.endTime - Date.now());
+  activeBuff.removalTimer = k.wait(remainingDurationMs / 1000, () => {
     player.isInvincible = false;
-    player.hidden = false; // Ensure player is visible again
-    buff.flashEffect.cancel?.(); // Stop the flashing effect
-    delete player._buffData[buffKey]; // Clean up buff data
+    player.hidden = false;
+    activeBuff.flashEffect.cancel();
+    delete player._buffData[buffKey];
   });
 }
 
 /**
- * applyPowerUp(k, player, powerUpType, onHealPickup)
- * - Applies various power-ups to the player based on the type.
- * - Uses applyTemporaryStatBuff() for timed effects (stacking duration).
- * - Handles specific logic for heal and invincibility power-ups.
- * @param {object} k - The game engine instance (e.g., Kaboom.js 'k').
- * @param {object} player - The player object to apply the power-up to.
- * @param {string} powerUpType - The type of power-up to apply (e.g., "heal", "invincibility").
- * @param {function} [onHealPickup] - Optional callback function to execute when a "heal" power-up is picked up.
+ * Applies a power-up effect to the player based on its type from the configuration.
+ * @param {object} k - The Kaboom.js context.
+ * @param {object} player - The player entity.
+ * @param {string} powerUpType - The type of power-up to apply (e.g., "SPEED").
+ * @param {object} gameContext - The shared game context object.
+ * @param {function} [onHeal] - Optional callback for heal power-ups.
  */
-export function applyPowerUp(k, player, powerUpType, onHealPickup) {
-  switch (powerUpType) {
-    case POWERUP_TYPES.HEAL: // Using defined constants is generally better
-      player.heal?.(2);
-      onHealPickup?.(); // Execute callback if provided
-      break;
+export function applyPowerUp(k, player, powerUpType, gameContext, onHeal) {
+  const config = POWERUP_CONFIG[powerUpType];
 
-    case POWERUP_TYPES.INVINCIBILITY:
-      handleInvincibilityBuff(k, player); // Delegate invincibility logic
-      break;
+  if (!config || !config.effects) {
+    console.warn(`applyPowerUp: No configuration found for type: ${powerUpType}`);
+    return;
+  }
 
-    case POWERUP_TYPES.RAPID_FIRE:
-      // Increase attack speed by 40%
-      applyTemporaryStatBuff(k, player, "attackSpeed", 0.4, DURATION_POWERBUFF);
-      break;
+  // Iterate over all effects defined for this power-up.
+  for (const effect of config.effects) {
+    switch (effect.type) {
+      case 'statBuff':
+        applyTemporaryStatBuff(k, player, effect.stat, effect.value, DEFAULT_POWERUP_DURATION, effect.mode);
+        break;
 
-    case POWERUP_TYPES.DAMAGE:
-      // Increase damage by 1 (additive)
-      applyTemporaryStatBuff(k, player, "damage", 1, DURATION_POWERBUFF, "additive");
-      break;
+      case 'heal':
+        player.heal(effect.amount);
+        onHeal?.();
+        break;
 
-    case POWERUP_TYPES.SPEED:
-      // Increase movement speed by 2
-      applyTemporaryStatBuff(k, player, "speed", 2, DURATION_POWERBUFF);
-      // Reduce dash cooldown by 30%
-      applyTemporaryStatBuff(k, player, "dashCooldown", 0.3, DURATION_POWERBUFF);
-      break;
+      case 'shockwave':
+        spawnShockwave(k, player.pos, player, gameContext, {
+          damage: effect.damage,
+          maxRadius: effect.maxRadius,
+        });
+        k.shake(12);
+        break;
 
-    case POWERUP_TYPES.ALWAYS_CRIT:
-      // Set critical chance to 100% (absolute value)
-      applyTemporaryStatBuff(k, player, "critChance", 1, DURATION_POWERBUFF, "absolute");
-      break;
+      case 'invincibility':
+        handleInvincibilityBuff(k, player);
+        break;
 
-    case POWERUP_TYPES.TRIPLE_PROJECTILES:
-      // Add 2 extra projectiles (resulting in 3 total with base 1)
-      applyTemporaryStatBuff(k, player, "projectiles", 2, DURATION_POWERBUFF, "additive");
-      break;
-
-    case POWERUP_TYPES.BOMB:
-      // Spawn a shockwave effect for visual and damage to current enemies
-      spawnShockwave(k, player.pos, {
-        damage: 5,
-        maxRadius: 320,
-        speed: 560,
-        segments: 28,
-        segSize: 10
-      });
-      break;
-
-    default:
-      console.warn(`applyPowerUp: Unknown power-up type encountered: ${powerUpType}`);
-      break;
+      default:
+        console.warn(`applyPowerUp: Unknown effect type: ${effect.type}`);
+        break;
+    }
   }
 }

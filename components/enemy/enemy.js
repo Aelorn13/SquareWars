@@ -7,285 +7,218 @@ import {
   showSpawnTelegraph,
 } from "./enemyUtils.js";
 import { attachBossBrain } from "./boss/index.js";
-import {VULNERABILITY_DAMAGE_MULTIPLIER} from "./boss/constants.js"
+import { VULNERABILITY_DAMAGE_MULTIPLIER } from "./boss/constants.js";
+
+const TELEGRAPH_DURATION = 0.6; // In seconds
+
+// =============================================================================
+// REFACTOR 1: Global Collision Logic (Call this ONCE in your scene setup)
+// =============================================================================
 
 /**
- * Spawns an enemy entity into the game world.
- *
- * @param {object} k - The Kaboom.js context object.
- * @param {object} player - The player entity.
- * @param {function} updateHealthBar - Function to update the player's health bar UI.
- * @param {function} updateScoreLabel - Function to update the score label UI.
- * @param {function} increaseScore - Function to increase the player's score.
- * @param {object} sharedState - Global shared state object for the game.
- * @param {string|null} [forceType=null] - Optional: Forces a specific enemy type (e.g., "boss").
- * @param {object|null} [spawnPositionOverride=null] - Optional: If provided, spawns the enemy at this specific position, skipping edge telegraph.
- * @param {number} [progress=0] - Game progress (0-1) used for rarity ramping of enemy types.
- * @param {boolean} [showTelegraph=true] - If true and no spawnPositionOverride, shows an edge telegraph before spawning.
+ * Sets up the global collision handler between enemies and the player.
+ * Should be called only once when the game scene is initialized.
+ * @param {object} k - The Kaboom.js context.
+ * @param {object} gameContext - Contains shared state and health update callbacks.
  */
-export function spawnEnemy(
-  k,
-  player,
-  updateHealthBar,
-  updateScoreLabel,
-  increaseScore,
-  sharedState,
-  forceType = null,
-  spawnPositionOverride = null,
-  progress = 0,
-  showTelegraph = true
-) {
-  // === 1. Initialize Global Collision Hook (One-Time Setup) ===
-  // Ensures that the player-enemy collision logic is only set up once globally.
-  if (!sharedState._enemyPlayerCollisionHookInitialized) {
-    sharedState._enemyPlayerCollisionHookInitialized = true;
-    k.onCollide("enemy", "player", (enemy, playerEntity) => {
-      // Safely handle cases where entities might be null or already dead.
-      if (!enemy || !playerEntity || enemy.dead) return;
-      if (playerEntity.isInvincible) return;
+export function setupEnemyPlayerCollisions(k, gameContext) {
+  k.onCollide("enemy", "player", (enemy, player) => {
+    if (enemy.dead || player.isInvincible) return;
 
-      // Player takes damage.
-      playerEntity.hurt(enemy.damage ?? 1);
-      updateHealthBar?.();
-      k.shake(10); // Visual feedback for player taking damage.
+    player.hurt(enemy.damage ?? 1);
+    gameContext.updateHealthBar?.();
+    k.shake(10);
 
-      // Check for player death.
-      if (playerEntity.hp && playerEntity.hp() <= 0) {
-        k.go("gameover");
-      }
+    if (player.hp() <= 0) {
+      k.go("gameover");
+    }
 
-      // Non-boss enemies are destroyed upon colliding with the player.
-      if (enemy.type !== "boss") {
-        k.destroy(enemy);
-      }
-    });
-  }
+    // Regular enemies are destroyed on collision with the player.
+    if (enemy.type !== "boss") {
+      k.destroy(enemy);
+    }
+  });
+}
 
-  // === 2. Determine Spawn Position ===
-  const defaultSpawnPosition = pickEdgeSpawnPosFarFromPlayer(
-    k,
-    sharedState,
-    player,
-    120, // Min distance from player
-    28 // Min distance from edge
-  );
-  const actualSpawnPosition = spawnPositionOverride ?? defaultSpawnPosition;
 
-  // === 3. Determine Enemy Type ===
-  // If forceType is provided, find that specific type; otherwise, choose based on progress.
-  const enemyTypeConfig = forceType
-    ? ENEMY_TYPES.find((type) => type.name === forceType) ??
-      chooseEnemyType(ENEMY_TYPES, progress) // Fallback if forced type not found
+// =============================================================================
+// REFACTOR 2: Main Spawning Orchestrator
+// =============================================================================
+
+/**
+ * Orchestrates spawning an enemy, handling position, type selection, and telegraphing.
+ * @param {object} k - The Kaboom.js context.
+ * @param {object} player - The player entity.
+ * @param {object} gameContext - Contains shared state, score, and UI update functions.
+ * @param {object} options - Spawning options.
+ * @param {string} [options.forceType=null] - Force a specific enemy type.
+ * @param {object} [options.spawnPos=null] - Override the spawn position.
+ * @param {number} [options.progress=0] - Game progress (0-1) for enemy selection.
+ * @param {boolean} [options.showTelegraph=true] - Whether to show a spawn telegraph.
+ * @returns {Promise|object|null} A promise for the boss, the enemy object if spawned immediately, or null.
+ */
+export function spawnEnemy(k, player, gameContext, options = {}) {
+  const { forceType = null, spawnPos: posOverride = null, progress = 0, showTelegraph = true } = options;
+
+  // 1. Determine enemy type configuration.
+  const config = forceType
+    ? ENEMY_TYPES.find((t) => t.name === forceType) ?? chooseEnemyType(ENEMY_TYPES, progress)
     : chooseEnemyType(ENEMY_TYPES, progress);
 
-  // === 4. Core Enemy Creation Function ===
-  // This function encapsulates the actual creation and setup of the enemy entity.
-  const createEnemyEntity = () => {
-    const enemy = k.add([
-      k.rect(enemyTypeConfig.size, enemyTypeConfig.size),
-      k.color(k.rgb(...enemyTypeConfig.color)),
-      k.anchor("center"),
-      k.area(), // Enables collisions
-      k.body(), // Enables physics (gravity, collision response - though body usually implies gravity)
-      k.pos(actualSpawnPosition),
-      k.rotate(0),
-      k.health(enemyTypeConfig.maxHp),
-      "enemy", // Tag for collision detection
-      {
-        originalColor: enemyTypeConfig.color,
-        score: enemyTypeConfig.score,
-        speed: enemyTypeConfig.speed,
-        maxHp: enemyTypeConfig.maxHp,
-        damage: enemyTypeConfig.damage,
-        type: enemyTypeConfig.name,
-        dead: false, // Custom flag to indicate death state
-      },
-    ]);
+  // 2. Determine spawn position.
+  const spawnPos = posOverride ?? pickEdgeSpawnPosFarFromPlayer(k, gameContext.sharedState, player, 120, 28);
 
-    // Store base stats for later modifications (e.g., speed changes)
-    enemy._baseStats = {
-      speed: enemy.speed,
-    };
+  const enemyCreator = () => createEnemy(k, player, config, spawnPos, gameContext);
 
-    // Initial orientation towards the player.
-    enemy.rotateTo(player.pos.angle(enemy.pos));
+  // 3. Handle spawn timing (telegraph or immediate).
+  if (!posOverride && showTelegraph) {
+    showSpawnTelegraph(k, spawnPos, gameContext.sharedState, TELEGRAPH_DURATION);
 
-    // --- Enemy Update Loop (Movement, Death Check) ---
-    enemy.onUpdate(() => {
-      if (sharedState.isPaused || enemy.dead) return;
-
-      // Bosses might have specific charge states where they don't move.
-      if (enemy.type !== "boss" || (enemy.chargeState ?? "idle") === "idle") {
-        enemy.moveTo(player.pos, enemy.speed);
-      }
-
-      // If enemy is already dead, no further update logic needed.
-      if (enemy.dead) return;
-
-      // Safely get current health.
-      const currentHp = typeof enemy.hp === "function" ? enemy.hp() : enemy.hp;
-
-      // Skip health check until HP is a valid number.
-      if (typeof currentHp !== "number" || Number.isNaN(currentHp)) return;
-
-      // Handle enemy death when HP drops to or below zero.
-      if (currentHp <= 0) {
-        enemyDeathLogic(
-          k,
-          enemy,
-          player,
-          increaseScore,
-          updateScoreLabel,
-          sharedState
-        );
-      }
-    });
-
-    // --- Projectile Collision Handler ---
-    enemy.onCollide("projectile", (projectile) => {
-      if (enemy.dead) return; // Prevent actions on an already dead enemy.
-
-      k.destroy(projectile); // Projectile is consumed on hit.
-
-      let damageToApply = projectile.damage; // Start with base damage
-
-      if (enemy.type === "boss" && enemy.isVulnerable) {
-        damageToApply *= VULNERABILITY_DAMAGE_MULTIPLIER;
-        k.add([
-          k.text("CRIT!", { size: 16 }),
-          k.color(255, 255, 0), // Yellow text
-          k.pos(enemy.pos.add(k.rand(-20, 20), k.rand(-20, 20))),
-          k.lifespan(0.5),
-          k.move(k.UP, 40),
-          k.opacity(1),
-        ]);
-        k.shake(3); //  screen shake xdd
-      }
-
-      enemy.hurt(damageToApply); // Apply calculated damage to the enemy.
-
-      // Visual feedback for critical hits.
-      if (projectile.isCrit) {
-        for (let i = 0; i < 8; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = Math.random() * 100 + 50;
-          const critParticle = k.add([
-            k.circle(2),
-            k.color(255, 0, 0), // Red color for crit
-            k.pos(enemy.pos),
-            k.anchor("center"),
-          ]);
-          const velocity = k
-            .vec2(Math.cos(angle), Math.sin(angle))
-            .scale(speed);
-          k.tween(
-            critParticle.pos,
-            critParticle.pos.add(velocity.scale(0.2)),
-            0.2,
-            (v) => (critParticle.pos = v)
-          );
-          k.wait(0.2, () => k.destroy(critParticle));
-        }
-      }
-
-      // Handle enemy state if still alive after damage.
-      if (enemy.hp() > 0) {
-        const hpRatio = Math.max(enemy.hp() / enemy.maxHp, 0.01); // Avoid division by zero, min 0.01
-
-        // Specific behavior for "rageTank" type.
-        if (enemy.type === "rageTank") {
-          // rageTank speeds up as it loses HP.
-          enemy.speed = enemy._baseStats.speed * (1 + (1 - hpRatio) * 0.5); // Smoother ramping, tuned factor
-        }
-
-        // General visual feedback and temporary speed reduction for non-boss enemies.
-        if (enemy.type !== "boss") {
-          // Briefly slow down non-boss enemies after being hit.
-          enemy.speed = enemy._baseStats.speed * 0.3; // Significantly slow down
-          k.wait(0.2, () => (enemy.speed = enemy._baseStats.speed)); // Return to original speed
-
-          // Interpolate enemy color towards white based on health ratio.
-          const hitColor = [240, 240, 240];
-          enemy.use(
-            k.color(
-              k.rgb(...interpolateColor(enemy.originalColor, hitColor, hpRatio))
-            )
-          );
-        }
-      } else {
-        // Enemy defeated by projectile.
-        enemyDeathLogic(
-          k,
-          enemy,
-          player,
-          increaseScore,
-          updateScoreLabel,
-          sharedState
-        );
-        if (enemy.type === "boss") {
-          k.wait(0.5, () => k.go("victory")); // Transition to victory screen for boss
-        }
-      }
-    });
-
-    // --- Boss-Specific AI Attachment ---
-    if (enemy.type === "boss") {
-      attachBossBrain(
-        k,
-        enemy,
-        player,
-        updateHealthBar,
-        updateScoreLabel,
-        increaseScore,
-        sharedState
-      );
+    // Returns a promise for the boss to allow callers to get a reference to it.
+    if (config.name === "boss") {
+      return new Promise(resolve => {
+        k.wait(TELEGRAPH_DURATION, () => resolve(enemyCreator()));
+      });
     }
 
-    return enemy;
-  };
-
-  // === 5. Handle Spawn Telegraph or Immediate Spawn ===
-  if (forceType === "boss") {
-    // Special handling for boss to always return the boss object, even if telegraphed
-    const TELEGRAPH_DURATION_SECONDS = 0.6;
-    showSpawnTelegraph(k, actualSpawnPosition, sharedState, TELEGRAPH_DURATION_SECONDS);
-    return new Promise(resolve => {
-      k.wait(TELEGRAPH_DURATION_SECONDS, () => {
-        const bossEntity = createEnemyEntity();
-        resolve(bossEntity);
-      });
-    });
-  } else {
-    // For non-bosses or if not forced as boss, behave as before
-    if (spawnPositionOverride || !showTelegraph) {
-      return createEnemyEntity();
-    } else {
-      const TELEGRAPH_DURATION_SECONDS = 0.6;
-      showSpawnTelegraph(k, actualSpawnPosition, sharedState, TELEGRAPH_DURATION_SECONDS);
-      k.wait(TELEGRAPH_DURATION_SECONDS, () => {
-        createEnemyEntity();
-      });
-      return null; // Non-bosses return null if telegraphed (or handle differently if needed)
-    }
+    // Fire-and-forget for regular enemies.
+    k.wait(TELEGRAPH_DURATION, enemyCreator);
+    return null;
   }
+
+  // Spawn immediately if no telegraph is needed.
+  return enemyCreator();
+}
+
+
+// =============================================================================
+// REFACTOR 3: Enemy Creation and Behavior Attachment
+// =============================================================================
+
+/**
+ * Creates and configures a single enemy entity with all its behaviors.
+ */
+function createEnemy(k, player, config, spawnPos, gameContext) {
+  const enemy = k.add([
+    k.rect(config.size, config.size),
+    k.color(k.rgb(...config.color)),
+    k.pos(spawnPos),
+    k.anchor("center"),
+    k.area(),
+    k.body(),
+    k.rotate(0),
+    k.health(config.maxHp),
+    "enemy",
+    // Custom properties
+    {
+      type: config.name,
+      damage: config.damage,
+      score: config.score,
+      speed: config.speed,
+      maxHp: config.maxHp,
+      originalColor: config.color,
+      baseSpeed: config.speed,
+      dead: false,
+    },
+  ]);
+
+  attachEnemyBehaviors(k, enemy, player, gameContext);
+
+  if (enemy.type === "boss") {
+    attachBossBrain(k, enemy, player, gameContext);
+  }
+
+  return enemy;
 }
 
 /**
- * Handles the common logic for an enemy's death.
- * This function is extracted to avoid duplication in onUpdate and onCollide.
+ * Attaches onUpdate and onCollide behaviors to an enemy entity.
  */
-function enemyDeathLogic(
-  k,
-  enemy,
-  player,
-  increaseScore,
-  updateScoreLabel,
-  sharedState
-) {
-  if (enemy.dead) return; // Prevent double-triggering death logic
-     enemy.dead = true;
-  enemyDeathAnimation(k, enemy); // Visual death effect
-  increaseScore?.(enemy.score); // Update player score
-  updateScoreLabel?.(); // Refresh score display
-  dropPowerUp(k, player, enemy.pos, sharedState); // Drop power-up at enemy's position
+function attachEnemyBehaviors(k, enemy, player, gameContext) {
+  // --- Orient towards player initially ---
+  enemy.rotateTo(player.pos.angle(enemy.pos));
+
+  // --- Main Update Loop ---
+  enemy.onUpdate(() => {
+    if (gameContext.sharedState.isPaused || enemy.dead) return;
+
+    // Boss movement is handled by its own brain, except for idle state.
+    const isStandardMovement = enemy.type !== "boss" || (enemy.chargeState ?? "idle") === "idle";
+    if (isStandardMovement) {
+      enemy.moveTo(player.pos, enemy.speed);
+    }
+  });
+
+  // --- Projectile Collision ---
+  enemy.onCollide("projectile", (projectile) => {
+    if (enemy.dead) return;
+
+    let damageToApply = projectile.damage;
+
+    // Handle boss vulnerability and crit effects
+    if (enemy.type === "boss" && enemy.isVulnerable) {
+      damageToApply *= VULNERABILITY_DAMAGE_MULTIPLIER;
+      showCritEffect(k, enemy.pos, "CRIT!", k.rgb(255, 255, 0));
+      k.shake(3);
+    }
+
+    enemy.hurt(damageToApply);
+    k.destroy(projectile);
+
+    if (projectile.isCrit) {
+      showCritEffect(k, enemy.pos, "CRIT!", k.rgb(255, 0, 0)); // Visual for player crits
+    }
+
+    // --- Handle post-damage logic if enemy survives ---
+    if (enemy.hp() > 0) {
+      const hpRatio = Math.max(0.01, enemy.hp() / enemy.maxHp);
+
+      // 'rageTank' speeds up as it loses health. Ramps up to 1.5x speed.
+      if (enemy.type === "rageTank") {
+        enemy.speed = enemy.baseSpeed * (1 + (1 - hpRatio) * 0.5);
+      }
+
+      // Non-boss enemies have visual feedback and a temporary slow.
+      if (enemy.type !== "boss") {
+        enemy.speed = enemy.baseSpeed * 0.3;
+        k.wait(0.2, () => (enemy.speed = enemy.baseSpeed));
+        enemy.color = k.rgb(...interpolateColor(enemy.originalColor, [240, 240, 240], hpRatio));
+      }
+    } else {
+      // --- Handle enemy death ---
+      enemyDeathLogic(k, enemy, player, gameContext);
+      if (enemy.type === "boss") {
+        k.wait(0.5, () => k.go("victory"));
+      }
+    }
+  });
+}
+
+// =============================================================================
+// REFACTOR 4: Utility and Logic Functions
+// =============================================================================
+
+/**
+ * Handles the common logic for an enemy's death to avoid code duplication.
+ */
+export function enemyDeathLogic(k, enemy, player, gameContext) {
+  if (enemy.dead) return; // Prevent this from running multiple times
+  enemy.dead = true;
+
+  enemyDeathAnimation(k, enemy);
+  gameContext.increaseScore?.(enemy.score);
+  dropPowerUp(k, player, enemy.pos, gameContext.sharedState);
+}
+
+/**
+ * Displays a text-based critical hit effect at a position.
+ */
+function showCritEffect(k, pos, text, color) {
+  k.add([
+    k.text(text, { size: 16 }),
+    k.pos(pos.add(k.rand(-20, 20), k.rand(-20, 20))),
+    k.color(color),
+    k.lifespan(0.5),
+    k.move(k.UP, 40),
+  ]);
 }

@@ -4,6 +4,7 @@ import { defineGameOverScene } from "./scenes/gameover.js";
 import { TutorialScene } from "./scenes/tutorial.js";
 import { initControls } from "./components/player/controls.js";
 import { defineVictoryScene } from "./scenes/victory.js";
+import{defineDebugScene} from "./scenes/debug.js";
 const k = kaplay({
   width: 1024,
   height: 820,
@@ -24,4 +25,6 @@ defineGameOverScene(k, () => scoreRef.value());
 defineVictoryScene(k, () => scoreRef.value());
 TutorialScene(k);
 initControls();
-k.go("tutorial");
+// k.go("tutorial");
+defineDebugScene(k);
+k.go("debug")

@@ -1,142 +1,126 @@
-// ==============================
-// applyTemporaryStatBuff
-// ==============================
 /**
- * Applies a time-limited stat buff to an object. Buffs are layered,
- * allowing multiple buffs to stack or replace each other based on their mode.
+ * @file A system for applying temporary, stackable attribute buffs to game objects.
+ */
+
+/**
+ * Applies a time-limited stat modification to an object. This system is designed
+ * to be robust, handling multiple overlapping buffs and permanent stat upgrades gracefully.
  *
- * - Maintains a base snapshot per stat (`obj._baseStats`) to ensure buffs
- *   work correctly with permanent upgrades. This base is set on the first buff.
- * - Active buffs for a stat are stored in `obj._buffLayers[stat]`.
- * - Extending an existing buff updates its expiry time rather than adding a new entry.
- * - When all buffs for a stat expire, the stat is restored to its base value,
- *   and the base is then synced to the current value for future buffs.
+ * How it works:
+ * 1.  `_baseStats`: When a stat is buffed for the first time, its original value is stored.
+ *     This ensures buffs always modify the "true" base, not a value already modified by another buff.
+ * 2.  `_buffLayers`: Each active buff is stored as a layer. This allows multiple buffs
+ *     (e.g., two speed boosts) to coexist on the same stat.
+ * 3.  `recomputeStat`: After any change (buff added/removed), this function recalculates the
+ *     stat's final value by applying all active buff layers to the base stat.
+ * 4.  Buff Extension: Applying an identical buff that's already active will extend its duration
+ *     instead of adding a redundant new layer.
  *
- * @param {object} k - The Kaboom.js context object, used for `k.wait`.
- * @param {object} obj - The object receiving the buff (e.g., player, enemy).
- * @param {string} statName - The name of the stat to buff (e.g., "attackSpeed", "damage").
- * @param {number} value - The value associated with the buff (multiplier, absolute value, or additive amount).
+ * @param {object} k - The Kaboom.js context, used for `k.wait`.
+ * @param {object} target - The game object receiving the buff (e.g., player).
+ * @param {string} statName - The name of the stat to buff (e.g., "attackSpeed").
+ * @param {number} value - The value of the buff.
  * @param {number} durationSeconds - The duration of the buff in seconds.
- * @param {"multiplier" | "absolute" | "additive"} mode - The mode of the buff.
- *   - "multiplier" (default): `stat = base * value`
- *   - "absolute": `stat = value` (overrides all other buffs)
- *   - "additive": `stat = base + value`
+ * @param {"multiplicative" | "additive" | "absolute"} mode - How the buff is applied:
+ *   - "multiplicative": stat = base * value
+ *   - "additive": stat = base + value
+ *   - "absolute": stat = value (overrides all other buffs)
  */
 export function applyTemporaryStatBuff(
   k,
-  obj,
+  target,
   statName,
   value,
   durationSeconds,
-  mode = "multiplier",
+  mode = "multiplicative",
 ) {
-  if (!obj) {
-    console.warn("applyTemporaryStatBuff called with nullish object.");
+  if (!target) {
+    console.warn("applyTemporaryStatBuff: `target` object is null or undefined.");
     return;
   }
 
-  // Initialize buff layers and base stats if they don't exist.
-  const buffLayers = (obj._buffLayers ??= {});
-  const baseStats = (obj._baseStats ??= {});
-  const now = Date.now();
-  const durationMs = Math.max(0, durationSeconds * 1000);
+  // Initialize storage on the target object if it doesn't exist.
+  const buffLayers = (target._buffLayers ??= {});
+  const baseStats = (target._baseStats ??= {});
 
-  // If this is the first time we're buffing this specific stat,
-  // snapshot its current value as the base.
+  // Snapshot the stat's current value as the base if this is the first buff.
   if (baseStats[statName] === undefined) {
-    baseStats[statName] = Number(obj[statName]) || 0;
+    baseStats[statName] = Number(target[statName]) || 0;
   }
 
   /**
-   * Recalculates the stat's effective value based on its base and all active buffs.
-   * This function also handles syncing the base stat if no buffs remain.
+   * Recalculates the stat's value based on its base and all active buffs.
    */
   const recomputeStat = () => {
-    let currentVal = baseStats[statName];
+    let finalValue = baseStats[statName];
     const activeBuffs = buffLayers[statName] || [];
 
     if (activeBuffs.length > 0) {
-      let absoluteBuffApplied = false;
-      for (const buff of activeBuffs) {
-        if (buff.mode === "absolute") {
-          // Absolute buffs override all others. If multiple absolute buffs exist,
-          // the last one in the array (most recently applied) will take precedence
-          // due to the loop order.
-          currentVal = buff.value;
-          absoluteBuffApplied = true;
-        } else if (!absoluteBuffApplied) {
-          // Apply multiplier or additive buffs only if no absolute buff is active.
-          if (buff.mode === "multiplier") {
-            currentVal *= buff.value;
-          } else if (buff.mode === "additive") {
-            currentVal += buff.value;
+      // Prioritize 'absolute' buffs. If one exists, it dictates the value.
+      const absoluteBuff = activeBuffs.find(b => b.mode === 'absolute');
+      if (absoluteBuff) {
+        finalValue = absoluteBuff.value;
+      } else {
+        // Otherwise, apply additive and multiplicative buffs to the base value.
+        activeBuffs.forEach(buff => {
+          if (buff.mode === "additive") {
+            finalValue += buff.value;
+          } else if (buff.mode === "multiplicative") {
+            finalValue *= buff.value;
           }
-        }
+        });
       }
     }
 
-    obj[statName] = currentVal;
+    target[statName] = finalValue;
 
-    // Special handling for attackSpeed to trigger UI updates if necessary.
-    if (statName === "attackSpeed") {
-      obj._cosmetics?.updateAttackSpeedColor?.();
-    }
-
-    // If no active buffs remain for this stat, sync the base value to the
-    // current (potentially permanently upgraded) value for future buffs.
+    // After all buffs expire, sync the base stat to the target's current stat.
+    // This accounts for permanent upgrades acquired while buffs were active.
     if (activeBuffs.length === 0) {
-      baseStats[statName] = Number(obj[statName]) || 0;
-      // Clean up the empty layer array to keep `_buffLayers` tidy.
-      delete buffLayers[statName];
+      baseStats[statName] = Number(target[statName]) || 0;
+      delete buffLayers[statName]; // Clean up empty array.
     }
   };
 
   /**
-   * Schedules the expiry of a specific buff entry.
-   * @param {object} buffEntry - The buff object to schedule for expiry.
+   * Schedules the removal of a buff after its duration expires.
+   * @param {object} buffEntry - The buff object to schedule for removal.
    */
   const scheduleBuffExpiry = (buffEntry) => {
-    // Calculate remaining time for the buff. Ensure at least a small delay.
-    const remainingTimeSeconds = Math.max(0.001, (buffEntry.endTime - Date.now()) / 1000);
+    const remainingTime = (buffEntry.endTime - Date.now()) / 1000;
+    buffEntry.timer?.cancel(); // Cancel any existing timer for this buff.
 
-    // Cancel any pre-existing timer for this buff to prevent multiple expirations.
-    buffEntry.timer?.cancel?.();
-
-    buffEntry.timer = k.wait(remainingTimeSeconds, () => {
+    buffEntry.timer = k.wait(remainingTime, () => {
       const activeBuffs = buffLayers[statName];
       if (activeBuffs) {
-        // Remove the expired buff from the array.
-        const buffIndex = activeBuffs.indexOf(buffEntry);
-        if (buffIndex >= 0) {
-          activeBuffs.splice(buffIndex, 1);
+        const index = activeBuffs.indexOf(buffEntry);
+        if (index > -1) {
+          activeBuffs.splice(index, 1);
         }
       }
-      recomputeStat(); // Recalculate stat after buff removal.
+      recomputeStat();
     });
   };
 
-  // Get or initialize the array of buffs for this specific stat.
   const statBuffs = (buffLayers[statName] ??= []);
+  const durationMs = durationSeconds * 1000;
 
-  // Check if an identical buff (same mode and value) already exists.
-  // If so, just extend its duration.
-  const existingBuff = statBuffs.find(
-    (b) => b.mode === mode && b.value === value,
-  );
+  // Check if an identical buff already exists to extend it.
+  const existingBuff = statBuffs.find(b => b.mode === mode && b.value === value);
 
   if (existingBuff) {
-    existingBuff.endTime += durationMs;
-    scheduleBuffExpiry(existingBuff); // Reschedule with new end time.
+    existingBuff.endTime = Date.now() + ((existingBuff.endTime - Date.now()) + durationMs);
+    scheduleBuffExpiry(existingBuff);
   } else {
-    // Create a new buff entry and add it to the active buffs.
-    const newBuffEntry = {
+    const newBuff = {
       mode,
       value,
-      endTime: now + durationMs,
-      timer: null, // Will be set by scheduleBuffExpiry
+      endTime: Date.now() + durationMs,
+      timer: null,
     };
-    statBuffs.push(newBuffEntry);
-    recomputeStat(); // Recalculate stat immediately as a new buff is active.
-    scheduleBuffExpiry(newBuffEntry); // Schedule its expiry.
+    statBuffs.push(newBuff);
+    scheduleBuffExpiry(newBuff);
   }
+
+  recomputeStat(); // Immediately apply the new/updated buff.
 }

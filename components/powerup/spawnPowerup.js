@@ -1,94 +1,96 @@
-import { DURATION_POWERBUFF, colorMap, iconMap } from "./powerupTypes.js";
+/**
+ * @file Manages the spawning and lifecycle of power-up objects in the game world.
+ */
+
+import { DEFAULT_POWERUP_DURATION, POWERUP_CONFIG } from "./powerupTypes.js";
 
 /**
- * Spawns a power-up object in the game world.
+ * Creates and manages a power-up entity in the game world.
  *
- * @param {object} k - The Kaboom.js context object
- * @param {Vec2} pos - The initial position of the power-up.
- * @param {string} type - The type of power-up (e.g., "speed", "shield").
- * @param {object} sharedState - An object containing shared game state, like `isPaused`.
+ * @param {object} k - The Kaboom.js context.
+ * @param {Vec2} position - The initial position of the power-up.
+ * @param {string} type - The type of power-up (e.g., "SPEED", "DAMAGE").
+ * @param {object} sharedState - Shared game state, such as `isPaused`.
  * @returns {GameObject} The created power-up game object.
  */
-export function spawnPowerUp(k, pos, type, sharedState) {
+export function spawnPowerUp(k, position, type, sharedState) {
   const POWERUP_SIZE = 20;
-  const FADE_DURATION = 1; // Duration in seconds for the power-up to fade out
-  const ROTATION_SPEED = 120; // Degrees per second
+  const FADE_OUT_DURATION = 1; // Time in seconds to fade before expiring.
+  const ROTATION_DEGREES_PER_SECOND = 120;
 
-  // Determine the power-up's visual properties based on its type
-  const powerUpColor = k.rgb(...(colorMap[type] || [200, 200, 200]));
-  const powerUpIcon = iconMap[type] || "❓";
+  const config = POWERUP_CONFIG[type] || {};
+  const powerUpColor = k.rgb(...(config.color || [200, 200, 200]));
+  const powerUpIcon = config.icon || "❓";
 
-  // Create the main power-up game object
   const powerUp = k.add([
     k.rect(POWERUP_SIZE, POWERUP_SIZE),
     k.color(powerUpColor),
-    k.pos(pos),
+    k.pos(position),
     k.anchor("center"),
     k.area(),
     k.rotate(0),
-    k.z(50), // Render above most game elements
     k.opacity(1),
-    "powerup", // Tag for easier identification and collision detection
-    { type }, // Custom component to store the power-up's type
+    k.z(50),
+    "powerup",
+    { type },
     {
-      // Custom component to manage the power-up's active duration
-      duration: DURATION_POWERBUFF,
-      isFading: false, // Flag to indicate if the power-up is currently fading
+      duration: DEFAULT_POWERUP_DURATION,
+      isFading: false,
     },
   ]);
 
-  // Add dynamic behavior to the power-up
-  powerUp.onUpdate(() => {
-    // Rotate the power-up continuously
-    powerUp.angle += ROTATION_SPEED * k.dt();
+  // The icon is a separate entity that follows the main power-up body.
+  const icon = k.add([
+    k.text(powerUpIcon, { size: POWERUP_SIZE * 0.8 }),
+    k.pos(position),
+    k.anchor("center"),
+    k.z(51), // Render above the power-up's square body.
+  ]);
 
-    // If the game is paused, prevent duration countdown and fading
+  powerUp.onUpdate(() => {
+    // Continuous rotation for visual appeal.
+    powerUp.angle += ROTATION_DEGREES_PER_SECOND * k.dt();
+
+    // Pause all time-based logic if the game is paused.
     if (sharedState?.isPaused) return;
 
-    // Decrease the power-up's remaining duration
+    // --- Duration and Expiration ---
     powerUp.duration -= k.dt();
-
-    // Handle power-up expiration
     if (powerUp.duration <= 0) {
       k.destroy(powerUp);
       return;
     }
 
-    // Manage fading and pulsing visual effects
-    if (powerUp.duration < FADE_DURATION) {
-      // Start fading out when duration is less than FADE_DURATION
+    // --- Visual Effects (Pulsing and Fading) ---
+    if (powerUp.duration < FADE_OUT_DURATION) {
+      // Fade out smoothly in the last second of its life.
       powerUp.isFading = true;
-      powerUp.opacity = Math.max(0, powerUp.duration / FADE_DURATION);
+      powerUp.opacity = k.map(powerUp.duration, 0, FADE_OUT_DURATION, 0, 1);
     } else if (!powerUp.isFading) {
-      // Apply a subtle pulsing effect when not fading
+      // Apply a subtle pulsing effect when not fading.
       const pulse = Math.sin(k.time() * 6) * 0.2 + 0.8;
       powerUp.opacity = pulse;
     }
   });
 
-  // Create an icon overlay that follows the main power-up object
-  const iconOverlay = k.add([
-    k.text(powerUpIcon, { size: POWERUP_SIZE * 0.8 }), // Icon size relative to power-up
-    k.pos(pos),
-    k.anchor("center"),
-    k.z(51), // Render icon above the power-up
-    {
-      // Custom component to link the icon's position and rotation to the power-up
-      targetPowerUp: powerUp, // Reference to the power-up it follows
-      update() {
-        if (!this.targetPowerUp.exists()) {
-          // If the power-up is destroyed, destroy the icon overlay as well
-          k.destroy(this);
-        } else {
-          // Keep the icon's position and rotation synchronized with the power-up
-          this.pos = this.targetPowerUp.pos;
-          this.angle = this.targetPowerUp.angle;
-          // Synchronize opacity with the power-up to fade together
-          this.opacity = this.targetPowerUp.opacity;
-        }
-      },
-    },
-  ]);
+  // Ensure the icon always stays perfectly synced with the main power-up object.
+  icon.onUpdate(() => {
+    if (!powerUp.exists()) {
+      k.destroy(icon);
+    } else {
+      icon.pos = powerUp.pos;
+      icon.angle = powerUp.angle;
+      icon.opacity = powerUp.opacity;
+    }
+  });
+
+  // When the power-up is destroyed, its icon should be too.
+  powerUp.onDestroy(() => {
+      if (icon.exists()) {
+          k.destroy(icon);
+      }
+  });
+
 
   return powerUp;
 }

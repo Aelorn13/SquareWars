@@ -1,5 +1,11 @@
 import { createPlayer } from "../components/player/player.js";
-import { spawnEnemy } from "../components/enemy/enemy.js";
+// Import the refactored functions from the enemy file
+import {
+  spawnEnemy,
+  setupEnemyPlayerCollisions,
+} from "../components/enemy/enemy.js";
+import { enemyDeathLogic } from "../components/enemy/enemy.js"; // Or the correct path
+
 import {
   createScoreLabel,
   updateScoreLabel,
@@ -8,7 +14,7 @@ import {
   createTimerLabel,
   updateTimerLabel,
   createPauseLabel,
-  createBossHealthBar
+  createBossHealthBar,
 } from "../components/ui/index.js";
 import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
@@ -79,14 +85,37 @@ export function defineGameScene(k, scoreRef) {
     const player = createPlayer(k, gameState);
     setupPlayerShooting(k, player, gameState);
 
-    // --- User Interface (UI) Elements ---
+    // --- UI Elements ---
     const scoreLabel = createScoreLabel(k);
     drawHealthBar(k, player.hp());
     const dashCooldownBar = drawDashCooldownBar(k);
     const pauseLabel = createPauseLabel(k);
 
+    // --- Game Context  ---
+const gameContext = {
+    sharedState: gameState,
+    increaseScore: addScore,
+    updateHealthBar: () => drawHealthBar(k, player.hp()),
+    enemyDeathLogic, // ES6 shorthand for enemyDeathLogic: enemyDeathLogic
+};
+
+// THIS IS FOR DEBUGGING: Check your browser's developer console for this message.
+console.log("Game Context created in scene:", gameContext);
+if (typeof gameContext.enemyDeathLogic !== 'function') {
+    console.error("CRITICAL ERROR: enemyDeathLogic was NOT added to gameContext!");
+}
+
+    // --- Global Collision Setup
+    setupEnemyPlayerCollisions(k, gameContext);
+
+    // --- Game Loop Variables ---
     let enemySpawnInterval = 2;
     const initialEnemySpawnInterval = enemySpawnInterval;
+    let timeUntilNextSpawn = enemySpawnInterval;
+    let isBossSpawned = false;
+    let isSpawningBoss = false;
+    let wasPauseKeyPreviouslyPressed = false;
+    let currentBoss = null;
 
     const timerLabel = createTimerLabel(
       k,
@@ -94,15 +123,6 @@ export function defineGameScene(k, scoreRef) {
       MINIMAL_SPAWN_INTERVAL,
       INTERVAL_DECREASE
     );
-
-    // --- Game Loop Variables ---
-    let timeUntilNextSpawn = enemySpawnInterval;
-    let isBossSpawned = false;
-    let wasPauseKeyPreviouslyPressed = false;
-
-    // --- Boss Related State ---
-    let currentBoss = null; // Reference to the boss entity
-    let isSpawningBoss = false; // NEW: Flag to prevent multiple boss spawn attempts
 
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
@@ -117,98 +137,75 @@ export function defineGameScene(k, scoreRef) {
         wasPauseKeyPreviouslyPressed = false;
       }
 
-      // If paused or upgrade panel open, stop all game logic.
       if (gameState.isPaused || gameState.isUpgradePanelOpen) return;
 
-      // Update Dash Cooldown UI
+      // Update UI
       dashCooldownBar.width =
         dashCooldownBar.fullWidth * player.getDashCooldownProgress();
 
-      // Calculate and update enemy spawn progress (0 to 1).
+      // Calculate enemy spawn progress
       const spawnIntervalRange =
         initialEnemySpawnInterval - MINIMAL_SPAWN_INTERVAL;
       gameState.spawnProgress =
-        1 - (enemySpawnInterval - MINIMAL_SPAWN_INTERVAL) / Math.max(0.0001, spawnIntervalRange);
-      gameState.spawnProgress = k.clamp(0, 1, gameState.spawnProgress);
+        1 -
+        (enemySpawnInterval - MINIMAL_SPAWN_INTERVAL) /
+          Math.max(0.0001, spawnIntervalRange);
+      gameState.spawnProgress = k.clamp(gameState.spawnProgress, 0, 1);
 
-      // Update Spawn Timer
+      // --- Enemy Spawning Logic ---
       timeUntilNextSpawn -= k.dt();
       if (timeUntilNextSpawn <= 0) {
-        // Determine enemy type to spawn
         const shouldSpawnBoss =
-          !isBossSpawned && !isSpawningBoss && enemySpawnInterval <= MINIMAL_SPAWN_INTERVAL; // NEW: check isSpawningBoss
+          !isBossSpawned &&
+          !isSpawningBoss &&
+          enemySpawnInterval <= MINIMAL_SPAWN_INTERVAL;
 
         if (shouldSpawnBoss) {
-          isSpawningBoss = true; // Set flag to indicate boss spawning process has started
-          const bossSpawnPromise = spawnEnemy(
-            k,
-            player,
-            () => drawHealthBar(k, player.hp()),
-            () =>
-              updateScoreLabel(
-                scoreLabel,
-                currentScore,
-                nextUpgradeScoreThresholdRef.value
-              ),
-            addScore,
-            gameState,
-            "boss", // Force boss type
-            null, // No position override
-            gameState.spawnProgress,
-            true // Show telegraph
-          );
+          isSpawningBoss = true;
+          // UPDATED: Call spawnEnemy with the new signature
+          const bossSpawnPromise = spawnEnemy(k, player, gameContext, {
+            forceType: "boss",
+            progress: gameState.spawnProgress,
+          });
 
-          // Handle the promise when the boss is actually added to the scene
-          if (bossSpawnPromise && typeof bossSpawnPromise.then === 'function') {
-            bossSpawnPromise.then((bossEntity) => {
-              currentBoss = bossEntity;
-              if (currentBoss) {
-                isBossSpawned = true; // Now the boss is truly in the game
-                const bossHealthBarUI = createBossHealthBar(k, currentBoss);// Setup the health bar
-              }
-              isSpawningBoss = false; // Reset flag
-            }).catch(error => {
-              k.debug.error("Error spawning boss:", error);
-              isSpawningBoss = false; // Reset flag even on error
-            });
+          // The promise handling logic remains the same
+          if (bossSpawnPromise && typeof bossSpawnPromise.then === "function") {
+            bossSpawnPromise
+              .then((bossEntity) => {
+                currentBoss = bossEntity;
+                if (currentBoss) {
+                  isBossSpawned = true;
+                  createBossHealthBar(k, currentBoss);
+                }
+                isSpawningBoss = false;
+              })
+              .catch((error) => {
+                console.error("Error spawning boss:", error);
+                isSpawningBoss = false;
+              });
           } else {
-            // Fallback for non-promise returns if spawnEnemy logic is mixed
-            k.debug.error("spawnEnemy did not return a promise for boss type.");
+            console.error("spawnEnemy did not return a promise for boss type.");
             isSpawningBoss = false;
           }
-
-        } else if (!isBossSpawned) { // Only spawn regular enemies if boss isn't spawned or in process
-          spawnEnemy(
-            k,
-            player,
-            () => drawHealthBar(k, player.hp()),
-            () =>
-              updateScoreLabel(
-                scoreLabel,
-                currentScore,
-                nextUpgradeScoreThresholdRef.value
-              ),
-            addScore,
-            gameState,
-            null, // Spawn random enemy type
-            null, // No position override
-            gameState.spawnProgress // Pass spawn progress for enemy scaling
-          );
+        } else if (!isBossSpawned) {
+          // UPDATED: Call spawnEnemy with the new signature for regular enemies
+          spawnEnemy(k, player, gameContext, {
+            progress: gameState.spawnProgress,
+          });
         }
 
-        // Decrease spawn interval, making enemies spawn faster over time.
-        // This should apply even if the boss is spawning, to keep difficulty ramping.
+        // Decrease spawn interval to ramp up difficulty
         enemySpawnInterval = Math.max(
           MINIMAL_SPAWN_INTERVAL,
           enemySpawnInterval - INTERVAL_DECREASE
         );
-        timeUntilNextSpawn = enemySpawnInterval; // Reset timer for the next spawn
+        timeUntilNextSpawn = enemySpawnInterval;
       }
 
-      // Update the spawn timer UI
+      // Update the timer UI
       updateTimerLabel(
         timerLabel,
-        k.dt(), // Time elapsed since last frame
+        k.dt(),
         MINIMAL_SPAWN_INTERVAL,
         INTERVAL_DECREASE,
         enemySpawnInterval
@@ -216,11 +213,13 @@ export function defineGameScene(k, scoreRef) {
     });
 
     // --- Event Handlers ---
-    player.onCollide("powerup", (powerUp) => {
-      applyPowerUp(k, player, powerUp.type, () => {
-        drawHealthBar(k, player.hp());
-      });
-      k.destroy(powerUp);
-    });
+player.onCollide("powerup", (powerUp) => {
+  // The onHeal callback is the LAST argument.
+  applyPowerUp(k, player, powerUp.type, gameContext, () => {
+    drawHealthBar(k, player.hp());
+  });
+  k.destroy(powerUp);
+});
+
   });
 }

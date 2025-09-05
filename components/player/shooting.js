@@ -71,7 +71,7 @@ export function setupPlayerShooting(k, player, gameState) {
 
     // Calculate projectile size based on current damage vs. base damage and crit multiplier.
     // Damage buff no longer affects size, only color.
-    const basePlayerDamage = player._baseStats?.damage || player.damage; // Use current damage if base not found
+    const basePlayerDamage = 1; 
     const damageSizeMultiplier = player.damage / basePlayerDamage;
     const projectileSize = Math.max(
       2,

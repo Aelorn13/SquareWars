@@ -29,7 +29,7 @@ export const POWERUP_CONFIG = {
     color: [98, 218, 202],
     icon: "🦵",
     effects: [
-      { type: 'statBuff', stat: 'speed', value: 2, mode: 'additive' },
+      { type: 'statBuff', stat: 'speed', value: 2, mode: 'multiplicative' },
       { type: 'statBuff', stat: 'dashCooldown', value: 0.3, mode: 'multiplicative' },
     ]
   },

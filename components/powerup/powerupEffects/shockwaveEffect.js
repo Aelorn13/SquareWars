@@ -7,11 +7,9 @@
  *
  * @param {object} k - The Kaboom.js context.
  * @param {Vec2} centerPosition - The shockwave's origin point.
- * @param {object} player - The player entity that triggered the shockwave.
- * @param {object} gameContext - Contains shared game state and logic, like `enemyDeathLogic`.
  * @param {object} [options={}] - Configuration for the shockwave.
  */
-export function spawnShockwave(k, centerPosition, player, gameContext, options = {}) {
+export function spawnShockwave(k, centerPosition, options = {}) {
   // --- Configuration ---
   const {
     damage = 15,
@@ -27,7 +25,6 @@ export function spawnShockwave(k, centerPosition, player, gameContext, options =
   const hitEnemies = new Set(); // Tracks enemies already hit to prevent multiple hits.
 
   // --- Visuals Setup ---
-  // Pre-calculate direction vectors for each segment of the shockwave ring.
   const directionVectors = Array.from({ length: segmentCount }, (_, i) => {
     const angle = k.map(i, 0, segmentCount, 0, 360);
     return k.Vec2.fromAngle(angle);
@@ -43,26 +40,22 @@ export function spawnShockwave(k, centerPosition, player, gameContext, options =
   ]));
 
   // --- Controller Logic ---
-  // An invisible entity that manages the state and behavior of the shockwave.
   const shockwaveController = k.add([
     {
       currentRadius: 0,
       update() {
-        // Expand the radius over time.
         this.currentRadius += expansionSpeed * k.dt();
         const progress = Math.min(1, this.currentRadius / maxRadius);
 
         this.updateVisuals(progress);
         this.checkCollisions();
 
-        // When the shockwave reaches its max radius, destroy it and its visual segments.
         if (progress >= 1) {
           segments.forEach(k.destroy);
           k.destroy(this);
         }
       },
       updateVisuals(progress) {
-        // As the shockwave expands, it fades out and has a subtle pulse.
         const opacity = 1 - progress;
         const pulseScale = 1 + 0.6 * (1 - Math.abs(0.5 - progress) * 2);
 
@@ -76,14 +69,15 @@ export function spawnShockwave(k, centerPosition, player, gameContext, options =
         for (const enemy of enemiesInScene) {
           if (!enemy.exists() || hitEnemies.has(enemy)) continue;
 
-          // Simple circular collision check.
           const distanceToEnemy = enemy.pos.dist(centerPosition);
           if (distanceToEnemy <= this.currentRadius) {
             enemy.hurt(damage);
-            hitEnemies.add(enemy); // Mark as hit.
+            hitEnemies.add(enemy);
 
+            // If the damage is fatal, simply tell the enemy to die.
+            // It will handle its own score, power-up drops, and animation.
             if (enemy.hp() <= 0) {
-              gameContext.enemyDeathLogic(k, enemy, player, gameContext);
+              enemy.die();
             }
           }
         }
@@ -96,7 +90,7 @@ export function spawnShockwave(k, centerPosition, player, gameContext, options =
     k.text("💥", { size: 32 }),
     k.pos(centerPosition),
     k.anchor("center"),
-    k.opacity(1), 
+    k.opacity(1),
     k.lifespan(0.36),
     k.z(220),
   ]);

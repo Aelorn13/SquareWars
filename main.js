@@ -25,6 +25,6 @@ defineGameOverScene(k, () => scoreRef.value());
 defineVictoryScene(k, () => scoreRef.value());
 TutorialScene(k);
 initControls();
-// k.go("tutorial");
+k.go("tutorial");
 defineDebugScene(k);
-k.go("debug")
+// k.go("debug")

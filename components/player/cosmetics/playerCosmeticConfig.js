@@ -26,43 +26,22 @@ export const ATTACK_SPEED_COLOR_CONFIG = {
 
 /**
  * Configuration for the player's movement trail (for fast movement/dashing).
- * @type {object}
- * @property {boolean} enabled - Whether the trail effect is enabled.
- * @property {number} speedThresholdMultiplier - Multiplier for baseline speed to determine trail emission threshold.
- * @property {number} minEmissionInterval - Slowest interval (seconds) for trail particle emission.
- * @property {number} maxEmissionInterval - Fastest interval (seconds) for trail particle emission.
- * @property {number} minParticleLifespan - Minimum lifespan (seconds) for trail particles.
- * @property {number} maxParticleLifespan - Maximum lifespan (seconds) for trail particles.
- * @property {number} minParticleAlpha - Minimum opacity for trail particles.
- * @property {number} maxParticleAlpha - Maximum opacity for trail particles.
- * @property {number} particleRadiusFactor - Factor to determine the trail particle's corner radius relative to player size.
- * @property {number} zOffset - Z-index offset for trail particles relative to the player.
  */
 export const TRAIL_CONFIG = {
   enabled: true,
   speedThresholdMultiplier: 3, // Trail emits when current speed exceeds baselineSpeed * this multiplier
-  minEmissionInterval: 0.06, // Slowest emission cadence
+  minEmissionInterval: 0.04, // Slowest emission cadence
   maxEmissionInterval: 0.015, // Fastest emission cadence (at max intensity)
   minParticleLifespan: 0.15,
   maxParticleLifespan: 0.35,
-  minParticleAlpha: 0.15,
-  maxParticleAlpha: 0.6,
-  particleRadiusFactor: 0.25, // Rounded corners for trail quads
-  zOffset: -1, // Render behind player (if player.z is set)
+  minParticleAlpha: 0.1,
+  maxParticleAlpha: 0.4,
+  zOffset: -1,
+  maxParticlesPerFrame: 3,
 };
 
 /**
  * Default configuration for weapon barrel cosmetics.
- * @type {object}
- * @property {number} width - Width of each barrel rectangle.
- * @property {number} height - Height of each barrel rectangle.
- * @property {number[]} colour - RGB array for the barrel color.
- * @property {boolean} rounded - Whether barrels should have rounded corners.
- * @property {number} outlineWidth - Width of the barrel outline.
- * @property {number[]} outlineColour - RGB array for the barrel outline color.
- * @property {number} zOffset - Z-index offset for barrels relative to the player.
- * @property {number} inset - How much the barrel "sinks" into the player graphic (pixels).
- * @property {number} maxBarrels - Maximum number of barrels to display.
  */
 export const BARREL_CONFIG = {
   width: 32,
@@ -71,7 +50,13 @@ export const BARREL_CONFIG = {
   rounded: false,
   outlineWidth: 1,
   outlineColour: [40, 40, 0],
-  zOffset: -0.5, // Render slightly in front of the player by default
+  zOffset: -2, // Render slightly in front of the player by default
   inset: 16, // How much the barrel "sinks" into the player graphic
   maxBarrels: 15,
+};
+
+export const BULLET_SPEED_BARREL_CONFIG = {
+  enabled: true,
+  scalingFactor: 15,
+  maxLength: 100,
 };

@@ -70,7 +70,7 @@ export function applyPowerUp(k, player, powerUpType, gameContext, onHeal) {
         break;
 
       case 'shockwave':
-        spawnShockwave(k, player.pos, player, gameContext, {
+        spawnShockwave(k, player.pos, {
           damage: effect.damage,
           maxRadius: effect.maxRadius,
         });

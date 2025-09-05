@@ -73,7 +73,7 @@ export function applyTemporaryStatBuff(
     }
 
     target[statName] = finalValue;
-
+    
     // After all buffs expire, sync the base stat to the target's current stat.
     // This accounts for permanent upgrades acquired while buffs were active.
     if (activeBuffs.length === 0) {

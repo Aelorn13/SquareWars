@@ -1,3 +1,3 @@
-export * from "./baseStat.js";
-export * from "./definitionsUpgrade.js";
+export * from "./statManager.js";
+export * from "./upgradeDefinitions.js";
 export * from "./applyUpgrade.js";

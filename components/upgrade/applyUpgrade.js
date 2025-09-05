@@ -1,133 +1,102 @@
 import { showUpgradeUI, cleanupUpgradeUI } from "../ui/upgradeUI.js";
-import { RarityDefinitions,  UpgradeDefinitions,  rollRarityForStat,  formatUpgradeForUI,  StatScalingMultipliers,  AdditiveStats } from "./index.js";
-import {  getPermanentBase, setPermanentBaseAndRecompute } from "./baseStat.js";
+import { UPGRADE_CONFIG, rollRarityForStat, formatUpgradeForUI } from "./upgradeDefinitions.js";
+import { getPermanentBaseStat, applyPermanentUpgrade } from "./statManager.js";
 
 /**
- * Applies a chosen upgrade to the player's permanent/base stats and recomputes visible values.
- * Special handling for 'projectiles' and 'movementSpeed' ensures correct base values.
+ * Applies a chosen permanent upgrade to the player's stats.
+ * This function is now data-driven by the UPGRADE_CONFIG object.
  *
- * @param {object} player - The player object whose stats are being upgraded.
- * @param {object} upgradeDef - The definition of the upgrade to apply.
- * @param {object} rarity - The rarity object associated with the upgrade, containing its multiplier.
+ * @param {object} player - The player object to upgrade.
+ * @param {object} chosenUpgrade - The formatted upgrade object from the UI.
  */
-export function applyUpgrade(player, upgradeDef, rarity) {
-  const statName = upgradeDef.stat; // Renamed 'stat' to 'statName' for clarity.
-  const rarityMultiplier = rarity.multiplier;
+export function applyUpgrade(player, chosenUpgrade) {
+  const { stat: statName, rarity } = chosenUpgrade;
+  const statConfig = UPGRADE_CONFIG[statName];
 
   // --- Special Case: Projectiles ---
   if (statName === "projectiles") {
-    // Projectiles always start at 1 if not defined.
-    const currentBaseProjectiles = getPermanentBase(player, "projectiles") || 1;
-    const deltaByTier = { 4: 2, 5: 4 }; // Epic: +2, Legendary: +4
-    // Default to +2 if rarity tier is not epic or legendary.
-    let newBaseProjectiles = currentBaseProjectiles + (deltaByTier[rarity.tier] ?? 2);
+    const currentBase = getPermanentBaseStat(player, "projectiles") || 1;
+    const bonus = statConfig.bonuses[rarity.tier] ?? 2;
+    let newBase = currentBase + bonus;
 
-    // Ensure an odd number of projectiles for symmetric spread (e.g., 1, 3, 5).
-    if (newBaseProjectiles % 2 === 0) {
-      newBaseProjectiles += 1;
+    // Ensure an odd number of projectiles for a symmetrical firing pattern.
+    if (newBase % 2 === 0) {
+      newBase += 1;
     }
-
-    setPermanentBaseAndRecompute(player, "projectiles", newBaseProjectiles);
-    console.log(`Upgraded projectiles → base=${newBaseProjectiles}, visible=${player.projectiles}`);
-    return; // Early exit for special 'projectiles' logic.
+    applyPermanentUpgrade(player, "projectiles", newBase);
+    return;
   }
 
-  // Determine the scaling factor for the stat, defaulting to 1.0 if not specified.
-  const statScale = StatScalingMultipliers[statName] ?? 1.0;
-
-  // Initialize base value for the stat. For movementSpeed, ensure a starting value if none exists.
-  let currentBaseValue;
-  if (statName === "movementSpeed") {
-    currentBaseValue = getPermanentBase(player, statName) || player._baseStats.speed; 
-  } else {
-    currentBaseValue = getPermanentBase(player, statName) || player._baseStats[statName];
-  }
-
+  // --- Standard Numeric Stats ---
+  const currentBase = getPermanentBaseStat(player, statName);
   let newBaseValue;
 
-  // --- Additive Stats (e.g., critChance, luck) ---
-  if (AdditiveStats.includes(statName)) {
-    newBaseValue = currentBaseValue + rarityMultiplier * statScale;
-
-    // Cap certain additive stats at 1 (100%).
-    if (statName === "critChance" || statName === "luck") {
-      newBaseValue = Math.min(1, newBaseValue);
-    }
-  }
-  // --- Multiplicative Stats (most other stats) ---
-  else {
-    const delta = currentBaseValue * rarityMultiplier * statScale;
-
-    if (statName === "dashCooldown" || statName === "attackSpeed") {
-      // For these stats, smaller values are better, so we subtract the delta.
-      // Ensure the value doesn't go below a practical minimum (e.g., 0.05).
-      newBaseValue = Math.max(0.05, currentBaseValue - delta);
-
-      // Special cosmetic update for attack speed.
-      if (statName === "attackSpeed") {
-        player._cosmetics?.updateAttackSpeedColor?.();
-      }
-    } else {
-      // For other multiplicative stats, larger values are better, so we add the delta.
-      newBaseValue = currentBaseValue + delta;
-    }
+  if (statConfig.isAdditive) {
+    const delta = rarity.multiplier * statConfig.scale;
+    newBaseValue = currentBase + delta;
+  } else { // Multiplicative stat
+    const delta = currentBase * rarity.multiplier * statConfig.scale;
+    newBaseValue = statConfig.isInverse
+      ? currentBase - delta // For stats where lower is better (e.g., cooldowns).
+      : currentBase + delta; // For stats where higher is better.
   }
 
-  // Apply the newly computed base value and recompute the player's visible stat.
-  setPermanentBaseAndRecompute(player, statName, newBaseValue);
-  console.log(`Upgraded ${statName} → base=${newBaseValue.toFixed(2)}, visible=${player[statName].toFixed(2)}`);
+  // Apply a cap if one is defined in the configuration.
+  if (statConfig.cap !== undefined) {
+    newBaseValue = statConfig.isInverse
+      ? Math.max(statConfig.cap, newBaseValue) // e.g., cooldown can't go below 0.05
+      : Math.min(statConfig.cap, newBaseValue); // e.g., crit chance can't exceed 1.0
+  }
+
+  applyPermanentUpgrade(player, statName, newBaseValue);
+
+  // Trigger cosmetic updates if necessary.
+  if (statName === "attackSpeed") {
+    player._cosmetics?.updateAttackSpeedColor?.();
+  }
 }
+
 /**
- * Checks if the player's score has crossed an upgrade threshold.
- * If so, it pauses the game, presents three random upgrades to the player,
- * and applies the chosen upgrade or a score bonus for skipping.
+ * Checks if the player should be shown the upgrade selection screen.
  *
- * @param {object} k - The Kaboom.js context object.
+ * @param {object} k - The Kaboom.js context.
  * @param {object} player - The player object.
- * @param {object} sharedState - An object holding shared game state (e.g., isPaused, upgradeOpen).
+ * @param {object} sharedState - Holds shared game state (isPaused, etc.).
  * @param {number} currentScore - The player's current score.
- * @param {object} nextThresholdRef - A reference object holding the next score threshold for an upgrade.
- * @param {function} addScore - A function to add score to the player.
+ * @param {object} nextThresholdRef - A reference object { value: number } for the next score threshold.
+ * @param {function} addScore - Function to add score to the player.
  */
 export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThresholdRef, addScore) {
-  // If an upgrade UI is already open, or the score hasn't met the threshold, do nothing.
   if (sharedState.upgradeOpen || currentScore < nextThresholdRef.value) {
     return;
   }
 
-  // Pause the game and mark that the upgrade UI is open.
   sharedState.isPaused = true;
   sharedState.upgradeOpen = true;
 
-  // Create a shallow copy of the available upgrades pool to pick from without modifying the original.
-  const availableUpgrades = [...UpgradeDefinitions];
-  const chosenUpgrades = [];
+  const availableUpgrades = Object.keys(UPGRADE_CONFIG);
+  const offeredUpgrades = [];
 
-  // Select 3 unique upgrades.
+  // Select 3 unique upgrades to offer the player.
   for (let i = 0; i < 3 && availableUpgrades.length > 0; i++) {
     const randomIndex = Math.floor(Math.random() * availableUpgrades.length);
-    // Remove the chosen upgrade from the pool to ensure uniqueness.
-    const upgradeDefinition = availableUpgrades.splice(randomIndex, 1)[0];
-    const upgradeRarity = rollRarityForStat(upgradeDefinition.stat);
-    chosenUpgrades.push(formatUpgradeForUI(upgradeDefinition, upgradeRarity));
+    const statName = availableUpgrades.splice(randomIndex, 1)[0];
+    const rarity = rollRarityForStat(statName);
+    offeredUpgrades.push(formatUpgradeForUI(statName, rarity));
   }
 
-  // Display the upgrade UI and handle the player's choice.
-  showUpgradeUI(k, chosenUpgrades, (pickedUpgrade) => {
+  showUpgradeUI(k, offeredUpgrades, (pickedUpgrade) => {
     if (pickedUpgrade === "skip") {
-      addScore(10); // Reward for skipping upgrades.
+      addScore(10);
     } else {
-      // Apply the chosen upgrade to the player.
-      applyUpgrade(player, pickedUpgrade, pickedUpgrade.rarity);
+      applyUpgrade(player, pickedUpgrade);
     }
 
-    // Clean up the UI and resume the game.
     cleanupUpgradeUI(k);
     sharedState.isPaused = false;
     sharedState.upgradeOpen = false;
   });
 
-  // Increase the next score threshold for the subsequent upgrade.
-  // Using Math.floor ensures the threshold remains an integer.
+  // Increase the score required for the next upgrade.
   nextThresholdRef.value = Math.floor(nextThresholdRef.value * 1.3) + 10;
 }

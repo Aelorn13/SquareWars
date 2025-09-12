@@ -1,7 +1,7 @@
 import { createPlayer } from "../components/player/player.js";
 import { setupEnemyPlayerCollisions } from "../components/enemy/enemyBehavior.js";
 import { spawnEnemy } from "../components/enemy/enemySpawner.js";
-// --- CHANGE: Added createBossHealthBar to the imports ---
+import { setupBossBehaviors } from "../components/enemy/boss/bossSetup.js";
 import { createScoreLabel, updateScoreLabel, drawHealthBar, drawDashCooldownBar, createPauseLabel, createBossHealthBar, } from "../components/ui/index.js";
 import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
@@ -13,7 +13,6 @@ import { keysPressed } from "../components/player/controls.js";
 
 /**
  * Defines the debug game scene.
- * @param {kaboomCtx} k - The Kaboom.js context object.
  */
 export function defineDebugScene(k) {
   k.scene("debug", () => {
@@ -59,7 +58,8 @@ export function defineDebugScene(k) {
 
     // --- Global Collision Setup ---
     setupEnemyPlayerCollisions(k, gameContext);
-
+        setupBossBehaviors(k, gameContext);
+    
     // --- Debug UI Panel ---
     const debugPanelWidth = 240;
     const debugPanelMargin = 10;

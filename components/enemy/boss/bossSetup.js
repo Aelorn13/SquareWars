@@ -11,12 +11,13 @@
 export function setupBossBehaviors(k, gameContext) {
   // Registers a global handler for player collision with boss bullets.
   k.onCollide("player", "bossBullet", (player, bullet) => {
+      console.log(`Collision detected! Player invincible: ${player.isInvincible}`);
     if (player.isInvincible) return;
 
     player.hurt(bullet.damage ?? 1);
+     k.shake(10);
     gameContext.updateHealthBar?.();
     k.destroy(bullet);
-
     if (player.hp() <= 0) {
       k.go("gameover");
     }

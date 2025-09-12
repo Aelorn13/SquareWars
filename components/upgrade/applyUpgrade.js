@@ -5,8 +5,6 @@ import { getPermanentBaseStat, applyPermanentUpgrade } from "./statManager.js";
 /**
  * Applies a chosen permanent upgrade to the player's stats.
  * This function is now data-driven by the UPGRADE_CONFIG object.
- *
- * @param {object} player - The player object to upgrade.
  * @param {object} chosenUpgrade - The formatted upgrade object from the UI.
  */
 export function applyUpgrade(player, chosenUpgrade) {
@@ -58,13 +56,6 @@ export function applyUpgrade(player, chosenUpgrade) {
 
 /**
  * Checks if the player should be shown the upgrade selection screen.
- *
- * @param {object} k - The Kaboom.js context.
- * @param {object} player - The player object.
- * @param {object} sharedState - Holds shared game state (isPaused, etc.).
- * @param {number} currentScore - The player's current score.
- * @param {object} nextThresholdRef - A reference object { value: number } for the next score threshold.
- * @param {function} addScore - Function to add score to the player.
  */
 export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThresholdRef, addScore) {
   if (sharedState.upgradeOpen || currentScore < nextThresholdRef.value) {

@@ -86,7 +86,7 @@ export function attachEnemyBehaviors(k, enemy, player) {
     if (enemy.hp() > 0) {
       if (enemy.type === "rageTank") {
         const hpRatio = enemy.hp() / enemy.maxHp;
-        enemy.speed = enemy.baseSpeed * (1 + (1 - hpRatio) * 0.5);
+        enemy.speed = enemy.baseSpeed * (2 + (1 - hpRatio));
       } else {
         // Temporarily slow the enemy on hit .
         enemy.speed = enemy.baseSpeed * 0.2;

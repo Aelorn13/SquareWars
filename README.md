@@ -7,7 +7,7 @@ Reach score thresholds to choose from a selection of  upgrades to customize your
 Grab temporary boosts on the battlefield that drops from enemies to gain an edge in combat.
 
 Controls
-Movement: WASD / Arrow Keys
+Movement: WASD
 Fire: Left Mouse Button
 Dash: Space
 Pause: P

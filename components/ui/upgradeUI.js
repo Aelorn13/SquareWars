@@ -1,7 +1,6 @@
 // components/ui/upgradeUI.js
 /**
  * Displays an upgrade selection UI to the player.
- * @param {object} k - The Kaboom.js context object.
  * @param {Array<object>} chosenUpgrades - An array of pre-formatted upgrade objects:
  *   { icon, name, bonusText, color: [r,g,b], upgradeDef, rarity }
  * @param {function} onPick - Callback function when an upgrade is chosen or skipped.
@@ -23,8 +22,6 @@ export function showUpgradeUI(k, chosenUpgrades, onPick) {
 
   /**
    * Creates an upgrade card UI element.
-   * @param {number} x - X position of the card.
-   * @param {number} y - Y position of the card.
    * @param {object} upgradeChoice - The upgrade data for this card.
    */
   const createUpgradeCard = (x, y, upgradeChoice) => {
@@ -127,7 +124,6 @@ export function showUpgradeUI(k, chosenUpgrades, onPick) {
 
 /**
  * Destroys all UI elements related to the upgrade selection.
- * @param {object} k - The Kaboom.js context object.
  */
 export function cleanupUpgradeUI(k) {
   k.destroyAll("upgradeUI");

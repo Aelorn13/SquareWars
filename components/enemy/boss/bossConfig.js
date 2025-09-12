@@ -15,7 +15,7 @@ export const BOSS_CONFIG = {
   cooldowns: {
     summon: 9,
     spreadShot: 2, // Renamed from "shoot" to match the ability name
-    charge: 5,
+    charge: 7,
   },
 
   // Visual parameters for telegraphing actions.
@@ -38,18 +38,19 @@ export const BOSS_CONFIG = {
     },
     2: {
       color: [60, 40, 20],
-      speedMultiplier: 1.2,
+      speedMultiplier: 1.05,
       abilities: {
-        summon: { minionType: "fast", count: 5 },
-        spreadShot: { damage: 2, speed: 120, count: 12 },
+        summon: { minionType: "normal", count: 4 },
+        spreadShot: { damage: 1, speed: 300, count: 12 },
+        charge: true,
       },
     },
     3: {
       color: [40, 20, 60],
-      speedMultiplier: 1.4,
+      speedMultiplier: 1.1,
       abilities: {
-        summon: { minionType: "fast", count: 8 },
-        spreadShot: { damage: 3, speed: 160, count: 18 },
+        summon: { minionType: "normal", count: 5 },
+        spreadShot: { damage: 1, speed: 300, count: 18 },
         charge: true,
       },
     },

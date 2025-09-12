@@ -4,7 +4,6 @@
 
 /**
  * Safely retrieves the permanent base value for a stat.
- * It's recommended to initialize all base stats when an entity is created.
  *
  * @param {object} entity - The entity (e.g., player) whose stats are being accessed.
  * @param {string} statName - The name of the stat (e.g., "damage").

@@ -10,14 +10,54 @@ import { interpolateColor } from "../utils/visualEffects.js";
  * Sets up the global collision handler between "enemy" and "player" tags.
  */
 export function setupEnemyPlayerCollisions(k, gameContext) {
+  // Constants for the knockback effect, easy to tweak here.
+  const KNOCKBACK_DISTANCE = 120; // How far the player is pushed.
+  const KNOCKBACK_DURATION = 0.1; // How long the push effect lasts in seconds.
+
   k.onCollide("enemy", "player", (enemy, player) => {
-    if (enemy.dead || player.isInvincible) return;
+    // Ignore collision if the enemy is dead, player is invincible, or player is already being knocked back.
+    if (enemy.dead || player.isInvincible || player.isKnockedBack) {
+      return;
+    }
+
+    // --- Common Effects for Any Collision ---
     player.hurt(enemy.damage ?? 1);
     gameContext.updateHealthBar?.();
     k.shake(10);
-    if (player.hp() <= 0) k.go("gameover");
-    if (enemy.type !== "boss") {
+
+    // --- Specific Logic Based on Enemy Type ---
+    if (enemy.type === "boss") {
+      // This is the special case for the boss.
+      
+      // 1. Set a flag on the player to disable their input during the knockback.
+      player.isKnockedBack = true;
+
+      // 2. Calculate the direction to push the player.
+      // It's a vector pointing from the boss to the player.
+      const knockbackDir = player.pos.sub(enemy.pos).unit();
+
+      // 3. Calculate the destination point for the knockback.
+      const knockbackDest = player.pos.add(knockbackDir.scale(KNOCKBACK_DISTANCE));
+
+      // 4. Use k.tween for a smooth push effect.
+      k.tween(
+        player.pos,
+        knockbackDest,
+        KNOCKBACK_DURATION,
+        (p) => (player.pos = p),
+      ).then(() => {
+        // 5. After the tween is finished, reset the flag.
+        player.isKnockedBack = false;
+      });
+
+    } else {
+      // For any non-boss enemy, they simply die on collision.
       enemy.die();
+    }
+
+    // --- Final Check (applies to all collisions) ---
+    if (player.hp() <= 0) {
+      k.go("gameover");
     }
   });
 }

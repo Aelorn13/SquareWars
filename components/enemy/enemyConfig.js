@@ -31,7 +31,7 @@ export const ENEMY_CONFIGS = {
   boss: {
     name :"boss",
     score: 20, spawnWeight: 0, color: [60, 20, 20], size: 80,
-    maxHp: 300, speed: 80, damage: 99, rarity: 99,
+    maxHp: 300, speed: 80, damage: 3, rarity: 99,
   },
 };
 

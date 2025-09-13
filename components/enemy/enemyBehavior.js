@@ -7,6 +7,26 @@ import { spawnPowerUp } from "../powerup/spawnPowerup.js";
 import { interpolateColor } from "../utils/visualEffects.js";
 
 /**
+ * Linearly interpolates between two angles, finding the shortest path.
+ * @param {number} startAngle - The current angle in degrees.
+ * @param {number} endAngle - The target angle in degrees.
+ * @param {number} t - The interpolation factor (usually dt * speed).
+ * @returns {number} The new, interpolated angle.
+ */
+function lerpAngle(startAngle, endAngle, t) {
+  let diff = endAngle - startAngle;
+  
+  // Normalize the difference to be between -180 and 180 degrees.
+  if (diff > 180) {
+    diff -= 360; // Go the other way around the circle
+  } else if (diff < -180) {
+    diff += 360; // Go the other way around the circle
+  }
+
+  return startAngle + diff * t;
+}
+
+/**
  * Sets up the global collision handler between "enemy" and "player" tags.
  */
 export function setupEnemyPlayerCollisions(k, gameContext) {
@@ -74,6 +94,7 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
     k.anchor("center"),
     k.area(),
     k.body({ isSensor: true }), 
+    k.rotate(0),
     k.health(config.maxHp),
     k.scale(1),
     k.opacity(1),
@@ -110,6 +131,13 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
 export function attachEnemyBehaviors(k, enemy, player) {
   enemy.onUpdate(() => {
     if (enemy.gameContext.sharedState.isPaused || enemy.dead) return;
+    // ---  SMOOTH ROTATION LOGIC ---
+    const dir = player.pos.sub(enemy.pos);
+    const targetAngle = dir.angle() + 90;
+    const smoothingFactor = 10; // Higher number means faster turning
+
+    enemy.angle = lerpAngle(enemy.angle, targetAngle, k.dt() * smoothingFactor);
+
     enemy.moveTo(player.pos, enemy.speed);
   });
 

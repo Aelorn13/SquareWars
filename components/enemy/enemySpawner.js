@@ -150,7 +150,7 @@ function showSpawnTelegraph(k, spawnPosition, sharedState, duration) {
   ]);
 
   telegraphController.pointer = telegraphController.add([
-    k.rect(36, 6, { radius: 3 }), k.pos(0, 0), k.anchor("center"),
+    k.rect(70, 6, { radius: 3 }), k.pos(0, 0), k.anchor("center"),
     k.rotate(directionToCenter.angle()), k.color(255, 255, 255),
     k.opacity(0.9), k.scale(1), k.z(61),
   ]);

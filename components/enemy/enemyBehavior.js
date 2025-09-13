@@ -87,17 +87,18 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
  * The spawner is responsible for attaching logic after creation.
  */
 export function createEnemyGameObject(k, player, config, spawnPos, gameContext) {
-  const enemy = k.add([
+  // Start with a base list of components for every enemy
+  const components = [
     k.rect(config.size, config.size),
     k.color(...config.color),
     k.pos(spawnPos),
     k.anchor("center"),
     k.area(),
-    k.body({ isSensor: true }), 
     k.rotate(0),
     k.health(config.maxHp),
     k.scale(1),
-    k.opacity(1),
+    // Use the opacity from the config, or default to 1 if not specified
+    k.opacity(config.opacity ?? 1),
     "enemy",
     {
       type: config.name,
@@ -121,7 +122,16 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
         }
       },
     },
-  ]);
+  ];
+
+  // Conditionally add the body component.
+  //  check for `!== false` so that if the property is missing (undefined), it still defaults to adding the body.
+  if (config.hasBody !== false) {
+    components.push(k.body({ isSensor: true }));
+  }
+
+  // Create the enemy game object by passing the final list of components
+  const enemy = k.add(components);
   return enemy;
 }
 

@@ -17,6 +17,8 @@ export const ENEMY_CONFIGS = {
     name: "fast",
     score: 3, spawnWeight: 15, color: [248, 175, 39], size: 28,
     maxHp: 2, speed: 180, damage: 1, rarity: 1,
+    hasBody: false,  
+    opacity: 0.7,     
   },
   tank: {
     name: "tank",

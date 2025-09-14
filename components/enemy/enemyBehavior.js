@@ -41,10 +41,8 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
     }
 
     // --- Common Effects for Any Collision ---
-    player.hurt(enemy.damage ?? 1);
     gameContext.updateHealthBar?.();
-    k.shake(10);
-
+    player.takeDamage(enemy.damage ?? 1);
     // --- Specific Logic Based on Enemy Type ---
     if (enemy.type === "boss") {
       // This is the special case for the boss.

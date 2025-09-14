@@ -1,4 +1,4 @@
-/**
+/** components/enemy/boss/bossSetup.js
  * @file Contains setup functions required for the boss fight, like global collision handlers.
  */
 
@@ -9,9 +9,7 @@
 export function setupBossBehaviors(k, gameContext) {
   // Registers a global handler for player collision with boss bullets.
   k.onCollide("player", "bossBullet", (player, bullet) => {
-    if (player.isInvincible) return;
-    player.hurt(bullet.damage ?? 1);
-     k.shake(10);
+    player.takeDamage(bullet.damage ?? 1);
     gameContext.updateHealthBar?.();
     k.destroy(bullet);
     if (player.hp() <= 0) {

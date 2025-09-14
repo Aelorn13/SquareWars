@@ -40,14 +40,17 @@ export function createPlayer(k, sharedState) {
     // Calculates cooldown progress for the UI bar.
     getCooldownProgress(player) {
       if (player.dashCooldown === 0) return 1;
-      return 1 - (this.cooldownTimer / player.dashCooldown);
-    }
+      return 1 - this.cooldownTimer / player.dashCooldown;
+    },
   };
 
   const player = k.add([
     k.rect(BASE_PLAYER_SIZE, BASE_PLAYER_SIZE),
     k.anchor("center"),
-    k.pos(sharedState.area.x + sharedState.area.w / 2, sharedState.area.y + sharedState.area.h / 2),
+    k.pos(
+      sharedState.area.x + sharedState.area.w / 2,
+      sharedState.area.y + sharedState.area.h / 2
+    ),
     k.color(0, 0, 255),
     k.rotate(0),
     k.area(),
@@ -63,7 +66,7 @@ export function createPlayer(k, sharedState) {
       critMultiplier: 2,
       projectiles: 1,
       damage: 1,
-      speed: 90, 
+      speed: 90,
       luck: 0.1,
       bulletSpeed: 300,
       attackSpeed: 0.5,
@@ -72,6 +75,37 @@ export function createPlayer(k, sharedState) {
       dashDuration: 0.2,
       dashCooldown: 3,
       dashSpeedMultiplier: 4,
+      /**
+       * Centralized function to handle all incoming damage.
+       * @param {number} damageAmount - The amount of health to lose.
+       */
+      takeDamage(damageAmount) {
+        // If already invincible, do nothing.
+        if (this.isInvincible) return;
+        // Reduce player's health.
+        this.hurt(damageAmount);
+        // Apply 2 seconds of invincibility.
+        this.applyInvincibility(2);
+        // Add visual feedback.
+        k.shake(10);
+      },
+      /**
+       * Makes the player invincible and flashes for a given duration.
+       * @param {number} duration - How long the invincibility should last in seconds.
+       */
+      applyInvincibility(duration) {
+        this.isInvincible = true;
+        // Create a flashing effect that toggles the player's visibility.
+        const flashEffect = k.loop(0.1, () => {
+          this.hidden = !this.hidden;
+        });
+        // After the duration is over, reset everything.
+        k.wait(duration, () => {
+          this.isInvincible = false;
+          this.hidden = false; // Ensure the player is visible again.
+          flashEffect.cancel(); // Stop the flashing.
+        });
+      },
     },
   ]);
 
@@ -88,18 +122,22 @@ export function createPlayer(k, sharedState) {
   });
 
   // --- Input Handlers ---
-  k.onKeyDown((key) => { keysPressed[key] = true; });
-  k.onKeyRelease((key) => { keysPressed[key] = false; });
+  k.onKeyDown((key) => {
+    keysPressed[key] = true;
+  });
+  k.onKeyRelease((key) => {
+    keysPressed[key] = false;
+  });
   k.onKeyPress("space", () => dashHandler.execute(player));
 
   // --- Public Methods ---
-  player.getDashCooldownProgress = () => dashHandler.getCooldownProgress(player);
+  player.getDashCooldownProgress = () =>
+    dashHandler.getCooldownProgress(player);
 
   setupPlayerCosmetics(k, player);
 
   return player;
 }
-
 
 // --- Helper Functions for `createPlayer` ---
 

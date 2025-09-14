@@ -4,7 +4,7 @@ const MIN_FIRE_RATE = 0.04; // Minimum time between shots in seconds
 
 // Calculates damage scaling for multiple projectiles.
 // Returns a multiplier (0.1 to 1) based on the number of projectiles.
-const MULTIPLE_PROJECTILE_SCALLING = 0.6;
+const MULTIPLE_PROJECTILE_SCALLING = 0.65;
 function getMultiProjectileDamageScale(numProjectiles) {
   if (numProjectiles <= 1) return 1; // Single projectile gets 100% damage.
   if (numProjectiles === 3) return MULTIPLE_PROJECTILE_SCALLING; // Baseline for 3 projectiles.

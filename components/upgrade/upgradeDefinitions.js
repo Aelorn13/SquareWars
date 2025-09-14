@@ -15,14 +15,13 @@ export const RARITY_DEFINITIONS = [
 
 /**
  * A centralized configuration for all available player upgrades.
- * This data-driven approach avoids large if/else blocks in the application logic.
  */
 export const UPGRADE_CONFIG = {
   damage:         { name: "Damage Boost",    icon: "🔫", scale: 1.0 },
   speed:          { name: "Move Speed",      icon: "🏃", scale: 0.8 },
   luck:           { name: "Luck",            icon: "🍀", scale: 0.5, isAdditive: true, cap: 1.0 },
   bulletSpeed:    { name: "Bullet Speed",    icon: "💨", scale: 3.0 },
-  attackSpeed:    { name: "Attack Interval",    icon: "⚡", scale: 0.5, isInverse: true, cap: 0.05 },
+  attackSpeed:    { name: "Attack Interval", icon: "⚡", scale: 0.5, isInverse: true, cap: 0.05 },
   dashDuration:   { name: "Dash Duration",   icon: "⏱️", scale: 5.0 },
   dashCooldown:   { name: "Dash Cooldown",   icon: "♻️", scale: 1.5, isInverse: true, cap: 0.05 },
   critChance:     { name: "Critical Chance", icon: "🎯", scale: 0.5, isAdditive: true, cap: 1.0 },

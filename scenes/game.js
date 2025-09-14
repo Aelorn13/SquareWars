@@ -9,7 +9,7 @@ import { keysPressed } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 
 const MINIMAL_SPAWN_INTERVAL = 0.2;
-const BOSS_SPAWN_TIME = 120;
+const BOSS_SPAWN_TIME = 100;
 
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {

@@ -23,12 +23,12 @@ export const ENEMY_CONFIGS = {
   tank: {
     name: "tank",
     score: 4, spawnWeight: 10, color: [100, 100, 255], size: 40,
-    maxHp: 10, speed: 60, damage: 3, rarity: 2,
+    maxHp: 8, speed: 60, damage: 3, rarity: 2,
   },
   rageTank: {
     name:"rageTank",
     score: 6, spawnWeight: 3, color: [153, 36, 27], size: 36,
-    maxHp: 8, speed: 45, damage: 2, rarity: 3,
+    maxHp: 10, speed: 60, damage: 2, rarity: 3,
   },
   boss: {
     name :"boss",
@@ -43,4 +43,4 @@ export const ENEMY_CONFIGS = {
  * A value of `1.0` means the spawn weight is multiplied by `1 + 1.0 = 2` (doubled)
  * at maximum game progress.
  */
-export const RARITY_SPAWN_BIAS = [-0.5, 0.2, 0.6, 1.0];
+export const RARITY_SPAWN_BIAS = [-0.5, 0.3, 0.4, 1.2];

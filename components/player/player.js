@@ -1,4 +1,6 @@
-import { keysPressed } from "./controls.js";
+// components/player/player.js
+
+import { keysPressed, mobileControls } from "./controls.js";
 import { setupPlayerCosmetics } from "./cosmetics/playerCosmetic.js";
 
 const BASE_PLAYER_SIZE = 28;
@@ -7,17 +9,17 @@ const BASE_PLAYER_SIZE = 28;
  * Creates and initializes the player entity with all its stats and behaviors.
  * @param {object} k - The Kaboom.js context object.
  * @param {object} sharedState - Contains shared game state like arena boundaries and pause status.
+ * @param {boolean} isMobile - Flag to determine if the game is on a mobile device.
  * @returns {object} The created player entity.
  */
-export function createPlayer(k, sharedState) {
+export function createPlayer(k, sharedState, isMobile) {
   // A self-contained handler for all dash-related logic and state.
   const dashHandler = {
     isDashing: false,
     cooldownTimer: 0,
     activeTimer: 0,
 
-    // Decrements timers each frame.
-    update(dt, player) {
+    update(dt) {
       if (this.cooldownTimer > 0) {
         this.cooldownTimer = Math.max(0, this.cooldownTimer - dt);
       }
@@ -29,7 +31,6 @@ export function createPlayer(k, sharedState) {
       }
     },
 
-    // Executes the dash if conditions are met.
     execute(player) {
       if (this.cooldownTimer > 0 || this.isDashing) return;
       this.isDashing = true;
@@ -37,7 +38,6 @@ export function createPlayer(k, sharedState) {
       this.cooldownTimer = player.dashCooldown;
     },
 
-    // Calculates cooldown progress for the UI bar.
     getCooldownProgress(player) {
       if (player.dashCooldown === 0) return 1;
       return 1 - this.cooldownTimer / player.dashCooldown;
@@ -54,12 +54,12 @@ export function createPlayer(k, sharedState) {
     k.color(0, 0, 255),
     k.rotate(0),
     k.area(),
-    k.body({ isSensor: true }), // isSensor prevents forceful pushing by other physics bodies.
+    k.body({ isSensor: true }),
     k.health(3, 10),
     k.scale(1),
     k.z(0),
     "player",
-    // --- Initial Player Stats ---
+    // --- Player Stats (unchanged) ---
     {
       bulletSpreadDeg: 10,
       critChance: 0.1,
@@ -75,35 +75,21 @@ export function createPlayer(k, sharedState) {
       dashDuration: 0.2,
       dashCooldown: 3,
       dashSpeedMultiplier: 4,
-      /**
-       * Centralized function to handle all incoming damage.
-       * @param {number} damageAmount - The amount of health to lose.
-       */
       takeDamage(damageAmount) {
-        // If already invincible, do nothing.
         if (this.isInvincible) return;
-        // Reduce player's health.
         this.hurt(damageAmount);
-        // Apply 2 seconds of invincibility.
         this.applyInvincibility(2);
-        // Add visual feedback.
         k.shake(10);
       },
-      /**
-       * Makes the player invincible and flashes for a given duration.
-       * @param {number} duration - How long the invincibility should last in seconds.
-       */
       applyInvincibility(duration) {
         this.isInvincible = true;
-        // Create a flashing effect that toggles the player's visibility.
         const flashEffect = k.loop(0.1, () => {
           this.hidden = !this.hidden;
         });
-        // After the duration is over, reset everything.
         k.wait(duration, () => {
           this.isInvincible = false;
-          this.hidden = false; // Ensure the player is visible again.
-          flashEffect.cancel(); // Stop the flashing.
+          this.hidden = false;
+          flashEffect.cancel();
         });
       },
     },
@@ -113,22 +99,27 @@ export function createPlayer(k, sharedState) {
   player.onUpdate(() => {
     if (sharedState.isPaused) return;
 
-    // Delegate all timer management to the dash handler.
-    dashHandler.update(k.dt(), player);
+    dashHandler.update(k.dt());
 
-    handleRotation(player, k);
-    handleMovement(player, k, dashHandler);
+    // Pass isMobile flag to input handlers
+    handleRotation(player, k, isMobile);
+    handleMovement(player, k, dashHandler, isMobile);
     clampPosition(player, k, sharedState.area);
   });
 
-  // --- Input Handlers ---
-  k.onKeyDown((key) => {
-    keysPressed[key] = true;
-  });
-  k.onKeyRelease((key) => {
-    keysPressed[key] = false;
-  });
-  k.onKeyPress("space", () => dashHandler.execute(player));
+  // --- Input Handlers based on platform ---
+  if (isMobile) {
+    // For mobile, we check the state of mobileControls every frame.
+    k.onUpdate(() => {
+        if (mobileControls.dash) {
+            dashHandler.execute(player);
+            mobileControls.dash = false; // Consume the dash press
+        }
+    });
+  } else {
+    // For PC, we use key press events.
+    k.onKeyPress("space", () => dashHandler.execute(player));
+  }
 
   // --- Public Methods ---
   player.getDashCooldownProgress = () =>
@@ -139,26 +130,42 @@ export function createPlayer(k, sharedState) {
   return player;
 }
 
-// --- Helper Functions for `createPlayer` ---
+// --- Helper Functions updated for mobile ---
 
-function handleRotation(player, k) {
-  // Player always faces the mouse cursor for aiming.
-  player.rotateTo(k.mousePos().angle(player.pos));
+function handleRotation(player, k, isMobile) {
+    if (isMobile) {
+        // If the shooting joystick is active, rotate the player to face that direction.
+        if (mobileControls.shooting.active) {
+            const shootVector = k.vec2(mobileControls.shooting.x, mobileControls.shooting.y);
+            if (shootVector.len() > 0) {
+                 player.angle = shootVector.angle();
+            }
+        }
+    } else {
+        // PC: Player always faces the mouse cursor for aiming.
+        player.rotateTo(k.mousePos().angle(player.pos));
+    }
 }
 
-function handleMovement(player, k, dashHandler) {
+function handleMovement(player, k, dashHandler, isMobile) {
   let moveDirection = k.vec2(0, 0);
-  if (keysPressed["KeyA"]) moveDirection.x -= 1;
-  if (keysPressed["KeyD"]) moveDirection.x += 1;
-  if (keysPressed["KeyW"]) moveDirection.y -= 1;
-  if (keysPressed["KeyS"]) moveDirection.y += 1;
 
-  // Normalize to prevent faster diagonal movement.
+  if (isMobile) {
+    // Mobile: Read direction from the movement joystick state.
+    moveDirection.x = mobileControls.movement.x;
+    moveDirection.y = mobileControls.movement.y;
+  } else {
+    // PC: Read direction from the keyboard state.
+    if (keysPressed["KeyA"]) moveDirection.x -= 1;
+    if (keysPressed["KeyD"]) moveDirection.x += 1;
+    if (keysPressed["KeyW"]) moveDirection.y -= 1;
+    if (keysPressed["KeyS"]) moveDirection.y += 1;
+  }
+
   if (moveDirection.len() > 0) {
     moveDirection = moveDirection.unit();
   }
 
-  // Apply dash multiplier if the dash is active.
   const effectiveSpeed = dashHandler.isDashing
     ? player.speed * player.dashSpeedMultiplier
     : player.speed;

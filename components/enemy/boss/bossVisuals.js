@@ -1,4 +1,4 @@
-/**
+/**components/enemy/boss/bossVisuals.js
  * @file Contains reusable visual effect functions for bosses.
  */
 

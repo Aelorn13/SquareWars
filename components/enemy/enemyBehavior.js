@@ -1,4 +1,4 @@
-/**
+/**components/enemy/enemyBehavior.js
  * @file Defines enemy game object creation, behavior, and lifecycle.
  */
 
@@ -13,9 +13,9 @@ import { interpolateColor } from "../utils/visualEffects.js";
  * @param {number} t - The interpolation factor (usually dt * speed).
  * @returns {number} The new, interpolated angle.
  */
-function lerpAngle(startAngle, endAngle, t) {
+export function lerpAngle(startAngle, endAngle, t) {
   let diff = endAngle - startAngle;
-  
+
   // Normalize the difference to be between -180 and 180 degrees.
   if (diff > 180) {
     diff -= 360; // Go the other way around the circle
@@ -41,12 +41,12 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
     }
 
     // --- Common Effects for Any Collision ---
-    gameContext.updateHealthBar?.();
     player.takeDamage(enemy.damage ?? 1);
+    gameContext.updateHealthBar?.();
     // --- Specific Logic Based on Enemy Type ---
-    if (enemy.type === "boss") {
+    if (enemy.type === "boss" || enemy.type === "miniboss") {
       // This is the special case for the boss.
-      
+
       // 1. Set a flag on the player to disable their input during the knockback.
       player.isKnockedBack = true;
 
@@ -55,19 +55,20 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
       const knockbackDir = player.pos.sub(enemy.pos).unit();
 
       // 3. Calculate the destination point for the knockback.
-      const knockbackDest = player.pos.add(knockbackDir.scale(KNOCKBACK_DISTANCE));
+      const knockbackDest = player.pos.add(
+        knockbackDir.scale(KNOCKBACK_DISTANCE)
+      );
 
       // 4. Use k.tween for a smooth push effect.
       k.tween(
         player.pos,
         knockbackDest,
         KNOCKBACK_DURATION,
-        (p) => (player.pos = p),
+        (p) => (player.pos = p)
       ).then(() => {
         // 5. After the tween is finished, reset the flag.
         player.isKnockedBack = false;
       });
-
     } else {
       // For any non-boss enemy, they simply die on collision.
       enemy.die();
@@ -84,7 +85,13 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
  * Creates a single enemy game object with data components, but NO logic.
  * The spawner is responsible for attaching logic after creation.
  */
-export function createEnemyGameObject(k, player, config, spawnPos, gameContext) {
+export function createEnemyGameObject(
+  k,
+  player,
+  config,
+  spawnPos,
+  gameContext
+) {
   // Start with a base list of components for every enemy
   const components = [
     k.rect(config.size, config.size),
@@ -173,7 +180,9 @@ export function attachEnemyBehaviors(k, enemy, player) {
         });
       }
       const hpRatio = Math.max(0.01, enemy.hp() / enemy.maxHp);
-      enemy.color = k.rgb(...interpolateColor(enemy.originalColor, [240, 240, 240], hpRatio));
+      enemy.color = k.rgb(
+        ...interpolateColor(enemy.originalColor, [240, 240, 240], hpRatio)
+      );
     } else {
       enemy.die();
     }
@@ -194,11 +203,22 @@ function dropPowerUp(k, player, position, sharedState) {
  * Plays a death animation (scaling and fading) and destroys the object afterward.
  */
 function enemyDeathAnimation(k, enemy) {
-  k.tween(enemy.scale, k.vec2(0.1), 0.4, (s) => (enemy.scale = s), k.easings.easeInQuad);
-  k.tween(enemy.opacity, 0, 0.4, (o) => (enemy.opacity = o), k.easings.linear)
-    .then(() => {
-      k.destroy(enemy);
-    });
+  k.tween(
+    enemy.scale,
+    k.vec2(0.1),
+    0.4,
+    (s) => (enemy.scale = s),
+    k.easings.easeInQuad
+  );
+  k.tween(
+    enemy.opacity,
+    0,
+    0.4,
+    (o) => (enemy.opacity = o),
+    k.easings.linear
+  ).then(() => {
+    k.destroy(enemy);
+  });
 }
 
 /**

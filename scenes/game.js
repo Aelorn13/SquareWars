@@ -7,6 +7,7 @@ import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
 import { keysPressed } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
+import { summonMinions, spreadShot,chargeAttack } from "../components/enemy/boss/bossAbilities.js";
 
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
@@ -52,6 +53,12 @@ export function defineGameScene(k, scoreRef) {
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
 
+     // --- MINIBOSS STATE TRACKING ---
+    let firstMinibossSpawned = false;
+    let secondMinibossSpawned = false;
+    let firstMinibossAbility = null;
+    const availableMinibossAbilities = [summonMinions, spreadShot, chargeAttack];
+
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
       // --- Pause Handling ---
@@ -74,6 +81,39 @@ export function defineGameScene(k, scoreRef) {
       dashCooldownBar.width = dashCooldownBar.fullWidth * player.getDashCooldownProgress();
       updateTimerLabel(timerLabel, k.dt());
       
+         // Spawn first miniboss at 1/3 of the total time
+      if (!firstMinibossSpawned && gameState.elapsedTime >= BOSS_SPAWN_TIME / 3) {
+        firstMinibossSpawned = true;
+        firstMinibossAbility = k.choose(availableMinibossAbilities);
+        
+        console.log("Spawning first miniboss with ability:", firstMinibossAbility.name);
+        spawnEnemy(k, player, gameContext, {
+            forceType: "miniboss",
+            ability: firstMinibossAbility,
+        });
+      }
+
+      // Spawn second, scaled miniboss at 2/3 of the total time
+      if (!secondMinibossSpawned && gameState.elapsedTime >= (BOSS_SPAWN_TIME * 2) / 3) {
+        secondMinibossSpawned = true;
+        
+        // Filter out the first ability to guarantee a different one
+        const remainingAbilities = availableMinibossAbilities.filter(
+          (ab) => ab.name !== firstMinibossAbility.name
+        );
+        const secondAbility = k.choose(remainingAbilities);
+
+        // Define scaling for the second miniboss
+        const scaling = { hpMultiplier: 1.5, speedMultiplier: 1.1 };
+        
+        console.log("Spawning second miniboss with ability:", secondAbility.name);
+        spawnEnemy(k, player, gameContext, {
+            forceType: "miniboss",
+            ability: secondAbility,
+            scaling: scaling, // Pass the scaling object
+        });
+      }
+
       if (!isBossSpawned) {
         // This calculation was removed as it's not needed for the new time-based logic
         // and was causing confusion. spawnProgress is now calculated inside the spawn block.

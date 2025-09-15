@@ -1,4 +1,4 @@
-/**
+/**components/enemy/enemyConfig.js
  * @file Defines the configuration for all enemy types and their spawn rarity.
  */
 
@@ -28,11 +28,16 @@ export const ENEMY_CONFIGS = {
   rageTank: {
     name:"rageTank",
     score: 6, spawnWeight: 3, color: [153, 36, 27], size: 36,
-    maxHp: 10, speed: 60, damage: 2, rarity: 3,
+    maxHp: 9, speed: 60, damage: 2, rarity: 3,
+  },
+    miniboss: {
+    name: "miniboss",
+    score: 30, spawnWeight: 0, color: [140, 40, 140], size: 50,
+    maxHp: 50, speed: 75, damage: 2, rarity: 98, // rarity doesn't matter much with 0 weight
   },
   boss: {
     name :"boss",
-    score: 20, spawnWeight: 0, color: [60, 20, 20], size: 80,
+    score: 50, spawnWeight: 0, color: [60, 20, 20], size: 80,
     maxHp: 300, speed: 80, damage: 3, rarity: 99,
   },
 };

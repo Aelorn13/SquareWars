@@ -1,10 +1,10 @@
 /**
  * @file Contains the main AI brain that initializes the boss and controls its behavior.
+ * This AI is now a high-level controller that triggers self-contained abilities.
  */
-
-import { BOSS_CONFIG, VULNERABILITY_DAMAGE_MULTIPLIER, CHARGE_MOVE_DURATION, VULNERABILITY_DURATION, CHARGE_SPEED_MULTIPLIER } from "./bossConfig.js";
+import { showCritEffect,lerpAngle } from "../enemyBehavior.js";
+import { BOSS_CONFIG, VULNERABILITY_DAMAGE_MULTIPLIER } from "./bossConfig.js";
 import { summonMinions, spreadShot, chargeAttack } from "./bossAbilities.js";
-import { showCritEffect } from "../enemyBehavior.js";
 
 /**
  * Attaches the main AI logic to the boss game object.
@@ -21,93 +21,34 @@ export function attachBossBrain(k, boss, player, gameContext) {
   boss.isBusy = false;
   boss.isVulnerable = false;
 
-  // --- State Machine Properties for Resumable Abilities ---
-  boss.currentAbility = null; // e.g., "charge"
-  boss.abilityStep = null;    // e.g., "telegraph", "move", "vulnerable"
-  boss.stepTimer = 0;         // A manual timer for each step
-  boss.chargeDirection = null;  // To store data between steps
-
   boss.use(k.color(...boss.originalColor));
 
   // --- Main AI Update Loop ---
   boss.onUpdate(() => {
-    // 1. Global Guard Clauses: Game is paused or boss is dead
-    if (gameContext.sharedState.isPaused || boss.dead) return;
-
-    // 2. STATE MACHINE LOGIC: If an ability is in progress, handle it
-    if (boss.isBusy && boss.currentAbility) {
-      boss.stepTimer -= k.dt(); // Countdown the timer for the current step
-
-      // A. LOGIC TO RUN *DURING* A STEP
-      if (boss.abilityStep === "move") {
-        const moveVector = boss.chargeDirection.scale(boss.baseSpeed * CHARGE_SPEED_MULTIPLIER);
-        boss.pos = boss.pos.add(moveVector.scale(k.dt()));
-      }
-
-      // B. LOGIC TO RUN WHEN A STEP *ENDS*
-      if (boss.stepTimer <= 0) {
-        // When timer ends, transition to the NEXT step
-        switch (`${boss.currentAbility}-${boss.abilityStep}`) {
-
-          // --- Summon Minions Transitions ---
-          case "summon-telegraph":
-            // Telegraph is over, now execute the summon
-            const summonParams = BOSS_CONFIG.phases[boss.phase].abilities.summon;
-            summonMinions.execute(k, boss, player, gameContext, summonParams);
-            boss.isBusy = false;
-            boss.currentAbility = null;
-            break;
-            
-          // --- Spread Shot Transitions ---
-          case "spreadShot-telegraph":
-            // Telegraph is over, now execute the shot
-            const spreadParams = BOSS_CONFIG.phases[boss.phase].abilities.spreadShot;
-            spreadShot.execute(k, boss, gameContext, spreadParams);
-            boss.isBusy = false;
-            boss.currentAbility = null;
-            break;
-
-          // --- Charge Attack Transitions ---
-          case "charge-telegraph":
-            boss.abilityStep = "move";
-            boss.stepTimer = CHARGE_MOVE_DURATION;
-            break;
-
-          case "charge-move":
-            boss.abilityStep = "vulnerable";
-            boss.stepTimer = VULNERABILITY_DURATION;
-            boss.isVulnerable = true;
-            // Start the flashing effect
-            boss.vulnerabilityFlasher = k.loop(0.15, () => {
-              if (gameContext.sharedState.isPaused) return;
-              boss.color = boss.color.eq(k.rgb(...boss.originalColor))
-                ? k.rgb(...BOSS_CONFIG.telegraphs.vulnerable.color)
-                : k.rgb(...boss.originalColor);
-            });
-            break;
-
-          case "charge-vulnerable":
-            // Ability is over, reset state
-            boss.vulnerabilityFlasher.cancel();
-            boss.isVulnerable = false;
-            boss.isBusy = false;
-            boss.currentAbility = null;
-            boss.color = k.rgb(...boss.originalColor);
-            break;
-        }
-      }
-      return; // If busy with an ability, don't do anything else
+    // Global guard clause: If the game is paused, or the boss is dead or busy, do nothing.
+    if (gameContext.sharedState.isPaused || boss.dead || boss.isBusy) {
+      return;
     }
 
-    // 3. Logic that should ALWAYS run when not busy: updating cooldowns and phase.
+    // 1. Logic that runs when the boss is free to act.
     updateCooldowns(k, boss);
     updatePhase(k, boss);
 
-    // 4. Action/Decision logic.
-    if (boss.isBusy) return; // Should not be reached if state machine is active, but good failsafe
-
+    // 2. Decide on the next action.
     const didUseAbility = executeNextAbility(k, boss, player, gameContext);
     if (!didUseAbility) {
+            // Move towards player when not using an ability
+      // ---  SMOOTH ROTATION LOGIC ---
+      const dir = player.pos.sub(boss.pos);
+      const targetAngle = dir.angle() + 90;
+      const smoothingFactor = 10; // Higher number means faster turning
+
+      boss.angle = lerpAngle(
+        boss.angle,
+        targetAngle,
+        k.dt() * smoothingFactor
+      );
+
       boss.moveTo(player.pos, boss.speed);
     }
   });
@@ -166,21 +107,44 @@ function updateCooldowns(k, boss) {
 function executeNextAbility(k, boss, player, gameContext) {
   const phaseAbilities = BOSS_CONFIG.phases[boss.phase].abilities;
 
+  // A helper function to orchestrate using a self-contained ability.
+  const useAbility = (ability) => {
+    boss.isBusy = true; // Set the lock to prevent other actions.
+    const telegraph = ability.initiate(k, boss, player, gameContext);
+    const params = ability.getParams(boss.phase);
+
+    k.wait(telegraph.duration, () => {
+      // After the telegraph, execute the ability's main logic.
+      if (boss.exists()) { // Ensure boss wasn't killed during telegraph
+        ability.execute(k, boss, player, gameContext, params);
+      }
+    });
+    
+    // For abilities that don't self-terminate (like summon/spreadshot), the AI releases the busy lock.
+    // The self-contained chargeAttack handles this itself at the end of its full sequence.
+    if (ability.name !== "charge") {
+        k.wait(telegraph.duration + 0.1, () => { // A brief moment after execution starts
+            if (boss.exists()) boss.isBusy = false;
+        });
+    }
+  };
+
+  // --- Ability Priority List ---
   if (phaseAbilities.charge && boss.cooldowns.charge <= 0) {
     boss.cooldowns.charge = BOSS_CONFIG.cooldowns.charge * (boss.phase === 3 ? 1.5 : 1);
-    chargeAttack.initiate(k, boss, player, gameContext);
+    useAbility(chargeAttack);
     return true;
   }
   
   if (phaseAbilities.summon && boss.cooldowns.summon <= 0) {
     boss.cooldowns.summon = BOSS_CONFIG.cooldowns.summon;
-    summonMinions.initiate(k, boss, gameContext, phaseAbilities.summon);
+    useAbility(summonMinions);
     return true;
   }
   
   if (phaseAbilities.spreadShot && boss.cooldowns.spreadShot <= 0) {
     boss.cooldowns.spreadShot = BOSS_CONFIG.cooldowns.spreadShot;
-    spreadShot.initiate(k, boss, gameContext, phaseAbilities.spreadShot);
+    useAbility(spreadShot);
     return true;
   }
 

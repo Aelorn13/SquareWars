@@ -1,10 +1,11 @@
-/**
+/**components/enemy/enemySpawner.js
  * @file Handles the logic for selecting, positioning, and spawning enemies.
  */
 
 import { ENEMY_CONFIGS, RARITY_SPAWN_BIAS } from "./enemyConfig.js";
 import { createEnemyGameObject, attachEnemyBehaviors } from "./enemyBehavior.js";
 import { attachBossBrain } from "./boss/bossAI.js";
+import { attachMinibossBrain } from "./boss/minibossAI.js";
 
 const TELEGRAPH_DURATION = 0.6;
 
@@ -12,7 +13,7 @@ const TELEGRAPH_DURATION = 0.6;
  * Orchestrates spawning an enemy, handling telegraphs and delayed creation.
  */
 export function spawnEnemy(k, player, gameContext, options = {}) {
-  const { forceType = null, spawnPos: posOverride = null, progress = 0 } = options;
+  const { forceType = null, spawnPos: posOverride = null, progress = 0, ability = null, scaling = {} } = options;
 
   const enemyConfig = forceType ? ENEMY_CONFIGS[forceType] : chooseEnemyType(progress);
   const spawnPos = posOverride ?? pickEdgeSpawnPosFarFromPlayer(k, gameContext.sharedState, player);
@@ -21,6 +22,13 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
     const enemy = createEnemyGameObject(k, player, enemyConfig, spawnPos, gameContext);
     if (enemy.type === "boss") {
       attachBossBrain(k, enemy, player, gameContext);
+    } 
+    else if (enemy.type === "miniboss") {
+      if (!ability) {
+        console.error("Miniboss spawned without an ability!");
+        return;  
+      }
+      attachMinibossBrain(k, enemy, player, gameContext, ability, scaling);
     } else {
       attachEnemyBehaviors(k, enemy, player);
     }

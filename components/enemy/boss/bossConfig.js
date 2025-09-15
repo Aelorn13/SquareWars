@@ -1,4 +1,4 @@
-/**
+/**components/enemy/boss/bossConfig.js
  * @file Contains all configuration data for the final boss.
  */
 

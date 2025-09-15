@@ -2,7 +2,7 @@
  * @file A self-contained module to manage all player cosmetic effects.
  */
 import { HP_SIZE_CONFIG, ATTACK_SPEED_COLOR_CONFIG, TRAIL_CONFIG, BARREL_CONFIG, BULLET_SPEED_BARREL_CONFIG } from "./playerCosmeticConfig.js";
-import { clamp, lerp, toRadians } from "./playerCosmeticUtils.js";
+import { clamp, lerp } from "./playerCosmeticUtils.js"; // Assuming this utility file exists
 
 export function setupPlayerCosmetics(k, player) {
   player._cosmetics = {};
@@ -13,7 +13,6 @@ export function setupPlayerCosmetics(k, player) {
 
   player.onUpdate(() => {
     if (!player.exists()) return;
-    syncBarrelCount(k, player);
     updateScale(k, player);
     updateColor(k, player);
     updateTrail(k, player);
@@ -107,49 +106,48 @@ function updateTrail(k, player) {
   }
 }
 
-// --- Weapon Barrels ---
+// --- Weapon Barrel ---
 function initializeBarrels(k, player) {
-  player._cosmetics.barrels = {
-    entities: [],
+  player._cosmetics.barrel = {
+    entity: null,
     baselineBulletSpeed: player.bulletSpeed,
   };
+
+  const barrel = player.add([
+    k.rect(BARREL_CONFIG.width, BARREL_CONFIG.height, { radius: BARREL_CONFIG.rounded ? 4 : 0 }),
+    k.anchor("center"),
+    k.color(...BARREL_CONFIG.colour),
+    k.outline(BARREL_CONFIG.outlineWidth, k.rgb(...BARREL_CONFIG.outlineColour)),
+    k.z(player.z + 1),
+    "playerBarrel",
+  ]);
+  player._cosmetics.barrel.entity = barrel;
 }
-function syncBarrelCount(k, player) {
-  const state = player._cosmetics.barrels;
-  const desiredCount = clamp(Math.floor(player.projectiles), 1, BARREL_CONFIG.maxBarrels);
-  if (state.entities.length === desiredCount) return;
-  state.entities.forEach(b => b.destroy());
-  state.entities = [];
-  for (let i = 0; i < desiredCount; i++) {
-    const barrel = player.add([
-      k.rect(BARREL_CONFIG.width, BARREL_CONFIG.height, { radius: BARREL_CONFIG.rounded ? 4 : 0 }),
-      k.anchor("center"),
-      k.color(...BARREL_CONFIG.colour),
-      k.outline(BARREL_CONFIG.outlineWidth, k.rgb(...BARREL_CONFIG.outlineColour)),
-      k.z(1),
-      "playerBarrel",
-    ]);
-    state.entities.push(barrel);
-  }
-}
+
 function updateBarrelTransforms(k, player) {
-  const state = player._cosmetics.barrels;
-  const entities = state.entities;
-  if (entities.length === 0) return;
+  const state = player._cosmetics.barrel;
+  const barrel = state.entity;
+  if (!barrel) return;
+
+  // --- Calculate wide part (width) based on bulletSpeed ---
   let currentBarrelWidth = BARREL_CONFIG.width;
   if (BULLET_SPEED_BARREL_CONFIG.enabled && state.baselineBulletSpeed > 0) {
     const speedDifference = Math.max(0, player.bulletSpeed - state.baselineBulletSpeed);
     const lengthIncrease = BULLET_SPEED_BARREL_CONFIG.scalingFactor * Math.log1p(speedDifference / state.baselineBulletSpeed);
     currentBarrelWidth = clamp(BARREL_CONFIG.width + lengthIncrease, BARREL_CONFIG.width, BULLET_SPEED_BARREL_CONFIG.maxLength);
   }
-  const numBarrels = entities.length;
-  const totalSpread = toRadians(player.bulletSpreadDeg * Math.sqrt(numBarrels));
+
+  // --- Calculate narrow part (height) based on projectiles ---
+  const projectileCount = player.projectiles || 1;
+  const projectileIncrease = Math.max(0, projectileCount - 1);
+  const currentBarrelHeight = BARREL_CONFIG.height + projectileIncrease * BARREL_CONFIG.heightPerProjectile;
+
+  // Apply transforms
+  barrel.width = currentBarrelWidth;
+  barrel.height = currentBarrelHeight;
+
+  // Update position based on the new width
   const mountDistance = player.width / 2 + currentBarrelWidth / 2 - BARREL_CONFIG.inset;
-  for (let i = 0; i < numBarrels; i++) {
-    const barrel = entities[i];
-    const angleOffset = numBarrels > 1 ? lerp(-totalSpread / 2, totalSpread / 2, i / (numBarrels - 1)) : 0;
-    barrel.width = currentBarrelWidth;
-    barrel.pos = k.Vec2.fromAngle(angleOffset).scale(mountDistance);
-    barrel.angle = k.rad2deg(angleOffset);
-  }
+  barrel.pos = k.vec2(mountDistance, 0);
+  barrel.angle = 0; // The single barrel always points straight
 }

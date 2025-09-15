@@ -1,3 +1,4 @@
+//components/upgrade/upgradeConfig.js
 /**
  * @file Defines configurations for player upgrades, rarities, and related utility functions.
  */
@@ -5,7 +6,7 @@
 /**
  * Defines the different rarities for upgrades.
  */
-export const RARITY_DEFINITIONS = [
+export const RARITY_CONFIG = [
   { name: "Common",    color: [255, 255, 255], tier: 1, multiplier: 0.1, weight: 40 },
   { name: "Uncommon",  color: [0, 255, 0],     tier: 2, multiplier: 0.2, weight: 30 },
   { name: "Rare",      color: [0, 0, 255],     tier: 3, multiplier: 0.3, weight: 15 },
@@ -49,7 +50,7 @@ export const UPGRADE_CONFIG = {
  * @param {Array<Object>} [rarityPool=RARITY_DEFINITIONS] - The array of rarity objects to pick from.
  * @returns {Object} The randomly selected rarity object.
  */
-export function rollWeightedRarity(rarityPool = RARITY_DEFINITIONS) {
+export function rollWeightedRarity(rarityPool = RARITY_CONFIG) {
   const totalWeight = rarityPool.reduce((sum, rarity) => sum + (rarity.weight ?? 1), 0);
   if (totalWeight <= 0) {
     return rarityPool[0]; // Prevent division by zero.
@@ -75,7 +76,7 @@ export function rollRarityForStat(statName) {
   const allowedTiers = statConfig?.allowedTiers;
 
   if (allowedTiers) {
-    const filteredRarities = RARITY_DEFINITIONS.filter(r => allowedTiers.includes(r.tier));
+    const filteredRarities = RARITY_CONFIG.filter(r => allowedTiers.includes(r.tier));
     return rollWeightedRarity(filteredRarities);
   }
 

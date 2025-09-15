@@ -1,3 +1,4 @@
+//components/powerup/applyPowerup.js
 /**
  * @file Handles the application of power-up effects to the player or game world.
  */

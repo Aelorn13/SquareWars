@@ -1,3 +1,4 @@
+//components/powerup/powerupTypes.js
 /**
  * @file Defines the configurations for all power-ups in the game.
  */

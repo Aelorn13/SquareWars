@@ -1,5 +1,6 @@
+//components/upgrade/applyUpgrade.js
 import { showUpgradeUI, cleanupUpgradeUI } from "../ui/upgradeUI.js";
-import { UPGRADE_CONFIG, rollRarityForStat, formatUpgradeForUI } from "./upgradeDefinitions.js";
+import { UPGRADE_CONFIG, rollRarityForStat, formatUpgradeForUI } from "./upgradeConfig.js";
 import { getPermanentBaseStat, applyPermanentUpgrade } from "./statManager.js";
 
 /**

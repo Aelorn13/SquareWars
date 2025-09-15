@@ -1,3 +1,4 @@
+//components/powerup/powerupEffect/temporaryStatBuffEffect.js
 /**
  * @file A system for applying temporary, pausable, and stackable attribute buffs.
  */

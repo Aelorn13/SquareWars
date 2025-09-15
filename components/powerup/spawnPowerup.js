@@ -1,3 +1,4 @@
+//components/powerup/spawnPowerup.js
 /**
  * @file Manages the spawning and lifecycle of power-up objects in the game world.
  */
@@ -7,7 +8,6 @@ import { DEFAULT_POWERUP_DURATION, POWERUP_CONFIG } from "./powerupTypes.js";
 /**
  * Creates and manages a power-up entity in the game world.
  *
- * @param {object} k - The Kaboom.js context.
  * @param {Vec2} position - The initial position of the power-up.
  * @param {string} type - The type of power-up (e.g., "SPEED", "DAMAGE").
  * @param {object} sharedState - Shared game state, such as `isPaused`.

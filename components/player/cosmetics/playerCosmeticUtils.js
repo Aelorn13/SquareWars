@@ -1,3 +1,4 @@
+//components/player/cosmetics/playerCosmeticUtils.js
 /**
  * @file Contains generic utility functions for cosmetic calculations.
  */

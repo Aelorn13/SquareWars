@@ -1,3 +1,4 @@
+//components/player/cosmetics/playerCosmetic.js
 /**
  * @file A self-contained module to manage all player cosmetic effects.
  */

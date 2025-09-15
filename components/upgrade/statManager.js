@@ -1,3 +1,4 @@
+//components/upgrade/statManager.js
 /**
  * @file Manages the interaction between permanent base stats and temporary buff layers.
  */

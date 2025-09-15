@@ -1,3 +1,4 @@
+//components/player/shooting.js
 const BASE_PROJECTILE_SIZE = 6;
 const DEFAULT_BULLET_SPREAD_DEG = 10;
 const MIN_FIRE_RATE = 0.04; // Minimum time between shots in seconds

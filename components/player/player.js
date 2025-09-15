@@ -1,3 +1,4 @@
+//components/player/player.js
 import { keysPressed } from "./controls.js";
 import { setupPlayerCosmetics } from "./cosmetics/playerCosmetic.js";
 

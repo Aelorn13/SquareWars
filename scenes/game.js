@@ -19,7 +19,6 @@ export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
 
 if (isMobileDevice()) {
-  console.log ("MOBILE IT IS");
   const controller = makeMobileController(k);
   registerMobileController(controller);
 }

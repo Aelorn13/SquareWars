@@ -1,23 +1,22 @@
 // components/player/mobile/aimJoystick.js
-// createAimJoystick(options) -> { getAim(), isFiring(), destroy() }
-// getAim() returns a normalized direction vector { x: -1..1, y: -1..1 }
-// isFiring() returns boolean (true while pointer is down)
-
 export function createAimJoystick({
   container = document.body,
   size = 120,
   marginX = 24,
-  marginY = 40,      // lower than movement joystick by default
-   align = 'left',
+  marginY = 40,
+  align = "left",
   deadZone = 0.10,
   sticky = true,
+  preserveLast = true, // remember last direction when pointer released
 } = {}) {
   let pointerId = null;
   let origin = { x: 0, y: 0 };
-  let current = { x: 0, y: 0 };
+  let current = { x: 0, y: 0 }; // pixel delta while active
   const radius = size / 2;
   const maxDist = radius * 0.9;
   let firing = false;
+  // last non-zero normalized aim (x,y), default to facing right
+  let lastAim = { x: 1, y: 0 };
 
   const base = document.createElement("div");
   const handle = document.createElement("div");
@@ -35,15 +34,14 @@ export function createAimJoystick({
     pointerEvents: "auto",
   };
 
-  // Conditionally set left or right based on the 'align' property
-  if (align === 'right') {
+  if (align === "right") {
     baseStyle.right = `${marginX}px`;
   } else {
     baseStyle.left = `${marginX}px`;
   }
 
   Object.assign(base.style, baseStyle);
-  // --- End of Corrected Block ---
+
   Object.assign(handle.style, {
     position: "absolute",
     left: "50%",
@@ -60,12 +58,20 @@ export function createAimJoystick({
 
   function updateHandleFromDelta(dx, dy) {
     const dist = Math.hypot(dx, dy);
-    const clamped = dist > maxDist ? (maxDist / dist) : 1;
+    const clamped = dist > maxDist ? maxDist / dist : 1;
     const hx = dx * clamped;
     const hy = dy * clamped;
     handle.style.transform = `translate(calc(-50% + ${hx}px), calc(-50% + ${hy}px))`;
     current.x = hx;
     current.y = hy;
+
+    // update lastAim from the *active* input if it exceeds deadZone
+    const nx = hx / maxDist;
+    const ny = hy / maxDist;
+    const len = Math.hypot(nx, ny);
+    if (len >= deadZone) {
+      lastAim = { x: nx / len, y: ny / len };
+    }
   }
 
   function onPointerDown(e) {
@@ -91,7 +97,9 @@ export function createAimJoystick({
     try { base.releasePointerCapture(pointerId); } catch {}
     pointerId = null;
     firing = false;
-    current.x = 0; current.y = 0;
+    // Reset handle visual but KEEP lastAim if preserveLast=true
+    current.x = 0;
+    current.y = 0;
     handle.style.transform = `translate(-50%,-50%)`;
     if (!sticky) base.style.display = "none";
   }
@@ -103,6 +111,7 @@ export function createAimJoystick({
   base.addEventListener("lostpointercapture", onPointerUp);
 
   return {
+    // active aim while touching (normalized, zero if tiny input)
     getAim() {
       const nx = current.x / maxDist;
       const ny = current.y / maxDist;
@@ -110,7 +119,12 @@ export function createAimJoystick({
       if (len < deadZone) return { x: 0, y: 0 };
       return { x: nx / len, y: ny / len };
     },
-    isFiring() {
+    // last stored aim (normalized) — useful to keep facing direction after touch ends
+    getLastAim() {
+      return { x: lastAim.x, y: lastAim.y };
+    },
+    // whether joystick currently being touched
+    isAiming() {
       return !!firing;
     },
     destroy() {
@@ -119,7 +133,7 @@ export function createAimJoystick({
       window.removeEventListener("pointerup", onPointerUp);
       base.removeEventListener("pointercancel", onPointerUp);
       base.removeEventListener("lostpointercapture", onPointerUp);
-      container.removeChild(base);
+      if (container.contains(base)) container.removeChild(base);
     },
   };
 }

@@ -18,12 +18,14 @@ export const inputState = {
 };
 
 let mobileController = null; // set via registerMobileController(controller)
-let dashHeld = false;        // internal state to detect edge presses
+let dashHeld = false; // internal state to detect edge presses
 
 export function isMobileDevice() {
   // simple heuristic - good enough for initial detection
-  return /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)
-    || (window.matchMedia && window.matchMedia("(pointer:coarse)").matches);
+  return (
+    /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent) ||
+    (window.matchMedia && window.matchMedia("(pointer:coarse)").matches)
+  );
 }
 
 /**
@@ -82,19 +84,36 @@ export function registerMobileController(controller) {
 export function updateInput(k, playerPos) {
   if (inputState.isMobile && mobileController) {
     const mv = mobileController.getMove?.() || { x: 0, y: 0 };
-    // clamp axes
     inputState.move.x = Math.max(-1, Math.min(1, mv.x || 0));
     inputState.move.y = Math.max(-1, Math.min(1, mv.y || 0));
 
-    const aimRaw = mobileController.getAim?.();
-    if (aimRaw) {
-      inputState.aim.x = aimRaw.x || 0;
-      inputState.aim.y = aimRaw.y || 0;
+    // Aim: prefer active current aim while touching; otherwise fall back to last remembered aim
+    const aimActive = !!(
+      mobileController.isAiming?.() || mobileController.isFiring?.()
+    );
+    const aimCurr = mobileController.getAim?.() || { x: 0, y: 0 };
+    const aimLast = mobileController.getAimLast?.() || { x: 0, y: 0 };
+
+    if (aimActive && (Math.abs(aimCurr.x) > 0 || Math.abs(aimCurr.y) > 0)) {
+      inputState.aim.x = aimCurr.x;
+      inputState.aim.y = aimCurr.y;
+    } else {
+      // use last known aim so the player keeps facing last direction
+      inputState.aim.x = aimLast.x;
+      inputState.aim.y = aimLast.y;
     }
 
+    // mark whether the aim joystick is actively being touched
+    inputState.aimActive = aimActive;
+
+    // auto-fire while the aim joystick is actively touched
+    inputState.firing = !!aimActive;
+
+    // dash handling (unchanged)
     const dashNow = !!mobileController.getDash?.();
     if (dashNow && !dashHeld) inputState._dash = true;
     dashHeld = dashNow;
+    return;
   } else {
     // Desktop: movement from keys, aim from mouse
     const moveX = (keysPressed["KeyD"] ? 1 : 0) - (keysPressed["KeyA"] ? 1 : 0);
@@ -155,8 +174,14 @@ export function aimWorldTarget(k, playerPos) {
     const scale = 200;
     const ax = inputState.aim.x || 0;
     const ay = inputState.aim.y || 0;
-    return k.vec2((playerPos.x || 0) + ax * scale, (playerPos.y || 0) + ay * scale);
+    return k.vec2(
+      (playerPos.x || 0) + ax * scale,
+      (playerPos.y || 0) + ay * scale
+    );
   } else {
-    return k.vec2(inputState.aim.x || (playerPos?.x || 0), inputState.aim.y || (playerPos?.y || 0));
+    return k.vec2(
+      inputState.aim.x || playerPos?.x || 0,
+      inputState.aim.y || playerPos?.y || 0
+    );
   }
 }

@@ -9,9 +9,9 @@ import { createDashButton } from "./dashButton.js";
  * that matches registerMobileController(controller) expectations.
  */
 export function makeMobileController(k, {
-  moveOpts = { size: 140, marginX: 18, marginY: 160 },
-  aimOpts  = { size: 120, marginX: 18, marginY: 160, align: 'right' },
-  dashOpts = { size: 78, marginX: 18, marginY: 56, align: 'right' },
+  moveOpts = { size: 140, marginX: 150, marginY: 160 },
+  aimOpts  = { size: 140, marginX: 150, marginY: 160, align: 'right' },
+  dashOpts = { size: 78, marginX: 250, marginY: 300, align: 'right' },
 } = {}) {
   // container could be k.canvas or document.body; keep default body for simplicity
   const container = (k && k.canvas) ? document.body : document.body;
@@ -22,9 +22,14 @@ export function makeMobileController(k, {
 
   return {
     getMove: () => move.getMove(),
+    // getAim: active aim vector while touching (zero if not touching)
     getAim:  () => aim.getAim(),
+    // getAimLast: last non-zero direction (normalized) remembered after touch
+    getAimLast: () => aim.getLastAim(),
+    // isAiming: true while aim joystick is actively touched
+    isAiming: () => aim.isAiming?.() ?? false,
     getDash: () => dash.getDash(),
-    isFiring: () => aim.isFiring?.() ?? false,
+    isFiring: () => aim.isAiming?.() ?? false, // compatibility
     destroy: () => { move.destroy(); aim.destroy(); dash.destroy(); },
   };
 }

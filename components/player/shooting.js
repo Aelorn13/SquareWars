@@ -1,4 +1,6 @@
-//components/player/shooting.js
+// components/player/shooting.js
+import { inputState, updateInput, aimWorldTarget } from "./controls.js";
+
 const BASE_PROJECTILE_SIZE = 6;
 const DEFAULT_BULLET_SPREAD_DEG = 10;
 const MIN_FIRE_RATE = 0.04; // Minimum time between shots in seconds
@@ -32,10 +34,10 @@ export function setupPlayerShooting(k, player, gameState) {
 
   // Handles the logic for a single shot, including multiple projectiles.
   const fireProjectile = () => {
-    // Determine the target direction based on mouse position.
-    const mousePosition = k.mousePos();
-    const targetDirectionX = mousePosition.x - player.pos.x;
-    const targetDirectionY = mousePosition.y - player.pos.y;
+    // Use unified aiming helper so desktop and mobile share behavior.
+    const targetVec = aimWorldTarget(k, player.pos); // k.vec2
+    const targetDirectionX = targetVec.x - player.pos.x;
+    const targetDirectionY = targetVec.y - player.pos.y;
     const baseShotAngleRad = Math.atan2(targetDirectionY, targetDirectionX);
 
     const damageBuffMultiplier = getDamageBuffMultiplier();
@@ -72,7 +74,7 @@ export function setupPlayerShooting(k, player, gameState) {
 
     // Calculate projectile size based on current damage vs. base damage and crit multiplier.
     // Damage buff no longer affects size, only color.
-    const basePlayerDamage = 1; 
+    const basePlayerDamage = 1;
     const damageSizeMultiplier = player.damage / basePlayerDamage;
     const projectileSize = Math.max(
       2,
@@ -132,13 +134,22 @@ export function setupPlayerShooting(k, player, gameState) {
     });
   };
 
-  // Event listeners for mouse input to control player shooting state.
+  // Keep desktop mouse handlers for mouse users (no change).
   k.onMouseDown(() => (player.isShooting = true));
   k.onMouseRelease(() => (player.isShooting = false));
 
-  // Game update loop: check if player is shooting and game is not paused.
+  // Game update loop: check if player is shooting (desktop) or aiming (mobile) and game is not paused.
   k.onUpdate(() => {
     if (gameState.isPaused) return; // Do nothing if game is paused.
-    if (player.isShooting) tryFire(); // Attempt to shoot if player is holding mouse down.
+
+    // Update unified input state so mobile firing/aiming is fresh this frame.
+    updateInput(k, player.pos);
+
+    // Determine whether to shoot:
+    // - Desktop: player.isShooting is set by mouse handlers.
+    // - Mobile: inputState.firing is set by controls.updateInput when aim joystick is active.
+    const shootingNow = !!player.isShooting || !!inputState.firing;
+
+    if (shootingNow) tryFire();
   });
 }

@@ -1,3 +1,4 @@
+//main.js
 import kaplay from "https://unpkg.com/kaplay@3001.0.19/dist/kaplay.mjs";
 import { defineGameScene } from "./scenes/game.js";
 import { defineGameOverScene } from "./scenes/gameover.js";
@@ -9,7 +10,6 @@ const k = kaplay({
   width: 1024,
   height: 820,
   letterBox: true,
-  // scale: Math.min(window.innerWidth / 540, window.innerHeight / 960),
   debug: true,
   global: false,
   background: [0, 0, 0],
@@ -24,7 +24,7 @@ defineGameScene(k, scoreRef);
 defineGameOverScene(k, () => scoreRef.value());
 defineVictoryScene(k, () => scoreRef.value());
 TutorialScene(k);
-initControls();
+initControls(k);
 k.go("tutorial");
 defineDebugScene(k);
 // k.go("debug")

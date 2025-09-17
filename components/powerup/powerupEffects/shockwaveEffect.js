@@ -1,3 +1,4 @@
+//components/powerup/powerupEffect/shockwaveEffect.js
 /**
  * @file Contains the logic for the shockwave power-up effect.
  */

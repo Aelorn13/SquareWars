@@ -1,4 +1,8 @@
+// scenes/tutorial.js 
+
+
 export function TutorialScene(k) {
+
   const row = 50;
   const instructions = [
     "Move: WASD /  Arrows",
@@ -21,6 +25,7 @@ export function TutorialScene(k) {
       k.anchor("center"),
       k.pos(k.width() / 2, k.height() / 2 + 50),
     ]);
+
 
     let canClick = false;
     k.wait(0.5, () => {

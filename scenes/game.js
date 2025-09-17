@@ -8,12 +8,22 @@ import { applyPowerUp } from "../components/powerup/applyPowerup.js";
 import { keysPressed } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 import { summonMinions, spreadShot,chargeAttack } from "../components/enemy/boss/bossAbilities.js";
+import { isMobileDevice, registerMobileController } from "../components/player/controls.js";
+import { makeMobileController } from "../components/player/mobile/index.js";
+
 
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
 
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
+
+if (isMobileDevice()) {
+  console.log ("MOBILE IT IS");
+  const controller = makeMobileController(k);
+  registerMobileController(controller);
+}
+
     // --- Game Arena Setup ---
     const ARENA_MARGIN = Math.floor(Math.min(k.width(), k.height()) * 0.05);
     const ARENA = { x: ARENA_MARGIN, y: ARENA_MARGIN, w: k.width() - ARENA_MARGIN * 2, h: k.height() - ARENA_MARGIN * 2 };

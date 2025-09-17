@@ -1,5 +1,5 @@
 //components/player/player.js
-import { keysPressed } from "./controls.js";
+import { updateInput, consumeDash, moveVec, aimWorldTarget } from "./controls.js";
 import { setupPlayerCosmetics } from "./cosmetics/playerCosmetic.js";
 
 const BASE_PLAYER_SIZE = 28;
@@ -114,22 +114,17 @@ export function createPlayer(k, sharedState) {
   player.onUpdate(() => {
     if (sharedState.isPaused) return;
 
+     updateInput(k, player.pos);
     // Delegate all timer management to the dash handler.
     dashHandler.update(k.dt(), player);
 
+        if (consumeDash()) {
+      dashHandler.execute(player);
+    }
     handleRotation(player, k);
     handleMovement(player, k, dashHandler);
     clampPosition(player, k, sharedState.area);
   });
-
-  // --- Input Handlers ---
-  k.onKeyDown((key) => {
-    keysPressed[key] = true;
-  });
-  k.onKeyRelease((key) => {
-    keysPressed[key] = false;
-  });
-  k.onKeyPress("space", () => dashHandler.execute(player));
 
   // --- Public Methods ---
   player.getDashCooldownProgress = () =>
@@ -144,26 +139,20 @@ export function createPlayer(k, sharedState) {
 
 function handleRotation(player, k) {
   // Player always faces the mouse cursor for aiming.
-  player.rotateTo(k.mousePos().angle(player.pos));
+   const target = aimWorldTarget(k, player.pos);
+  player.rotateTo(target.angle(player.pos));
 }
 
 function handleMovement(player, k, dashHandler) {
-  let moveDirection = k.vec2(0, 0);
-  if (keysPressed["KeyA"]) moveDirection.x -= 1;
-  if (keysPressed["KeyD"]) moveDirection.x += 1;
-  if (keysPressed["KeyW"]) moveDirection.y -= 1;
-  if (keysPressed["KeyS"]) moveDirection.y += 1;
+// Get the normalized movement vector from the central controls.
+  const moveDirection = moveVec(k);
 
-  // Normalize to prevent faster diagonal movement.
-  if (moveDirection.len() > 0) {
-    moveDirection = moveDirection.unit();
-  }
-
-  // Apply dash multiplier if the dash is active.
+  // Apply dash multiplier if the dash is active. This logic is preserved.
   const effectiveSpeed = dashHandler.isDashing
     ? player.speed * player.dashSpeedMultiplier
     : player.speed;
 
+  // No need to check moveDirection.len() > 0, as scaling a zero vector results in zero movement.
   player.move(moveDirection.scale(effectiveSpeed));
 }
 

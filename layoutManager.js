@@ -2,16 +2,19 @@
 import { isMobileDevice, registerMobileController, unregisterMobileController } from "./components/player/controls.js";
 import { makeMobileController } from "./components/player/mobile/index.js";
 
-// Module state
-let k = null; // kaplay instance
-let gameContainer = null; // #game-container element (fallback to body)
+/* Module state */
+let k = null;
+let gameContainer = null;
 let resizeDebounceTimer = null;
 let gameShell = null; // { shell, left, center, right, canvasOriginalParent }
 
 const LOGICAL_WIDTH = 1024;
 const LOGICAL_HEIGHT = 820;
+const DEBOUNCE_MS = 140;
 
-// Compute side column width so center stays usable on narrow phones
+/* Helpers */
+
+// Compute side column width so center remains usable on narrow phones
 function computeSideColumnWidth({ preferred = 220, minCenter = 420, minSide = 60, maxSide = 320 } = {}) {
   const viewWidth = Math.max(320, window.innerWidth || 360);
   let sideWidth = Math.floor((viewWidth - minCenter) / 2);
@@ -26,17 +29,28 @@ function computeSideColumnWidth({ preferred = 220, minCenter = 420, minSide = 60
   return sideWidth;
 }
 
-/**
- * Create the three-column shell and move the canvas into the center.
- * IMPORTANT: this function does NOT register/unregister controllers.
- */
+function applyCanvasBaseStyleForContainer(canvas) {
+  if (!canvas) return;
+  Object.assign(canvas.style, {
+    width: "100%",
+    height: "auto",
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+    display: "block",
+    margin: "0 auto",
+    transform: "none",
+    pointerEvents: "auto",
+  });
+}
+
+/* Create/destroy shell (DOM only). These DO NOT register controllers. */
+
 function createGameShell() {
   if (gameShell) return;
 
-  // Clear any portrait padding so shell isn't pushed down
-  if (gameContainer) {
-    gameContainer.style.paddingTop = "";
-  }
+  // clear any portrait padding (so shell doesn't get pushed down)
+  if (gameContainer) gameContainer.style.paddingTop = "";
 
   const sideWidth = computeSideColumnWidth();
   const shell = document.createElement("div");
@@ -71,29 +85,16 @@ function createGameShell() {
   shell.appendChild(right);
   document.body.appendChild(shell);
 
-  // Move canvas into center column and remember original parent
+  // Move canvas into center and record original parent
   const canvasOriginalParent = (k && k.canvas && k.canvas.parentElement) ? k.canvas.parentElement : gameContainer;
   if (k && k.canvas) {
     center.appendChild(k.canvas);
-    Object.assign(k.canvas.style, {
-      maxWidth: "100%",
-      maxHeight: "100%",
-      objectFit: "contain",
-      pointerEvents: "auto",
-      display: "block",
-      margin: "0 auto",
-      transform: "none", // clear any transforms
-    });
+    applyCanvasBaseStyleForContainer(k.canvas);
   }
 
   gameShell = { shell, left, center, right, canvasOriginalParent };
 }
 
-
-/**
- * Destroy the shell and restore canvas to original parent.
- * IMPORTANT: does NOT register/unregister controllers.
- */
 function destroyGameShell() {
   if (!gameShell) return;
 
@@ -101,29 +102,11 @@ function destroyGameShell() {
     if (k && k.canvas && gameShell.center && gameShell.center.contains(k.canvas)) {
       const prev = gameShell.canvasOriginalParent || gameContainer || document.body;
       prev.appendChild(k.canvas);
-
-      // Reset canvas CSS so it lays out predictably in the parent container
-      Object.assign(k.canvas.style, {
-        width: "100%",         // scale to container width
-        height: "auto",        // preserve aspect ratio
-        maxWidth: "100%",
-        maxHeight: "100%",
-        objectFit: "contain",
-        display: "block",
-        margin: "0 auto",
-        transform: "none",
-        pointerEvents: "auto",
-      });
-
-      // ensure container has no residual transform/offset and bring viewport to top
-      if (gameContainer) {
-        gameContainer.style.transform = "";
-      }
-      // mobile sometimes retains scroll offset — snap to top so canvas is visible
-      try { window.scrollTo(0, 0); } catch (e) {}
+      applyCanvasBaseStyleForContainer(k.canvas);
+      // Snap to top to help mobile browsers show the canvas
+      try { window.scrollTo(0, 0); } catch {}
     }
 
-    // remove the shell element entirely
     gameShell.shell.remove();
   } catch (e) {
     console.warn("Failed to clean up game shell:", e);
@@ -132,138 +115,95 @@ function destroyGameShell() {
   gameShell = null;
 }
 
-
-/**
- * Adjust canvas layout and notify engine/game about new size.
- * Only applies mobile portrait padding to `gameContainer` (cleared for other layouts).
- */
-function adjustCanvasLayout() {
-  const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-
-  if (gameShell) {
-    // In shell (landscape), center the canvas and ensure no extra top padding on container
-    gameShell.center.style.alignItems = "center";
-    gameShell.center.style.paddingTop = "0";
-    if (gameContainer) gameContainer.style.paddingTop = ""; // clear if previously set
-  } else {
-    // Portrait or desktop: apply top offset only on mobile portrait (set by handleLayoutChange)
-    // ensure shell-specific paddings are cleared
-    if (gameContainer && !isLandscape) {
-      // top offset should already be set by handleLayoutChange when in mobile portrait,
-      // but clear it here if we are not in mobile portrait context:
-      // (we only clear it when not in mobile portrait - keep it otherwise)
-    }
-  }
-
-  // Temporarily remove our resize listener to avoid recursion when dispatching the native resize
-  window.removeEventListener("resize", debouncedLayoutChange);
-  window.dispatchEvent(new Event("resize"));
-  window.addEventListener("resize", debouncedLayoutChange);
-
-  // Notify game logic about canvas size
-  if (k && k.canvas) {
-    const rect = k.canvas.getBoundingClientRect();
-    const scale = Math.min(rect.width / LOGICAL_WIDTH, rect.height / LOGICAL_HEIGHT);
-    window.dispatchEvent(new CustomEvent("game-canvas-resized", { detail: { scale, rect, isLandscape } }));
-  }
+/* Notify engine/game of canvas resize without faking DOM resize event */
+function notifyCanvasResize() {
+  if (!k || !k.canvas) return;
+  const rect = k.canvas.getBoundingClientRect();
+  const scale = Math.min(rect.width / LOGICAL_WIDTH, rect.height / LOGICAL_HEIGHT);
+  window.dispatchEvent(new CustomEvent("game-canvas-resized", { detail: { scale, rect, isLandscape: window.matchMedia("(orientation: landscape)").matches } }));
 }
 
-/**
- * Orchestrates layout and controller registration.
- * Lifecyle order is important:
- *   1) unregister existing mobile controller
- *   2) create/destroy shell (so DOM parents are correct)
- *   3) register mobile controller for the new layout (if mobile)
- *   4) adjust canvas layout (Kaplay will receive resize event)
- */
-function handleLayoutChange() {
-  // 1) Remove previous mobile controller (if any)
-  try { unregisterMobileController(); } catch (e) { /* ignore */ }
+/* High-level layout flows (small, isolated responsibilities) */
 
-  // 2) Desktop: remove shell and DO NOT register mobile controls
-  if (!isMobileDevice()) {
-    if (gameShell) destroyGameShell();
-    // Clear any portrait padding that might have been applied
-    if (gameContainer) gameContainer.style.paddingTop = "";
-    // Ask engine & canvas to recompute layout
-    requestAnimationFrame(adjustCanvasLayout);
-    return;
+function applyDesktopLayout() {
+  // remove mobile shell and do NOT register mobile controllers
+  if (gameShell) destroyGameShell();
+  if (gameContainer) gameContainer.style.paddingTop = "";
+  notifyCanvasResize();
+}
+
+function applyMobileLandscapeLayout() {
+  // recreate shell (ensures side widths updated) and register controller that attaches to columns
+  if (gameShell) destroyGameShell();
+  createGameShell();
+  if (gameShell) {
+    registerMobileController(() => makeMobileController(k, { containers: { left: gameShell.left, right: gameShell.right, center: gameShell.center } }));
   }
+  notifyCanvasResize();
+}
 
-  // Mobile device path
-  const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-
-  if (isLandscape) {
-    // Ensure shell exists (recreate to update sizes)
-    if (gameShell) destroyGameShell();
-    createGameShell();
-
-    // 3) Register mobile controller *after* shell exists so joysticks attach into columns
-    if (gameShell) {
-      registerMobileController(() =>
-        makeMobileController(k, { containers: { left: gameShell.left, right: gameShell.right, center: gameShell.center } })
-      );
-    }
-  } else {
-  // Portrait mobile:
-  // Destroy shell so canvas returns to original parent (gameContainer)
+function applyMobilePortraitLayout() {
+  // restore canvas to original parent and register default mobile controls
   if (gameShell) destroyGameShell();
 
-  // Ensure canvas is placed into gameContainer (fallback) and reset styles
+  // ensure canvas is in the intended container
   if (k && k.canvas) {
     const desiredParent = gameContainer || document.body;
-    if (k.canvas.parentElement !== desiredParent) {
-      desiredParent.appendChild(k.canvas);
-    }
-    // small safe reset (in case destroyGameShell didn't run)
-    Object.assign(k.canvas.style, {
-      width: "100%",
-      height: "auto",
-      maxWidth: "100%",
-      maxHeight: "100%",
-      objectFit: "contain",
-      display: "block",
-      margin: "0 auto",
-      transform: "none",
-      pointerEvents: "auto",
-    });
-
-    // Snap to top to ensure canvas is visible on mobile after reparent
-    try { window.scrollTo(0, 0); } catch (e) {}
+    if (k.canvas.parentElement !== desiredParent) desiredParent.appendChild(k.canvas);
+    applyCanvasBaseStyleForContainer(k.canvas);
+    try { window.scrollTo(0, 0); } catch {}
   }
 
-  // Apply a small top offset so UI above the canvas remains visible in portrait
+  // small top offset to make room for UI above canvas on portrait phones
   if (gameContainer) {
     const topOffset = Math.max(window.innerHeight * 0.06, 36);
     gameContainer.style.paddingTop = `${topOffset}px`;
   }
 
-  // Register portrait mobile controls (only for real mobile devices)
   registerMobileController(() => makeMobileController(k));
-}
+  notifyCanvasResize();
 }
 
-// Debounced resize handler wrapper
+/* Main orchestrator */
+
+function handleLayoutChange() {
+  // ensure previous mobile controller removed
+  try { unregisterMobileController(); } catch (e) { /* ignore */ }
+
+  if (!isMobileDevice()) {
+    applyDesktopLayout();
+    return;
+  }
+
+  const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+  if (isLandscape) {
+    applyMobileLandscapeLayout();
+  } else {
+    applyMobilePortraitLayout();
+  }
+}
+
+/* Debounced resize wrapper */
 function debouncedLayoutChange() {
   clearTimeout(resizeDebounceTimer);
-  resizeDebounceTimer = setTimeout(handleLayoutChange, 140);
+  resizeDebounceTimer = setTimeout(handleLayoutChange, DEBOUNCE_MS);
 }
 
-/**
- * Initialize the manager (call once from main.js)
- */
+/* Public init function (call once from main) */
 export function initLayoutManager(kaplayInstance) {
   k = kaplayInstance;
   gameContainer = document.getElementById("game-container") || document.body;
 
-  // Hook orientation changes and resize
+  // listen orientation changes
   try {
     window.matchMedia("(orientation: landscape)").addEventListener("change", handleLayoutChange);
   } catch (e) {
     try { window.matchMedia("(orientation: landscape)").addListener(handleLayoutChange); } catch (e2) {}
   }
+
+  // listen window resize (debounced)
   window.addEventListener("resize", debouncedLayoutChange);
 
-  // initial run
+  // initial pass
   handleLayoutChange();
 }

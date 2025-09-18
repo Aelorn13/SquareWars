@@ -25,11 +25,12 @@ defineGameOverScene(k, () => 0);
 defineVictoryScene(k, () => 0);
 TutorialScene(k);
 defineDebugScene(k);
+// 3) Init input (keyboard/mouse + mobile manager)
+initControls(k);
 initControls(k);
 
-// --- 3. Initialize the Layout and Controls Manager ---
-// This handles all responsive logic for mobile and desktop.
+// 4) Init layout manager (handles mobile shell + controllers)
 initLayoutManager(k);
 
-// --- 4. Start the Game ---
+// --- 5. Start the Game ---
 k.go("tutorial");

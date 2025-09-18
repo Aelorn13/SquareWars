@@ -4,11 +4,11 @@
 
 export function createMovementJoystick({
   container = document.body,
-  size = 140,           // diameter in px
-  marginX = 24,         // distance from left edge
-  marginY = 140,        // distance from bottom edge
-  deadZone = 0.12,      // ignore tiny inputs
-  sticky = true,        // whether base stays visible or hides until touch
+  size = 140, // diameter in px
+  marginX = 24, // distance from left edge
+  marginY = 140, // distance from bottom edge
+  deadZone = 0.12, // ignore tiny inputs
+  sticky = true, // whether base stays visible or hides until touch
 } = {}) {
   let pointerId = null;
   let origin = { x: 0, y: 0 };
@@ -50,14 +50,16 @@ export function createMovementJoystick({
 
   function toLocal(e) {
     const rect = base.getBoundingClientRect();
-    const x = (e.clientX ?? e.touches?.[0]?.clientX) - (rect.left + rect.width / 2);
-    const y = (e.clientY ?? e.touches?.[0]?.clientY) - (rect.top + rect.height / 2);
+    const x =
+      (e.clientX ?? e.touches?.[0]?.clientX) - (rect.left + rect.width / 2);
+    const y =
+      (e.clientY ?? e.touches?.[0]?.clientY) - (rect.top + rect.height / 2);
     return { x, y };
   }
 
   function updateHandleFromDelta(dx, dy) {
     const dist = Math.hypot(dx, dy);
-    const clamped = dist > maxDist ? (maxDist / dist) : 1;
+    const clamped = dist > maxDist ? maxDist / dist : 1;
     const hx = dx * clamped;
     const hy = dy * clamped;
     handle.style.transform = `translate(calc(-50% + ${hx}px), calc(-50% + ${hy}px))`;
@@ -89,9 +91,12 @@ export function createMovementJoystick({
 
   function onPointerUp(e) {
     if (pointerId === null || e.pointerId !== pointerId) return;
-    try { base.releasePointerCapture(pointerId); } catch {}
+    try {
+      base.releasePointerCapture(pointerId);
+    } catch {}
     pointerId = null;
-    current.x = 0; current.y = 0;
+    current.x = 0;
+    current.y = 0;
     handle.style.transform = `translate(-50%,-50%)`;
     if (!sticky) base.style.display = "none";
   }
@@ -118,7 +123,9 @@ export function createMovementJoystick({
       window.removeEventListener("pointerup", onPointerUp);
       base.removeEventListener("pointercancel", onPointerUp);
       base.removeEventListener("lostpointercapture", onPointerUp);
-      container.removeChild(base);
+      if (container && container.contains(base)) {
+        container.removeChild(base);
+      }
     },
   };
 }

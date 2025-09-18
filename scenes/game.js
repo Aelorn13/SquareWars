@@ -19,8 +19,8 @@ export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
 
 if (isMobileDevice()) {
-  const controller = makeMobileController(k);
-  registerMobileController(controller);
+registerMobileController(() => makeMobileController(k));
+
 }
 
     // --- Game Arena Setup ---

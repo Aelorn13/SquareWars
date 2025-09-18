@@ -7,7 +7,7 @@ export function createDashButton({
   size = 76,
   marginX = 24,
   marginY = 40,
-   align = 'right',
+  align = "right",
   sticky = true,
 } = {}) {
   let pressed = false;
@@ -32,7 +32,7 @@ export function createDashButton({
   };
 
   // Conditionally set left or right based on the 'align' property
-  if (align === 'right') {
+  if (align === "right") {
     baseStyle.right = `${marginX}px`;
   } else {
     baseStyle.left = `${marginX}px`;
@@ -64,7 +64,9 @@ export function createDashButton({
   function onPointerUp(e) {
     pressed = false;
     btn.style.background = "rgba(255,255,255,0.14)";
-    try { btn.releasePointerCapture(e.pointerId); } catch {}
+    try {
+      btn.releasePointerCapture(e.pointerId);
+    } catch {}
   }
 
   btn.addEventListener("pointerdown", onPointerDown);
@@ -79,7 +81,9 @@ export function createDashButton({
       btn.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointerup", onPointerUp);
       btn.removeEventListener("pointercancel", onPointerUp);
-      container.removeChild(btn);
+      if (container && container.contains(btn)) {
+        container.removeChild(btn);
+      }
     },
   };
 }

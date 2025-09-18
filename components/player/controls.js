@@ -1,15 +1,6 @@
 // components/player/controls.js
-// Unified input layer for desktop (keyboard+mouse) and mobile (virtual controls).
-// - preserves keysPressed (existing code)
-// - exports inputState (move/aim/dash) for game code to read
-// - provides registerMobileController(), updateInput(), and consumeDash()
-
 export const keysPressed = {}; // kept for backwards-compatibility
 
-// inputState: canonical source of truth for movement/aim/dash.
-// - move: axis -1..1 (x, y) for movement (normalized)
-// - aim: on desktop -> world coords {x,y}, on mobile -> direction vector {x,y} (normalized)
-// - _dash: internal edge-trigger that you must consume with consumeDash()
 export const inputState = {
   move: { x: 0, y: 0 },
   aim: { x: 0, y: 0 },
@@ -17,22 +8,18 @@ export const inputState = {
   isMobile: false,
 };
 
-let mobileController = null; // set via registerMobileController(controller)
+let mobileController = null; // current active controller instance
+let mobileControllerFactory = null; // optional factory function that creates a controller
+let mobileControllerMql = null; // MediaQueryList for orientation listening
 let dashHeld = false; // internal state to detect edge presses
 
 export function isMobileDevice() {
-  // simple heuristic - good enough for initial detection
   return (
     /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent) ||
     (window.matchMedia && window.matchMedia("(pointer:coarse)").matches)
   );
 }
 
-/**
- * initControls(k?)
- * - call once at startup (main.js). Accepts optional kaboom context k.
- * - registers keyboard listeners and detects mobile.
- */
 export function initControls(k) {
   if (window._controlsInitialized) return;
   window._controlsInitialized = true;
@@ -41,7 +28,6 @@ export function initControls(k) {
 
   window.addEventListener("keydown", (e) => {
     keysPressed[e.code] = true;
-    // space: mark dash on press (edge)
     if (e.code === "Space") {
       if (!dashHeld) inputState._dash = true;
       dashHeld = true;
@@ -53,7 +39,6 @@ export function initControls(k) {
     if (e.code === "Space") dashHeld = false;
   });
 
-  // Init aim if kaboom provided (helps avoid undefined)
   if (k && typeof k.mousePos === "function") {
     const m = k.mousePos();
     inputState.aim.x = m.x;
@@ -61,36 +46,109 @@ export function initControls(k) {
   }
 }
 
-/**
- * registerMobileController(controller)
- * Controller must expose:
- *   getMove() -> {x, y}   (axes -1..1)
- *   getAim()  -> {x, y}   (direction vector -1..1 OR world coords — we'll treat as direction)
- *   getDash() -> boolean  (true while pressed)
- *
- * You will implement the actual joystick/button modules later and register them here.
- */
-export function registerMobileController(controller) {
-  mobileController = controller;
+/* -------------------------
+   Mobile controller lifecycle
+   - registerMobileController accepts:
+     * an instance: registerMobileController(controller)
+     * OR a factory: registerMobileController(() => makeMobileController(k))
+   - If a factory is provided, controls are auto-recreated on orientation change.
+   ------------------------- */
+
+function _destroyCurrentController() {
+  if (mobileController) {
+    try {
+      mobileController.destroy?.();
+    } catch (e) {
+      console.warn("mobileController.destroy failed", e);
+    }
+    mobileController = null;
+  }
+}
+
+function _createControllerFromFactory() {
+  if (!mobileControllerFactory) return null;
+  try {
+    return mobileControllerFactory();
+  } catch (e) {
+    console.warn("mobile controller factory threw", e);
+    return null;
+  }
+}
+
+function _onMqlChange() {
+  // Recreate controller from factory (if set) whenever orientation changes
+  if (!mobileControllerFactory) return;
+  _destroyCurrentController();
+  const ctrl = _createControllerFromFactory();
+  if (ctrl) {
+    mobileController = ctrl;
+    inputState.isMobile = true;
+  }
+}
+
+export function registerMobileController(ctrlOrFactory) {
+  // If caller passed a factory function, store it and create initial controller
+  if (typeof ctrlOrFactory === "function") {
+    mobileControllerFactory = ctrlOrFactory;
+
+    // create initial controller instance
+    const created = _createControllerFromFactory();
+    if (created) {
+      // destroy old instance if different
+      if (mobileController && mobileController !== created) _destroyCurrentController();
+      mobileController = created;
+      inputState.isMobile = true;
+    }
+
+    // Ensure we have an orientation listener to auto-recreate on change
+    if (window.matchMedia && !mobileControllerMql) {
+      try {
+        mobileControllerMql = window.matchMedia("(orientation: landscape)");
+        // modern API
+        mobileControllerMql.addEventListener("change", _onMqlChange);
+      } catch (e) {
+        // fallback for older browsers
+        try { mobileControllerMql.addListener(_onMqlChange); } catch {}
+      }
+    }
+
+    return;
+  }
+
+  // Otherwise caller passed a controller instance
+  if (mobileController && mobileController !== ctrlOrFactory) {
+    try { mobileController.destroy?.(); } catch (e) { console.warn("previous controller destroy failed", e); }
+  }
+  mobileController = ctrlOrFactory;
   inputState.isMobile = true;
 }
 
-/**
- * updateInput(k, playerPos)
- * - call once per frame (e.g. at top of player.onUpdate or a central update loop).
- * - k is optional kaboom context (used to read mouse position for desktop).
- * - playerPos is optional and used by some aim helpers later.
- */
+export function unregisterMobileController() {
+  // Remove orientation listener
+  if (mobileControllerMql) {
+    try {
+      mobileControllerMql.removeEventListener("change", _onMqlChange);
+    } catch (e) {
+      try { mobileControllerMql.removeListener(_onMqlChange); } catch {}
+    }
+    mobileControllerMql = null;
+  }
+  // Clear factory
+  mobileControllerFactory = null;
+  // Destroy active controller
+  _destroyCurrentController();
+  // recompute isMobile from device detection (useful if you toggle mobile state)
+  inputState.isMobile = isMobileDevice();
+}
+
+
 export function updateInput(k, playerPos) {
   if (inputState.isMobile && mobileController) {
     const mv = mobileController.getMove?.() || { x: 0, y: 0 };
     inputState.move.x = Math.max(-1, Math.min(1, mv.x || 0));
     inputState.move.y = Math.max(-1, Math.min(1, mv.y || 0));
 
-    // Aim: prefer active current aim while touching; otherwise fall back to last remembered aim
-    const aimActive = !!(
-      mobileController.isAiming?.() || mobileController.isFiring?.()
-    );
+    const aimActive = !!(mobileController.isAiming?.() || mobileController.isFiring?.());
     const aimCurr = mobileController.getAim?.() || { x: 0, y: 0 };
     const aimLast = mobileController.getAimLast?.() || { x: 0, y: 0 };
 
@@ -98,24 +156,18 @@ export function updateInput(k, playerPos) {
       inputState.aim.x = aimCurr.x;
       inputState.aim.y = aimCurr.y;
     } else {
-      // use last known aim so the player keeps facing last direction
       inputState.aim.x = aimLast.x;
       inputState.aim.y = aimLast.y;
     }
 
-    // mark whether the aim joystick is actively being touched
     inputState.aimActive = aimActive;
-
-    // auto-fire while the aim joystick is actively touched
     inputState.firing = !!aimActive;
 
-    // dash handling (unchanged)
     const dashNow = !!mobileController.getDash?.();
     if (dashNow && !dashHeld) inputState._dash = true;
     dashHeld = dashNow;
     return;
   } else {
-    // Desktop: movement from keys, aim from mouse
     const moveX = (keysPressed["KeyD"] ? 1 : 0) - (keysPressed["KeyA"] ? 1 : 0);
     const moveY = (keysPressed["KeyS"] ? 1 : 0) - (keysPressed["KeyW"] ? 1 : 0);
     const len = Math.hypot(moveX, moveY);
@@ -139,12 +191,6 @@ export function updateInput(k, playerPos) {
   }
 }
 
-/**
- * consumeDash()
- * - returns true once when a dash press was detected, then clears it.
- * - recommended pattern inside your player update:
- *     if (consumeDash()) dashHandler.execute(player);
- */
 export function consumeDash() {
   if (inputState._dash) {
     inputState._dash = false;
@@ -153,14 +199,6 @@ export function consumeDash() {
   return false;
 }
 
-/**
- * Helpers for game code:
- * - moveVec(k) -> kaboom vec2 if k given, otherwise raw {x,y}
- * - aimWorldTarget(k, playerPos) -> a kaboom vec2 target suitable for rotateTo().
- *
- * For mobile: aim is treated as a direction vector and scaled out from playerPos.
- * For desktop: aim is treated as a world coordinate (mouse position).
- */
 export function moveVec(k) {
   return k && typeof k.vec2 === "function"
     ? k.vec2(inputState.move.x, inputState.move.y)
@@ -170,7 +208,6 @@ export function moveVec(k) {
 export function aimWorldTarget(k, playerPos) {
   if (!k) return inputState.aim;
   if (inputState.isMobile) {
-    // mobile aim -> direction vector; scale out so rotateTo works with a distant target
     const scale = 200;
     const ax = inputState.aim.x || 0;
     const ay = inputState.aim.y || 0;

@@ -11,14 +11,14 @@ export function makeMobileController(
   k,
   {
     portrait = {
-      moveOpts: { size: 300, marginX: 30, marginY: 140 },
-      aimOpts: { size: 300, marginX: 30, marginY: 140, align: "right" },
-      dashOpts: { size: 85, marginX: 30, marginY: 370, align: "right" },
+      moveOpts: { size: 120, marginX: 30, marginY: 40 },
+      aimOpts: { size: 120, marginX: 30, marginY: 40, align: "right" },
+      dashOpts: { size: 60, marginX: 30, marginY: 140, align: "right" },
     },
     landscape = {
-      moveOpts: { size: 220, marginX: 20, marginY: 40 },
-      aimOpts: { size: 220, marginX: 20, marginY: 40, align: "right" },
-      dashOpts: { size: 70, marginX: 20, marginY: 120, align: "right" },
+      moveOpts: { size: 120, marginX: 20, marginY: 40 },
+      aimOpts: { size: 120, marginX: 20, marginY: 40, align: "right" },
+      dashOpts: { size: 50, marginX: 20, marginY: 150, align: "right" },
     },
     containers = {}, // optional: { left: HTMLElement, right: HTMLElement, center: HTMLElement }
   } = {}

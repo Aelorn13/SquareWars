@@ -14,10 +14,12 @@ let mobileControllerMql = null; // MediaQueryList for orientation listening
 let dashHeld = false; // internal state to detect edge presses
 
 export function isMobileDevice() {
-  return (
-    /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent) ||
-    (window.matchMedia && window.matchMedia("(pointer:coarse)").matches)
-  );
+  const ua = navigator.userAgent || "";
+  const mobileUa = /Mobi|Android|iPhone|iPad|Tablet/i.test(ua);
+  const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
+  // treat as mobile only when touch AND small screen (helps avoid laptops with touch)
+  const smallScreen = Math.max(window.innerWidth || 0, window.innerHeight || 0) <= 900;
+  return mobileUa || (hasTouch && smallScreen);
 }
 
 export function initControls(k) {

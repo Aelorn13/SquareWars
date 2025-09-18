@@ -21,7 +21,6 @@ export function createMovementJoystick({
   const handle = document.createElement("div");
 
   Object.assign(base.style, {
-    position: "fixed",
     left: `${marginX}px`,
     bottom: `${marginY}px`,
     width: `${size}px`,
@@ -33,7 +32,8 @@ export function createMovementJoystick({
     zIndex: 9999,
     pointerEvents: "auto",
   });
-
+const useFixed = container === document.body;
+base.style.position = useFixed ? "fixed" : "absolute";
   Object.assign(handle.style, {
     position: "absolute",
     left: "50%",

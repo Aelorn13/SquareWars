@@ -1,5 +1,5 @@
 // components/player/mobile/index.js
-import { createMovementJoystick } from "./joystick.js";
+import { createMovementJoystick } from "./movementJoystick.js";
 import { createAimJoystick } from "./aimJoystick.js";
 import { createDashButton } from "./dashButton.js";
 

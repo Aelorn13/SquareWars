@@ -5,33 +5,38 @@ import { createDashButton } from "./dashButton.js";
 
 /**
  * makeMobileController(k?, opts?)
- * returns object { getMove(), getAim(), getDash(), destroy() }
- * that matches registerMobileController(controller) expectations.
+ * opts.containers = { left, right, center } - DOM elements to attach controls to.
  */
 export function makeMobileController(
   k,
   {
     portrait = {
-      moveOpts: { size: 300, marginX: 150, marginY: 160 },
-      aimOpts: { size: 300, marginX: 150, marginY: 160, align: "right" },
-      dashOpts: { size: 85, marginX: 90, marginY: 370, align: "right" },
+      moveOpts: { size: 300, marginX: 30, marginY: 140 },
+      aimOpts: { size: 300, marginX: 30, marginY: 140, align: "right" },
+      dashOpts: { size: 85, marginX: 30, marginY: 370, align: "right" },
     },
     landscape = {
-      moveOpts: { size: 220, marginX: 120, marginY: 100 },
-      aimOpts: { size: 220, marginX: 120, marginY: 100, align: "right" },
-      dashOpts: { size: 70, marginX: 80, marginY: 220, align: "right" },
+      moveOpts: { size: 220, marginX: 20, marginY: 40 },
+      aimOpts: { size: 220, marginX: 20, marginY: 40, align: "right" },
+      dashOpts: { size: 70, marginX: 20, marginY: 120, align: "right" },
     },
+    containers = {}, // optional: { left: HTMLElement, right: HTMLElement, center: HTMLElement }
   } = {}
 ) {
-  // container could be k.canvas or document.body; keep default body for simplicity
   const isLandscape = window.matchMedia("(orientation: landscape)").matches;
   const opts = isLandscape ? landscape : portrait;
   const { moveOpts = {}, aimOpts = {}, dashOpts = {} } = opts;
-  const container = k && k.canvas ? document.body : document.body;
 
-  const move = createMovementJoystick({ container, ...moveOpts });
-  const aim = createAimJoystick({ container, ...aimOpts });
-  const dash = createDashButton({ container, ...dashOpts });
+  // decide which DOM container to attach each control to
+  const leftContainer = containers.left ?? document.body;
+  const rightContainer = containers.right ?? document.body;
+  const centerContainer = containers.center ?? document.body;
+
+  // Movement joystick goes to left container
+  const move = createMovementJoystick({ container: leftContainer, ...moveOpts });
+  // Aim joystick and dash button go to right container
+  const aim = createAimJoystick({ container: rightContainer, ...aimOpts });
+  const dash = createDashButton({ container: rightContainer, ...dashOpts });
 
   return {
     getMove: () => move.getMove(),
@@ -41,21 +46,9 @@ export function makeMobileController(
     getDash: () => dash.getDash(),
     isFiring: () => aim.isAiming?.() ?? false,
     destroy: () => {
-      try {
-        move?.destroy?.();
-      } catch (e) {
-        console.warn("move.destroy failed", e);
-      }
-      try {
-        aim?.destroy?.();
-      } catch (e) {
-        console.warn("aim.destroy failed", e);
-      }
-      try {
-        dash?.destroy?.();
-      } catch (e) {
-        console.warn("dash.destroy failed", e);
-      }
+      try { move?.destroy?.(); } catch (e) { console.warn("move.destroy failed", e); }
+      try { aim?.destroy?.(); } catch (e) { console.warn("aim.destroy failed", e); }
+      try { dash?.destroy?.(); } catch (e) { console.warn("dash.destroy failed", e); }
     },
   };
 }

@@ -13,9 +13,8 @@ export function createDashButton({
   let pressed = false;
   const btn = document.createElement("div");
 
+  // base style (position applied below depending on container)
   const baseStyle = {
-    position: "fixed",
-    right: `${marginX}px`,
     bottom: `${marginY}px`,
     width: `${size}px`,
     height: `${size}px`,
@@ -29,16 +28,22 @@ export function createDashButton({
     justifyContent: "center",
     boxSizing: "border-box",
     border: "2px solid rgba(255,255,255,0.06)",
+    // right/left set below
   };
 
-  // Conditionally set left or right based on the 'align' property
+  // set left or right
   if (align === "right") {
     baseStyle.right = `${marginX}px`;
   } else {
     baseStyle.left = `${marginX}px`;
   }
 
+  // choose fixed vs absolute depending on container
+  const useFixed = container === document.body;
+  baseStyle.position = useFixed ? "fixed" : "absolute";
+
   Object.assign(btn.style, baseStyle);
+
   // optional inner glyph
   const label = document.createElement("div");
   label.textContent = "⇢"; // dash glyph

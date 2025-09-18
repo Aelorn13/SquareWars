@@ -22,7 +22,6 @@ export function createAimJoystick({
   const handle = document.createElement("div");
 
   const baseStyle = {
-    position: "fixed",
     bottom: `${marginY}px`,
     width: `${size}px`,
     height: `${size}px`,
@@ -33,7 +32,8 @@ export function createAimJoystick({
     zIndex: 9999,
     pointerEvents: "auto",
   };
-
+const useFixed = container === document.body;
+base.style.position = useFixed ? "fixed" : "absolute";
   if (align === "right") {
     baseStyle.right = `${marginX}px`;
   } else {

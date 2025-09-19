@@ -1,7 +1,7 @@
 // components/player/controls.js
 
 const MOBILE_AIM_DISTANCE = 200;
-const MAX_MOBILE_SCREEN_DIMENSION = 900;
+const MAX_MOBILE_SCREEN_DIMENSION = 1400;
 
 export const keysPressed = {};
 
@@ -23,10 +23,22 @@ let dashHeld = false;
    ----------------------- */
 export function isMobileDevice() {
   const ua = navigator.userAgent || "";
-  const mobileUa = /Mobi|Android|iPhone|iPad|Tablet/i.test(ua);
-  const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
-  const smallScreen = Math.max(window.innerWidth || 0, window.innerHeight || 0) <= MAX_MOBILE_SCREEN_DIMENSION;
+  const isIPadOS13Plus =
+    ua.includes("Macintosh") && "ontouchend" in document; // iPad pretending to be Mac
+
+  const mobileUa = /Mobi|Android|iPhone|iPad|Tablet/i.test(ua) || isIPadOS13Plus;
+  const hasTouch =
+    "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
+
+  const smallScreen =
+    Math.max(window.innerWidth || 0, window.innerHeight || 0) <=
+    MAX_MOBILE_SCREEN_DIMENSION;
+
+  // Option A: stricter, only small touch screens
   return mobileUa || (hasTouch && smallScreen);
+
+  // Option B: looser, any touch-first device is "mobile"
+  // return mobileUa || hasTouch;
 }
 
 /* -----------------------

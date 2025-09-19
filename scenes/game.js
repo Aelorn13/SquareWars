@@ -1,3 +1,4 @@
+//game.js
 import { createPlayer } from "../components/player/player.js";
 import { spawnEnemy } from "../components/enemy/enemySpawner.js";
 import { setupEnemyPlayerCollisions } from "../components/enemy/enemyBehavior.js";

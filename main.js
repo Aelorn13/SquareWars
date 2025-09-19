@@ -18,15 +18,16 @@ const k = kaplay({
   touchToMouse: true,
   debugKey: "f4",
 });
+// Reference holder for dynamic score access
+const scoreRef = { value: () => 0 };
 
 // --- 2. Define Game Scenes and Controls ---
-defineGameScene(k, /*scoreRef*/ {});
-defineGameOverScene(k, () => 0);
-defineVictoryScene(k, () => 0);
+defineGameScene(k, scoreRef);
+defineGameOverScene(k, () => scoreRef.value());
+defineVictoryScene(k, () => scoreRef.value());
 TutorialScene(k);
 defineDebugScene(k);
 // 3) Init input (keyboard/mouse + mobile manager)
-initControls(k);
 initControls(k);
 
 // 4) Init layout manager (handles mobile shell + controllers)

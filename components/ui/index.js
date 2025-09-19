@@ -6,3 +6,4 @@ export * from "./health.js";
 export * from "./dash.js";
 export * from "./upgradeUI.js";
 export * from "./bossHealthBar.js"
+export * from "./playerStatsUI.js"

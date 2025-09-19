@@ -5,6 +5,9 @@
 import { POWERUP_TYPES } from "../powerup/powerupTypes.js";
 import { spawnPowerUp } from "../powerup/spawnPowerup.js";
 import { interpolateColor } from "../utils/visualEffects.js";
+import { getPlayerStatsSnapshot } from "../ui/playerStatsUI.js";
+ 
+
 
 /**
  * Linearly interpolates between two angles, finding the shortest path.
@@ -76,7 +79,8 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
 
     // --- Final Check (applies to all collisions) ---
     if (player.hp() <= 0) {
-      k.go("gameover");
+       const snapshot = getPlayerStatsSnapshot(gameContext.player);
+      k.go("gameover", { statsSnapshot: snapshot });
     }
   });
 }
@@ -123,7 +127,8 @@ export function createEnemyGameObject(
         dropPowerUp(k, player, this.pos, this.gameContext.sharedState);
         enemyDeathAnimation(k, this);
         if (this.type === "boss") {
-          k.wait(0.5, () => k.go("victory"));
+           const snapshot = getPlayerStatsSnapshot(gameContext.player);
+          k.wait(0.5, () => k.go("victory", { statsSnapshot: snapshot }));
         }
       },
     },

@@ -122,9 +122,45 @@ export function defineGameScene(k, scoreRef) {
       spreadShot,
       chargeAttack,
     ];
+    //debug things
+    let wasSecretComboPreviouslyPressed = false;
+
+    function isTypingInInput() {
+      const el = document.activeElement;
+      return (
+        !!el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.isContentEditable)
+      );
+    }
+
+    function checkSecretToggleToDebug() {
+      // Cross-platform modifier detection: Ctrl (or Cmd on Mac) + Shift + Alt + D
+      const ctrlOrMeta =
+        !!keysPressed["ControlLeft"] ||
+        !!keysPressed["ControlRight"] ||
+        !!keysPressed["MetaLeft"] ||
+        !!keysPressed["MetaRight"];
+      const shift = !!keysPressed["ShiftLeft"] || !!keysPressed["ShiftRight"];
+      const alt = !!keysPressed["AltLeft"] || !!keysPressed["AltRight"];
+      const d = !!keysPressed["KeyD"];
+
+      if (!isTypingInInput() && ctrlOrMeta && shift && alt && d) {
+        if (!wasSecretComboPreviouslyPressed) {
+          // Switch to debug scene
+          k.go("debug");
+        }
+        wasSecretComboPreviouslyPressed = true;
+      } else {
+        wasSecretComboPreviouslyPressed = false;
+      }
+    }
 
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
+      checkSecretToggleToDebug();
+
       // --- Pause Handling ---
       if (keysPressed["KeyP"]) {
         if (!wasPauseKeyPreviouslyPressed) {

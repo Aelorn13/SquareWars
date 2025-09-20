@@ -90,6 +90,33 @@ export function defineDebugScene(k) {
     setupEnemyPlayerCollisions(k, gameContext);
     setupBossBehaviors(k, gameContext);
 
+    let wasSecretComboPreviouslyPressed = false;
+
+function isTypingInInput() {
+  const el = document.activeElement;
+  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+}
+
+function checkSecretToggleToGame() {
+  const ctrlOrMeta =
+    !!keysPressed["ControlLeft"] ||
+    !!keysPressed["ControlRight"] ||
+    !!keysPressed["MetaLeft"] ||
+    !!keysPressed["MetaRight"];
+  const shift = !!keysPressed["ShiftLeft"] || !!keysPressed["ShiftRight"];
+  const alt = !!keysPressed["AltLeft"] || !!keysPressed["AltRight"];
+  const d = !!keysPressed["KeyD"];
+
+  if (!isTypingInInput() && ctrlOrMeta && shift && alt && d) {
+    if (!wasSecretComboPreviouslyPressed) {
+      k.go("game");
+    }
+    wasSecretComboPreviouslyPressed = true;
+  } else {
+    wasSecretComboPreviouslyPressed = false;
+  }
+}
+
     // --- UI Elements ---
     const scoreLabel = createScoreLabel(k);
     drawHealthBar(k, player.hp());
@@ -268,7 +295,7 @@ export function defineDebugScene(k) {
     // --- Main Game Loop ---
     let wasPauseKeyPreviouslyPressed = false;
     k.onUpdate(() => {
-      // Pause handling similar to game.js (creates/destroys stats UI on pause)
+      checkSecretToggleToGame();
       if (keysPressed["KeyP"]) {
         if (!wasPauseKeyPreviouslyPressed) {
           gameState.isPaused = !gameState.isPaused;

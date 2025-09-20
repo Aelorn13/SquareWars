@@ -2,39 +2,91 @@ import { createPlayer } from "../components/player/player.js";
 import { setupEnemyPlayerCollisions } from "../components/enemy/enemyBehavior.js";
 import { spawnEnemy } from "../components/enemy/enemySpawner.js";
 import { setupBossBehaviors } from "../components/enemy/boss/bossSetup.js";
-import { createScoreLabel, updateScoreLabel, drawHealthBar, drawDashCooldownBar, createPauseLabel, createBossHealthBar, } from "../components/ui/index.js";
+import {
+  createScoreLabel,
+  updateScoreLabel,
+  drawHealthBar,
+  drawDashCooldownBar,
+  createPauseLabel,
+  createBossHealthBar,
+  createPlayerStatsUI,
+  createTimerLabel,
+  updateTimerLabel,
+} from "../components/ui/index.js";
 import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
 import { spawnPowerUp } from "../components/powerup/spawnPowerup.js";
 import { POWERUP_TYPES } from "../components/powerup/powerupTypes.js";
 import { ENEMY_CONFIGS } from "../components/enemy/enemyConfig.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
-import { keysPressed } from "../components/player/controls.js";
+import { keysPressed, isMobileDevice, registerMobileController } from "../components/player/controls.js";
+import { makeMobileController } from "../components/player/mobile/index.js";
 import { summonMinions, spreadShot, chargeAttack } from "../components/enemy/boss/bossAbilities.js";
 
 /**
  * Defines the debug game scene for testing game mechanics.
  */
 export function defineDebugScene(k) {
+  const BOSS_SPAWN_TIME = 100;
+
   k.scene("debug", () => {
+    // mobile controller (same approach as game.js)
+    if (isMobileDevice()) {
+      registerMobileController(() => makeMobileController(k));
+    }
+
     // --- Game Arena Setup ---
     const ARENA_MARGIN = Math.floor(Math.min(k.width(), k.height()) * 0.05);
-    const ARENA = { x: ARENA_MARGIN, y: ARENA_MARGIN, w: k.width() - ARENA_MARGIN * 2, h: k.height() - ARENA_MARGIN * 2 };
-    k.add([ k.rect(ARENA.w, ARENA.h), k.pos(ARENA.x, ARENA.y), k.color(20, 20, 20), k.outline(2, k.rgb(80, 80, 80)), k.fixed(), k.z(-50), "gameArena" ]);
+    const ARENA = {
+      x: ARENA_MARGIN,
+      y: ARENA_MARGIN,
+      w: k.width() - ARENA_MARGIN * 2,
+      h: k.height() - ARENA_MARGIN * 2,
+    };
+    k.add([
+      k.rect(ARENA.w, ARENA.h),
+      k.pos(ARENA.x, ARENA.y),
+      k.color(20, 20, 20),
+      k.outline(2, k.rgb(80, 80, 80)),
+      k.fixed(),
+      k.z(-50),
+      "gameArena",
+    ]);
 
     // --- Game State & Context ---
-    const gameState = { isPaused: false, isUpgradePanelOpen: false, area: ARENA, spawnProgress: 1 };
+    const gameState = {
+      isPaused: false,
+      isUpgradePanelOpen: false,
+      area: ARENA,
+      spawnProgress: 1,
+      elapsedTime: 0,
+    };
     const player = createPlayer(k, gameState);
     let currentScore = 0;
     const nextUpgradeScoreThresholdRef = { value: 10 };
+
     const addScore = (amount) => {
       currentScore += amount;
       updateScoreLabel(scoreLabel, currentScore, nextUpgradeScoreThresholdRef.value);
-      maybeShowUpgrade(k, player, gameState, currentScore, nextUpgradeScoreThresholdRef, addScore);
+      maybeShowUpgrade(
+        k,
+        player,
+        gameState,
+        currentScore,
+        nextUpgradeScoreThresholdRef,
+        addScore
+      );
     };
 
     setupPlayerShooting(k, player, gameState);
-    const gameContext = { sharedState: gameState, increaseScore: addScore, updateHealthBar: () => drawHealthBar(k, player.hp()) };
+
+    // include player reference in the context (consistent with game.js)
+    const gameContext = {
+      sharedState: gameState,
+      player,
+      increaseScore: addScore,
+      updateHealthBar: () => drawHealthBar(k, player.hp()),
+    };
     setupEnemyPlayerCollisions(k, gameContext);
     setupBossBehaviors(k, gameContext);
 
@@ -43,6 +95,8 @@ export function defineDebugScene(k) {
     drawHealthBar(k, player.hp());
     const dashCooldownBar = drawDashCooldownBar(k);
     const pauseLabel = createPauseLabel(k);
+    const timerLabel = createTimerLabel(k, BOSS_SPAWN_TIME);
+    let statsUI = null;
 
     // --- Debug UI Panel ---
     const debugPanelWidth = 240;
@@ -53,14 +107,36 @@ export function defineDebugScene(k) {
     let isBossSpawnedInDebug = false;
 
     // --- UI Base Panel ---
-    const debugUIBase = k.add([ k.rect(debugPanelWidth + 20, k.height() - debugPanelMargin * 2), k.pos(debugPanelX - 10, debugPanelMargin), k.color(15, 15, 15, 0.8), k.outline(2, k.rgb(60, 60, 60)), k.fixed(), k.z(99) ]);
+    const debugUIBase = k.add([
+      k.rect(debugPanelWidth + 20, k.height() - debugPanelMargin * 2),
+      k.pos(debugPanelX - 10, debugPanelMargin),
+      // keep existing style - alpha was used previously; preserving as-is
+      k.color(15, 15, 15, 0.8),
+      k.outline(2, k.rgb(60, 60, 60)),
+      k.fixed(),
+      k.z(99),
+    ]);
 
     // --- UI Toggle Button ---
-    const toggleUIButton = k.add([ k.rect(debugPanelWidth, 30), k.pos(debugPanelX, currentPanelY), k.color(100, 100, 100), k.area(), k.fixed(), k.z(101) ]);
-    const toggleUIText = toggleUIButton.add([ k.text("Hide UI", { size: 14, font: "sans-serif" }), k.anchor("center"), k.pos(toggleUIButton.width / 2, toggleUIButton.height / 2), k.z(102) ]);
+    const toggleUIButton = k.add([
+      k.rect(debugPanelWidth, 30),
+      k.pos(debugPanelX, currentPanelY),
+      k.color(100, 100, 100),
+      k.area(),
+      k.fixed(),
+      k.z(101),
+    ]);
+    const toggleUIText = toggleUIButton.add([
+      k.text("Hide UI", { size: 14, font: "sans-serif" }),
+      k.anchor("center"),
+      k.pos(toggleUIButton.width / 2, toggleUIButton.height / 2),
+      k.z(102),
+    ]);
     toggleUIButton.onClick(() => {
       isDebugUIVisible = !isDebugUIVisible;
-      k.get("debugUI", { recursive: true }).forEach((el) => { el.hidden = !isDebugUIVisible; });
+      k.get("debugUI", { recursive: true }).forEach((el) => {
+        el.hidden = !isDebugUIVisible;
+      });
       debugUIBase.hidden = !isDebugUIVisible;
       toggleUIText.text = isDebugUIVisible ? "Hide UI" : "Show UI";
     });
@@ -85,13 +161,21 @@ export function defineDebugScene(k) {
     spawnAllDebugPowerUps();
 
     // --- Enemy Spawner UI ---
-    k.add([ k.text("ENEMY SPAWN", { size: 16 }), k.pos(debugPanelX, currentPanelY), k.fixed(), k.z(101), "debugUI" ]);
+    k.add([k.text("ENEMY SPAWN", { size: 16 }), k.pos(debugPanelX, currentPanelY), k.fixed(), k.z(101), "debugUI"]);
     currentPanelY += 25;
-    let selectedEnemyType = Object.values(ENEMY_CONFIGS).find(e => e.spawnWeight > 0)?.name || 'normal';
+    let selectedEnemyType = Object.values(ENEMY_CONFIGS).find((e) => e.spawnWeight > 0)?.name || "normal";
     const typeLabels = [];
     Object.values(ENEMY_CONFIGS).forEach((enemyConfig) => {
       if (enemyConfig.spawnWeight === 0) return;
-      const label = k.add([ k.text(enemyConfig.name.toUpperCase(), { size: 12 }), k.pos(debugPanelX + 5, currentPanelY), k.area(), k.fixed(), k.z(101), "debugUI", { typeName: enemyConfig.name } ]);
+      const label = k.add([
+        k.text(enemyConfig.name.toUpperCase(), { size: 12 }),
+        k.pos(debugPanelX + 5, currentPanelY),
+        k.area(),
+        k.fixed(),
+        k.z(101),
+        "debugUI",
+        { typeName: enemyConfig.name },
+      ]);
       label.onClick(() => {
         if (gameState.isPaused || !isDebugUIVisible) return;
         selectedEnemyType = enemyConfig.name;
@@ -100,11 +184,20 @@ export function defineDebugScene(k) {
       typeLabels.push(label);
       currentPanelY += 20;
     });
+    // highlight initially selected type
     typeLabels.find((l) => l.typeName === selectedEnemyType).color = k.rgb(255, 255, 0);
     currentPanelY += 10;
 
-    const spawnEnemyButton = k.add([ k.rect(debugPanelWidth - 20, 30), k.pos(debugPanelX + 10, currentPanelY), k.color(60, 180, 60), k.area(), k.fixed(), k.z(101), "debugUI" ]);
-    spawnEnemyButton.add([ k.text("SPAWN ENEMY", { size: 14, font: "sans-serif" }), k.anchor("center"), k.pos(spawnEnemyButton.width / 2, spawnEnemyButton.height / 2), k.z(102) ]);
+    const spawnEnemyButton = k.add([
+      k.rect(debugPanelWidth - 20, 30),
+      k.pos(debugPanelX + 10, currentPanelY),
+      k.color(60, 180, 60),
+      k.area(),
+      k.fixed(),
+      k.z(101),
+      "debugUI",
+    ]);
+    spawnEnemyButton.add([k.text("SPAWN ENEMY", { size: 14, font: "sans-serif" }), k.anchor("center"), k.pos(spawnEnemyButton.width / 2, spawnEnemyButton.height / 2), k.z(102)]);
     spawnEnemyButton.onClick(() => {
       if (gameState.isPaused || !isDebugUIVisible) return;
       spawnEnemy(k, player, gameContext, { forceType: selectedEnemyType });
@@ -113,9 +206,19 @@ export function defineDebugScene(k) {
 
     // --- Boss & Miniboss Spawners ---
     const createDebugButton = (text, yPos, color, onClickAction) => {
-      const button = k.add([ k.rect(debugPanelWidth - 20, 30), k.pos(debugPanelX + 10, yPos), k.color(...color), k.area(), k.fixed(), k.z(101), "debugUI" ]);
-      button.add([ k.text(text, { size: 14, font: "sans-serif" }), k.anchor("center"), k.pos(button.width / 2, button.height / 2), k.z(102) ]);
-      button.onClick(() => { if (!gameState.isPaused && !gameState.isUpgradePanelOpen && isDebugUIVisible) onClickAction(); });
+      const button = k.add([
+        k.rect(debugPanelWidth - 20, 30),
+        k.pos(debugPanelX + 10, yPos),
+        k.color(...color),
+        k.area(),
+        k.fixed(),
+        k.z(101),
+        "debugUI",
+      ]);
+      button.add([k.text(text, { size: 14, font: "sans-serif" }), k.anchor("center"), k.pos(button.width / 2, button.height / 2), k.z(102)]);
+      button.onClick(() => {
+        if (!gameState.isPaused && !gameState.isUpgradePanelOpen && isDebugUIVisible) onClickAction();
+      });
       return button;
     };
     const spawnMinibossWithAbility = (ability, scaling = {}) => {
@@ -123,36 +226,38 @@ export function defineDebugScene(k) {
       spawnEnemy(k, player, gameContext, { forceType: "miniboss", ability, spawnPos, scaling });
     };
 
-    k.add([ k.text("BOSS SPAWNERS", { size: 16 }), k.pos(debugPanelX, currentPanelY), k.fixed(), k.z(101), "debugUI" ]);
+    k.add([k.text("BOSS SPAWNERS", { size: 16 }), k.pos(debugPanelX, currentPanelY), k.fixed(), k.z(101), "debugUI"]);
     currentPanelY += 25;
 
     createDebugButton("SPAWN BOSS", currentPanelY, [200, 50, 50], () => {
       if (isBossSpawnedInDebug) return;
       isBossSpawnedInDebug = true;
       const bossSpawnPromise = spawnEnemy(k, player, gameContext, { forceType: "boss", progress: 1 });
-      if (bossSpawnPromise) {
-        bossSpawnPromise.then((boss) => { if (boss) createBossHealthBar(k, boss); }).catch(console.error);
+      if (bossSpawnPromise && typeof bossSpawnPromise.then === "function") {
+        bossSpawnPromise.then((boss) => {
+          if (boss) createBossHealthBar(k, boss);
+        }).catch(console.error);
       }
     });
     currentPanelY += 40;
 
     createDebugButton("SPAWN SUMMONER", currentPanelY, [140, 40, 140], () => { spawnMinibossWithAbility(summonMinions); });
     currentPanelY += 40;
-    
+
     createDebugButton("SPAWN SPREADER", currentPanelY, [140, 40, 140], () => { spawnMinibossWithAbility(spreadShot); });
     currentPanelY += 40;
 
     createDebugButton("SPAWN CHARGER", currentPanelY, [140, 40, 140], () => { spawnMinibossWithAbility(chargeAttack); });
     currentPanelY += 40;
-    
+
     createDebugButton("SPAWN SCALED MINIBOSS", currentPanelY, [200, 100, 200], () => {
-        const randomAbility = k.choose([summonMinions, spreadShot, chargeAttack]);
-        spawnMinibossWithAbility(randomAbility, { hpMultiplier: 1.5, speedMultiplier: 1.2 });
+      const randomAbility = k.choose([summonMinions, spreadShot, chargeAttack]);
+      spawnMinibossWithAbility(randomAbility, { hpMultiplier: 1.5, speedMultiplier: 1.2 });
     });
     currentPanelY += 50;
 
     // --- Player Stats & Upgrade UI ---
-    k.add([ k.text("PLAYER STATS", { size: 16 }), k.pos(debugPanelX, currentPanelY), k.fixed(), k.z(101), "debugUI" ]);
+    k.add([k.text("PLAYER STATS", { size: 16 }), k.pos(debugPanelX, currentPanelY), k.fixed(), k.z(101), "debugUI"]);
     currentPanelY += 25;
 
     createDebugButton("FORCE UPGRADE", currentPanelY, [200, 100, 50], () => {
@@ -163,24 +268,43 @@ export function defineDebugScene(k) {
     // --- Main Game Loop ---
     let wasPauseKeyPreviouslyPressed = false;
     k.onUpdate(() => {
-      if (keysPressed["KeyP"] && !wasPauseKeyPreviouslyPressed && !gameState.isUpgradePanelOpen) {
-        gameState.isPaused = !gameState.isPaused;
-        pauseLabel.hidden = !gameState.isPaused;
-        wasPauseKeyPreviouslyPressed = true;
-      } else if (!keysPressed["KeyP"]) {
+      // Pause handling similar to game.js (creates/destroys stats UI on pause)
+      if (keysPressed["KeyP"]) {
+        if (!wasPauseKeyPreviouslyPressed) {
+          gameState.isPaused = !gameState.isPaused;
+          pauseLabel.hidden = !gameState.isPaused;
+          wasPauseKeyPreviouslyPressed = true;
+          if (gameState.isPaused) {
+            statsUI = createPlayerStatsUI(k, player, {
+              x: 14,
+              y: 14,
+              width: 280,
+              size: 16,
+            });
+          } else {
+            statsUI?.destroy();
+            statsUI = null;
+          }
+        }
+      } else {
         wasPauseKeyPreviouslyPressed = false;
       }
 
       k.paused = gameState.isPaused || gameState.isUpgradePanelOpen;
       if (k.paused) return;
 
+      // keep tracking elapsed time (useful if you extend debug to timed events)
+      gameState.elapsedTime += k.dt();
+
+      // Update UI elements (dash cooldown + timer)
       dashCooldownBar.width = dashCooldownBar.fullWidth * player.getDashCooldownProgress();
+      updateTimerLabel(timerLabel, k.dt());
     });
 
     // --- Event Handlers ---
     player.onCollide("powerup", (powerUp) => {
-        applyPowerUp(k, player, powerUp.type, gameContext, () => drawHealthBar(k, player.hp()));
-        k.destroy(powerUp);
+      applyPowerUp(k, player, powerUp.type, gameContext, () => drawHealthBar(k, player.hp()));
+      k.destroy(powerUp);
     });
   });
 }

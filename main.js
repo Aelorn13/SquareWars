@@ -35,3 +35,4 @@ initLayoutManager(k);
 
 // --- 5. Start the Game ---
 k.go("tutorial");
+// k.go("debug");

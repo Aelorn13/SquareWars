@@ -22,7 +22,7 @@ import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 import { keysPressed, isMobileDevice, registerMobileController } from "../components/player/controls.js";
 import { makeMobileController } from "../components/player/mobile/index.js";
 import { summonMinions, spreadShot, chargeAttack } from "../components/enemy/boss/bossAbilities.js";
-
+import { makeSecretToggle } from "../components/utils/secretToggle.js";
 /**
  * Defines the debug game scene for testing game mechanics.
  */
@@ -90,32 +90,8 @@ export function defineDebugScene(k) {
     setupEnemyPlayerCollisions(k, gameContext);
     setupBossBehaviors(k, gameContext);
 
-    let wasSecretComboPreviouslyPressed = false;
+const checkSecretToggle = makeSecretToggle(k, "game", keysPressed);
 
-function isTypingInInput() {
-  const el = document.activeElement;
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-}
-
-function checkSecretToggleToGame() {
-  const ctrlOrMeta =
-    !!keysPressed["ControlLeft"] ||
-    !!keysPressed["ControlRight"] ||
-    !!keysPressed["MetaLeft"] ||
-    !!keysPressed["MetaRight"];
-  const shift = !!keysPressed["ShiftLeft"] || !!keysPressed["ShiftRight"];
-  const alt = !!keysPressed["AltLeft"] || !!keysPressed["AltRight"];
-  const d = !!keysPressed["KeyD"];
-
-  if (!isTypingInInput() && ctrlOrMeta && shift && alt && d) {
-    if (!wasSecretComboPreviouslyPressed) {
-      k.go("game");
-    }
-    wasSecretComboPreviouslyPressed = true;
-  } else {
-    wasSecretComboPreviouslyPressed = false;
-  }
-}
 
     // --- UI Elements ---
     const scoreLabel = createScoreLabel(k);
@@ -295,7 +271,7 @@ function checkSecretToggleToGame() {
     // --- Main Game Loop ---
     let wasPauseKeyPreviouslyPressed = false;
     k.onUpdate(() => {
-      checkSecretToggleToGame();
+     checkSecretToggle();
       if (keysPressed["KeyP"]) {
         if (!wasPauseKeyPreviouslyPressed) {
           gameState.isPaused = !gameState.isPaused;

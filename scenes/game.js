@@ -30,9 +30,19 @@ import {
 import { makeMobileController } from "../components/player/mobile/index.js";
 import { makeSecretToggle } from "../components/utils/secretToggle.js";
 
-
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
+
+function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
+  console.log(
+    `Spawning miniboss at ${spawnTime} with ability: ${ability.name}`
+  );
+  return spawnEnemy(k, gameContext.player, gameContext, {
+    forceType: "miniboss",
+    ability,
+    scaling,
+  });
+}
 
 export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
@@ -115,17 +125,23 @@ export function defineGameScene(k, scoreRef) {
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
 
-    // --- MINIBOSS STATE TRACKING ---
-    let firstMinibossSpawned = false;
-    let secondMinibossSpawned = false;
-    let firstMinibossAbility = null;
-    const availableMinibossAbilities = [
-      summonMinions,
-      spreadShot,
-      chargeAttack,
-    ];
     //debug things
     const checkSecretToggle = makeSecretToggle(k, "debug", keysPressed);
+
+    //miniboss things
+    const minibossSchedule = [
+      {
+        time: BOSS_SPAWN_TIME / 3,
+        scaling: { hpMultiplier: 1, speedMultiplier: 1 },
+      },
+      {
+        time: (BOSS_SPAWN_TIME * 2) / 3,
+        scaling: { hpMultiplier: 1.5, speedMultiplier: 1.1 },
+      },
+    ];
+
+    let minibossesSpawned = 0;
+    let usedAbilities = [];
 
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
@@ -163,49 +179,25 @@ export function defineGameScene(k, scoreRef) {
         dashCooldownBar.fullWidth * player.getDashCooldownProgress();
       updateTimerLabel(timerLabel, k.dt());
 
-      // Spawn first miniboss at 1/3 of the total time
-      if (
-        !firstMinibossSpawned &&
-        gameState.elapsedTime >= BOSS_SPAWN_TIME / 3
-      ) {
-        firstMinibossSpawned = true;
-        firstMinibossAbility = k.choose(availableMinibossAbilities);
+      if (minibossesSpawned < minibossSchedule.length) {
+        const schedule = minibossSchedule[minibossesSpawned];
+        if (gameState.elapsedTime >= schedule.time) {
+          const availableAbilities = [
+            summonMinions,
+            spreadShot,
+            chargeAttack,
+          ].filter((a) => !usedAbilities.includes(a.name));
 
-        console.log(
-          "Spawning first miniboss with ability:",
-          firstMinibossAbility.name
-        );
-        spawnEnemy(k, player, gameContext, {
-          forceType: "miniboss",
-          ability: firstMinibossAbility,
-        });
-      }
+          const ability = k.choose(
+            availableAbilities.length
+              ? availableAbilities
+              : [summonMinions, spreadShot, chargeAttack]
+          );
+          usedAbilities.push(ability.name);
 
-      // Spawn second, scaled miniboss at 2/3 of the total time
-      if (
-        !secondMinibossSpawned &&
-        gameState.elapsedTime >= (BOSS_SPAWN_TIME * 2) / 3
-      ) {
-        secondMinibossSpawned = true;
-
-        // Filter out the first ability to guarantee a different one
-        const remainingAbilities = availableMinibossAbilities.filter(
-          (ab) => ab.name !== firstMinibossAbility.name
-        );
-        const secondAbility = k.choose(remainingAbilities);
-
-        // Define scaling for the second miniboss
-        const scaling = { hpMultiplier: 1.5, speedMultiplier: 1.1 };
-
-        console.log(
-          "Spawning second miniboss with ability:",
-          secondAbility.name
-        );
-        spawnEnemy(k, player, gameContext, {
-          forceType: "miniboss",
-          ability: secondAbility,
-          scaling: scaling, // Pass the scaling object
-        });
+          spawnMiniboss(gameContext, ability, schedule.scaling, schedule.time);
+          minibossesSpawned++;
+        }
       }
 
       if (!isBossSpawned) {

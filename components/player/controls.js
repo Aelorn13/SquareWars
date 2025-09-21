@@ -1,256 +1,187 @@
-// components/player/controls.js
-
 const MOBILE_AIM_DISTANCE = 200;
-const MAX_MOBILE_SCREEN_DIMENSION = 1400;
+const MAX_MOBILE_DIMENSION = 1400;
 
 export const keysPressed = {};
-
-// Keep both names for compatibility: old code may read `_dash`, new code uses `dashTriggered`
 export const inputState = {
   move: { x: 0, y: 0 },
   aim: { x: 0, y: 0 },
   dashTriggered: false,
   isMobile: false,
+  firing: false
 };
 
 let mobileController = null;
-let mobileControllerFactory = null;
-let mobileControllerMql = null;
+let controllerFactory = null;
+let orientationListener = null;
 let dashHeld = false;
 
-/* -----------------------
-   Device detection
-   ----------------------- */
 export function isMobileDevice() {
   const ua = navigator.userAgent || "";
-  const isIPadOS13Plus =
-    ua.includes("Macintosh") && "ontouchend" in document; // iPad pretending to be Mac
-
-  const mobileUa = /Mobi|Android|iPhone|iPad|Tablet/i.test(ua) || isIPadOS13Plus;
-  const hasTouch =
-    "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
-
-  const smallScreen =
-    Math.max(window.innerWidth || 0, window.innerHeight || 0) <=
-    MAX_MOBILE_SCREEN_DIMENSION;
-
-  // Option A: stricter, only small touch screens
-  return mobileUa || (hasTouch && smallScreen);
-
-  // Option B: looser, any touch-first device is "mobile"
-  // return mobileUa || hasTouch;
+  const isIPadOS = ua.includes("Macintosh") && "ontouchend" in document;
+  const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  const smallScreen = Math.max(window.innerWidth || 0, window.innerHeight || 0) <= MAX_MOBILE_DIMENSION;
+  
+  return /Mobi|Android|iPhone|iPad|Tablet/i.test(ua) || isIPadOS || (hasTouch && smallScreen);
 }
 
-/* -----------------------
-   Initialization
-   ----------------------- */
 export function initControls(k) {
   if (window._controlsInitialized) return;
   window._controlsInitialized = true;
-
+  
   inputState.isMobile = isMobileDevice();
-
-  window.addEventListener("keydown", (e) => {
+  
+  // Desktop keyboard handlers
+  window.addEventListener("keydown", e => {
     keysPressed[e.code] = true;
-    if (e.code === "Space") {
-      if (!dashHeld) {
-        inputState.dashTriggered = true;
-        inputState._dash = true;
-      }
+    if (e.code === "Space" && !dashHeld) {
+      inputState.dashTriggered = true;
       dashHeld = true;
     }
   });
-
-  window.addEventListener("keyup", (e) => {
+  
+  window.addEventListener("keyup", e => {
     keysPressed[e.code] = false;
     if (e.code === "Space") dashHeld = false;
   });
-
-  // Init aim if kaboom (or Kaplay) context provided
-  if (k && typeof k.mousePos === "function") {
+  
+  // Initialize mouse position
+  if (k?.mousePos) {
     const m = k.mousePos();
     inputState.aim.x = m.x;
     inputState.aim.y = m.y;
   }
 }
 
-/* -----------------------
-   Mobile controller lifecycle
-   ----------------------- */
-function _destroyCurrentController() {
-  if (!mobileController) return;
-  try {
-    mobileController.destroy?.();
-  } catch (e) {
-    console.warn("mobileController.destroy threw", e);
-  }
+function destroyController() {
+  mobileController?.destroy?.();
   mobileController = null;
 }
 
-function _createControllerFromFactory() {
-  if (!mobileControllerFactory) return null;
+function recreateController() {
+  if (!controllerFactory) return;
+  destroyController();
   try {
-    return mobileControllerFactory();
-  } catch (e) {
-    console.warn("Mobile controller factory failed.", e);
-    return null;
-  }
-}
-
-function _onOrientationChange() {
-  if (!mobileControllerFactory) return;
-  _destroyCurrentController();
-  const newController = _createControllerFromFactory();
-  if (newController) {
-    mobileController = newController;
+    mobileController = controllerFactory();
     inputState.isMobile = true;
+  } catch (e) {
+    console.warn("Controller creation failed:", e);
   }
 }
 
-/**
- * Register a controller instance or factory:
- * - If function: treat as factory and recreate on orientation changes.
- * - If instance: just use it (no auto-recreate).
- */
-export function registerMobileController(ctrlOrFactory) {
-  // Always destroy existing controller first (we'll create a new one below).
-  _destroyCurrentController();
-
-  if (typeof ctrlOrFactory === "function") {
-    mobileControllerFactory = ctrlOrFactory;
-    mobileController = _createControllerFromFactory();
-
-    // Attach orientation/listener to re-create controller on orientation change
-    if (window.matchMedia && !mobileControllerMql) {
+export function registerMobileController(factoryOrInstance) {
+  destroyController();
+  
+  if (typeof factoryOrInstance === "function") {
+    controllerFactory = factoryOrInstance;
+    mobileController = controllerFactory();
+    
+    // Setup orientation change listener
+    if (window.matchMedia && !orientationListener) {
       try {
-        mobileControllerMql = window.matchMedia("(orientation: landscape)");
-        // modern browsers
-        if (mobileControllerMql.addEventListener) {
-          mobileControllerMql.addEventListener("change", _onOrientationChange);
-        } else if (mobileControllerMql.addListener) {
-          // legacy
-          mobileControllerMql.addListener(_onOrientationChange);
-        }
+        orientationListener = window.matchMedia("(orientation: landscape)");
+        const handler = () => recreateController();
+        orientationListener.addEventListener?.("change", handler) || 
+        orientationListener.addListener?.(handler);
       } catch (e) {
-        console.warn("Failed to attach orientation listener", e);
+        console.warn("Orientation listener setup failed:", e);
       }
     }
   } else {
-    // direct instance
-    mobileControllerFactory = null;
-    mobileController = ctrlOrFactory;
+    controllerFactory = null;
+    mobileController = factoryOrInstance;
   }
-
+  
   inputState.isMobile = !!mobileController;
 }
 
-/**
- * Unregister + destroy mobile controller and cleanup listeners.
- */
 export function unregisterMobileController() {
-  if (mobileControllerMql) {
+  if (orientationListener) {
+    const handler = () => recreateController();
     try {
-      if (mobileControllerMql.removeEventListener) {
-        mobileControllerMql.removeEventListener("change", _onOrientationChange);
-      } else if (mobileControllerMql.removeListener) {
-        mobileControllerMql.removeListener(_onOrientationChange);
-      }
+      orientationListener.removeEventListener?.("change", handler) ||
+      orientationListener.removeListener?.(handler);
     } catch (e) {
-      console.warn("Failed to remove orientation listener", e);
+      console.warn("Listener removal failed:", e);
     }
-    mobileControllerMql = null;
+    orientationListener = null;
   }
-
-  mobileControllerFactory = null;
-  _destroyCurrentController();
-
-  // keep inputState.isMobile accurate
+  
+  controllerFactory = null;
+  destroyController();
   inputState.isMobile = isMobileDevice();
 }
 
-/* -----------------------
-   Per-frame input update
-   ----------------------- */
 export function updateInput(k) {
   if (inputState.isMobile && mobileController) {
-    const mv = mobileController.getMove?.() || { x: 0, y: 0 };
-    inputState.move.x = Math.max(-1, Math.min(1, mv.x || 0));
-    inputState.move.y = Math.max(-1, Math.min(1, mv.y || 0));
-
-    const aimActive = !!(mobileController.isAiming?.() || mobileController.isFiring?.());
-    const aimCurr = mobileController.getAim?.() || { x: 0, y: 0 };
+    // Mobile input processing
+    const move = mobileController.getMove?.() || { x: 0, y: 0 };
+    inputState.move.x = Math.max(-1, Math.min(1, move.x));
+    inputState.move.y = Math.max(-1, Math.min(1, move.y));
+    
+    const aimActive = mobileController.isAiming?.() || mobileController.isFiring?.();
+    const aimCurrent = mobileController.getAim?.() || { x: 0, y: 0 };
     const aimLast = mobileController.getAimLast?.() || { x: 0, y: 0 };
-
-    if (aimActive && (Math.abs(aimCurr.x) > 0 || Math.abs(aimCurr.y) > 0)) {
-      inputState.aim.x = aimCurr.x;
-      inputState.aim.y = aimCurr.y;
+    
+    if (aimActive && (aimCurrent.x || aimCurrent.y)) {
+      inputState.aim = aimCurrent;
     } else {
-      inputState.aim.x = aimLast.x;
-      inputState.aim.y = aimLast.y;
+      inputState.aim = aimLast;
     }
-
+    
     inputState.firing = aimActive;
-
-    const dashNow = !!mobileController.getDash?.();
+    
+    const dashNow = mobileController.getDash?.();
     if (dashNow && !dashHeld) {
       inputState.dashTriggered = true;
-      inputState._dash = true;
     }
     dashHeld = dashNow;
-    return;
-  }
-
-  // Desktop keyboard/mouse
-  const moveX = (keysPressed["KeyD"] ? 1 : 0) - (keysPressed["KeyA"] ? 1 : 0);
-  const moveY = (keysPressed["KeyS"] ? 1 : 0) - (keysPressed["KeyW"] ? 1 : 0);
-  const len = Math.hypot(moveX, moveY);
-  if (len > 0) {
-    inputState.move.x = moveX / len;
-    inputState.move.y = moveY / len;
   } else {
-    inputState.move.x = 0;
-    inputState.move.y = 0;
+    // Desktop input processing
+    const dx = (keysPressed["KeyD"] ? 1 : 0) - (keysPressed["KeyA"] ? 1 : 0);
+    const dy = (keysPressed["KeyS"] ? 1 : 0) - (keysPressed["KeyW"] ? 1 : 0);
+    const len = Math.hypot(dx, dy);
+    
+    inputState.move.x = len > 0 ? dx / len : 0;
+    inputState.move.y = len > 0 ? dy / len : 0;
+    
+    if (k?.mousePos) {
+      const m = k.mousePos();
+      inputState.aim.x = m.x;
+      inputState.aim.y = m.y;
+    }
+    
+    const dashNow = keysPressed["Space"];
+    if (dashNow && !dashHeld) {
+      inputState.dashTriggered = true;
+    }
+    dashHeld = dashNow;
   }
-
-  if (k && typeof k.mousePos === "function") {
-    const m = k.mousePos();
-    inputState.aim.x = m.x;
-    inputState.aim.y = m.y;
-  }
-
-  const dashNow = !!keysPressed["Space"];
-  if (dashNow && !dashHeld) {
-    inputState.dashTriggered = true;
-    inputState._dash = true;
-  }
-  dashHeld = dashNow;
 }
 
-/* -----------------------
-   Dash consumption + helper APIs
-   ----------------------- */
 export function consumeDash() {
-  if (inputState.dashTriggered || inputState._dash) {
+  if (inputState.dashTriggered) {
     inputState.dashTriggered = false;
-    inputState._dash = false;
     return true;
   }
   return false;
 }
 
 export function moveVec(k) {
-  return k && typeof k.vec2 === "function"
+  return k?.vec2 
     ? k.vec2(inputState.move.x, inputState.move.y)
-    : { x: inputState.move.x, y: inputState.move.y };
+    : { ...inputState.move };
 }
 
 export function aimWorldTarget(k, playerPos) {
   if (!k) return inputState.aim;
+  
   if (inputState.isMobile) {
-    const ax = inputState.aim.x || 0;
-    const ay = inputState.aim.y || 0;
-    return k.vec2((playerPos.x || 0) + ax * MOBILE_AIM_DISTANCE, (playerPos.y || 0) + ay * MOBILE_AIM_DISTANCE);
-  } else {
-    return k.vec2(inputState.aim.x || playerPos?.x || 0, inputState.aim.y || playerPos?.y || 0);
+    const offset = k.vec2(
+      inputState.aim.x * MOBILE_AIM_DISTANCE,
+      inputState.aim.y * MOBILE_AIM_DISTANCE
+    );
+    return playerPos.add(offset);
   }
+  
+  return k.vec2(inputState.aim.x, inputState.aim.y);
 }

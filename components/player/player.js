@@ -1,162 +1,114 @@
-//components/player/player.js
 import { updateInput, consumeDash, moveVec, aimWorldTarget } from "./controls.js";
 import { setupPlayerCosmetics } from "./cosmetics/playerCosmetic.js";
 
-const BASE_PLAYER_SIZE = 28;
+const PLAYER_CONFIG = {
+  SIZE: 28,
+  INITIAL_STATS: {
+    bulletSpreadDeg: 10,
+    critChance: 0.1,
+    critMultiplier: 2,
+    projectiles: 1,
+    damage: 1,
+    speed: 90,
+    luck: 0.1,
+    bulletSpeed: 300,
+    attackSpeed: 0.5,
+    dashDuration: 0.2,
+    dashCooldown: 3,
+    dashSpeedMultiplier: 4
+  }
+};
 
-/**
- * Creates and initializes the player entity with all its stats and behaviors.
- * @param {object} k - The Kaboom.js context object.
- * @param {object} sharedState - Contains shared game state like arena boundaries and pause status.
- * @returns {object} The created player entity.
- */
 export function createPlayer(k, sharedState) {
-  // A self-contained handler for all dash-related logic and state.
-  const dashHandler = {
-    isDashing: false,
-    cooldownTimer: 0,
-    activeTimer: 0,
-
-    // Decrements timers each frame.
-    update(dt, player) {
-      if (this.cooldownTimer > 0) {
-        this.cooldownTimer = Math.max(0, this.cooldownTimer - dt);
-      }
-      if (this.activeTimer > 0) {
-        this.activeTimer = Math.max(0, this.activeTimer - dt);
-        if (this.activeTimer === 0) {
-          this.isDashing = false;
-        }
+  // Dash state machine
+  const dash = {
+    active: false,
+    cooldown: 0,
+    duration: 0,
+    
+    update(dt) {
+      this.cooldown = Math.max(0, this.cooldown - dt);
+      if (this.duration > 0) {
+        this.duration = Math.max(0, this.duration - dt);
+        if (this.duration === 0) this.active = false;
       }
     },
-
-    // Executes the dash if conditions are met.
-    execute(player) {
-      if (this.cooldownTimer > 0 || this.isDashing) return;
-      this.isDashing = true;
-      this.activeTimer = player.dashDuration;
-      this.cooldownTimer = player.dashCooldown;
+    
+    trigger(player) {
+      if (this.cooldown > 0 || this.active) return;
+      this.active = true;
+      this.duration = player.dashDuration;
+      this.cooldown = player.dashCooldown;
     },
-
-    // Calculates cooldown progress for the UI bar.
+    
     getCooldownProgress(player) {
-      if (player.dashCooldown === 0) return 1;
-      return 1 - this.cooldownTimer / player.dashCooldown;
-    },
+      return player.dashCooldown === 0 ? 1 : 1 - this.cooldown / player.dashCooldown;
+    }
   };
-
+  
+  const { area } = sharedState;
+  const centerPos = k.vec2(area.x + area.w / 2, area.y + area.h / 2);
+  
   const player = k.add([
-    k.rect(BASE_PLAYER_SIZE, BASE_PLAYER_SIZE),
+    k.rect(PLAYER_CONFIG.SIZE, PLAYER_CONFIG.SIZE),
     k.anchor("center"),
-    k.pos(
-      sharedState.area.x + sharedState.area.w / 2,
-      sharedState.area.y + sharedState.area.h / 2
-    ),
+    k.pos(centerPos),
     k.color(0, 0, 255),
     k.rotate(0),
     k.area(),
-    k.body({ isSensor: true }), // isSensor prevents forceful pushing by other physics bodies.
+    k.body({ isSensor: true }),
     k.health(3, 10),
     k.scale(1),
     k.z(0),
     "player",
-    // --- Initial Player Stats ---
     {
-      bulletSpreadDeg: 10,
-      critChance: 0.1,
-      critMultiplier: 2,
-      projectiles: 1,
-      damage: 1,
-      speed: 90,
-      luck: 0.1,
-      bulletSpeed: 300,
-      attackSpeed: 0.5,
+      ...PLAYER_CONFIG.INITIAL_STATS,
       isShooting: false,
       isInvincible: false,
-      dashDuration: 0.2,
-      dashCooldown: 3,
-      dashSpeedMultiplier: 4,
-      /**
-       * Centralized function to handle all incoming damage.
-       * @param {number} damageAmount - The amount of health to lose.
-       */
-      takeDamage(damageAmount) {
-        // If already invincible, do nothing.
+      
+      takeDamage(amount) {
         if (this.isInvincible) return;
-        // Reduce player's health.
-        this.hurt(damageAmount);
-        // Apply 2 seconds of invincibility.
+        this.hurt(amount);
         this.applyInvincibility(2);
-        // Add visual feedback.
         k.shake(10);
       },
-      /**
-       * Makes the player invincible and flashes for a given duration.
-       * @param {number} duration - How long the invincibility should last in seconds.
-       */
-      applyInvincibility(duration) {
+      
+      applyInvincibility(seconds) {
         this.isInvincible = true;
-        // Create a flashing effect that toggles the player's visibility.
-        const flashEffect = k.loop(0.1, () => {
-          this.hidden = !this.hidden;
-        });
-        // After the duration is over, reset everything.
-        k.wait(duration, () => {
+        const flashLoop = k.loop(0.1, () => this.hidden = !this.hidden);
+        k.wait(seconds, () => {
           this.isInvincible = false;
-          this.hidden = false; // Ensure the player is visible again.
-          flashEffect.cancel(); // Stop the flashing.
+          this.hidden = false;
+          flashLoop.cancel();
         });
-      },
-    },
+      }
+    }
   ]);
-
-  // --- Main Update Loop ---
+  
   player.onUpdate(() => {
     if (sharedState.isPaused) return;
-
-     updateInput(k, player.pos);
-    // Delegate all timer management to the dash handler.
-    dashHandler.update(k.dt(), player);
-
-        if (consumeDash()) {
-      dashHandler.execute(player);
-    }
-    handleRotation(player, k);
-    handleMovement(player, k, dashHandler);
-    clampPosition(player, k, sharedState.area);
+    
+    updateInput(k, player.pos);
+    dash.update(k.dt());
+    
+    if (consumeDash()) dash.trigger(player);
+    
+    // Face cursor/aim direction
+    const target = aimWorldTarget(k, player.pos);
+    player.rotateTo(target.angle(player.pos));
+    
+    // Movement with dash boost
+    const move = moveVec(k);
+    const speed = dash.active ? player.speed * player.dashSpeedMultiplier : player.speed;
+    player.move(move.scale(speed));
+    
+    // Constrain to arena
+    player.pos.x = k.clamp(player.pos.x, area.x, area.x + area.w);
+    player.pos.y = k.clamp(player.pos.y, area.y, area.y + area.h);
   });
-
-  // --- Public Methods ---
-  player.getDashCooldownProgress = () =>
-    dashHandler.getCooldownProgress(player);
-
+  
+  player.getDashCooldownProgress = () => dash.getCooldownProgress(player);
   setupPlayerCosmetics(k, player);
-
+  
   return player;
-}
-
-// --- Helper Functions for `createPlayer` ---
-
-function handleRotation(player, k) {
-  // Player always faces the mouse cursor for aiming.
-   const target = aimWorldTarget(k, player.pos);
-  player.rotateTo(target.angle(player.pos));
-}
-
-function handleMovement(player, k, dashHandler) {
-// Get the normalized movement vector from the central controls.
-  const moveDirection = moveVec(k);
-
-  // Apply dash multiplier if the dash is active. This logic is preserved.
-  const effectiveSpeed = dashHandler.isDashing
-    ? player.speed * player.dashSpeedMultiplier
-    : player.speed;
-
-  // No need to check moveDirection.len() > 0, as scaling a zero vector results in zero movement.
-  player.move(moveDirection.scale(effectiveSpeed));
-}
-
-function clampPosition(player, k, area) {
-  player.pos.x = k.clamp(player.pos.x, area.x, area.x + area.w);
-  player.pos.y = k.clamp(player.pos.y, area.y, area.y + area.h);
 }

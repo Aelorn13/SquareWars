@@ -1,4 +1,4 @@
-// components/buffs/buffManager.js
+// components/effects/buffs/buffManager.js
 /**
  * attachBuffManager(k, entity)
  * Adds a _buffManager to entity with: applyBuff, removeBuff, update(dt), destroy()

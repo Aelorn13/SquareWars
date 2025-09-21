@@ -1,36 +1,65 @@
 // components/ui/upgradeUI.js
 /**
- * Displays an upgrade selection UI to the player.
- * @param {Array<object>} chosenUpgrades - An array of pre-formatted upgrade objects:
- *   { icon, name, bonusText, color: [r,g,b], upgradeDef, rarity }
- * @param {function} onPick - Callback function when an upgrade is chosen or skipped.
+ * showUpgradeUI(k, chosenUpgrades, onPick)
+ * cleanupUpgradeUI(k)
+ *
+ * chosenUpgrades: array of objects (recommended length 3) with:
+ *   { stat, name, icon, bonusText, description, color: [r,g,b], rarity, ... }
+ *
+ * onPick receives the chosen upgrade object or the string "skip".
  */
-export function showUpgradeUI(k, chosenUpgrades, onPick) {
-  const centerX = k.width() / 2;
-  const centerY = k.height() / 2;
 
-  // Dim background to focus on the UI
-  k.add([
-    k.rect(k.width(), k.height()),
-    k.color(0, 0, 0),
-    k.opacity(0.6),
-    k.pos(0, 0),
-    k.fixed(),
-    k.z(499),
-    "upgradeUI",
-  ]);
+export function showUpgradeUI(k, chosenUpgrades = [], onPick = () => {}) {
+  // Ensure array and length 3
+  chosenUpgrades = Array.isArray(chosenUpgrades) ? chosenUpgrades.slice(0, 3) : [];
+  while (chosenUpgrades.length < 3) {
+    chosenUpgrades.push({
+      stat: "__empty__",
+      name: "No Upgrade",
+      icon: "–",
+      bonusText: "",
+      description: "",
+      color: [120, 120, 120],
+    });
+  }
 
-  /**
-   * Creates an upgrade card UI element.
-   * @param {object} upgradeChoice - The upgrade data for this card.
-   */
+  const centerX = (typeof k.width === "function") ? k.width() / 2 : 400;
+  const centerY = (typeof k.height === "function") ? k.height() / 2 : 300;
+
+  // dark background
+  try {
+    k.add([
+      k.rect(k.width(), k.height()),
+      k.color(0, 0, 0),
+      k.opacity(0.6),
+      k.pos(0, 0),
+      k.fixed(),
+      k.z(499),
+      "upgradeUI",
+    ]);
+  } catch (e) {
+    // fallback sizes if any function missing
+    try {
+      k.add([k.rect(800, 600), k.color(0, 0, 0), k.opacity(0.6), k.pos(0, 0), k.fixed(), k.z(499), "upgradeUI"]);
+    } catch (err) {}
+  }
+
+  const cardSpacing = 230;
+  const cardY = centerY;
+  const cardXs = [centerX - cardSpacing, centerX, centerX + cardSpacing];
+
   const createUpgradeCard = (x, y, upgradeChoice) => {
-    const frameColor = k.rgb(...upgradeChoice.color);
+    const colorArr = Array.isArray(upgradeChoice?.color) && upgradeChoice.color.length >= 3
+      ? upgradeChoice.color
+      : [200, 200, 200];
+
+    const frameColor = (typeof k.rgb === "function") ? k.rgb(...colorArr) : k.color(...colorArr);
 
     const cardBox = k.add([
-      k.rect(200, 90, { radius: 10 }),
+      k.rect(220, 110, { radius: 10 }),
       k.color(40, 40, 40),
-      k.outline(4, frameColor),
+      // outline expects a color object in some kaboom versions; use rgb if available
+      (typeof k.outline === "function") ? k.outline(4, frameColor) : k.pos(0,0),
       k.pos(x, y),
       k.anchor("center"),
       k.area(),
@@ -38,12 +67,12 @@ export function showUpgradeUI(k, chosenUpgrades, onPick) {
       k.fixed(),
       k.z(500),
       "upgradeUI",
-      { upgradeChoice }, // Attach upgrade data directly to the component
+      { upgradeChoice }, // attach data
     ]);
 
     const titleText = k.add([
-      k.text(`${upgradeChoice.icon} ${upgradeChoice.name}`, { size: 18, align: "center" }),
-      k.pos(x, y - 15),
+      k.text(`${upgradeChoice.icon ?? ""} ${upgradeChoice.name ?? "Upgrade"}`, { size: 18, align: "center" }),
+      k.pos(x, y - 30),
       k.anchor("center"),
       k.fixed(),
       k.z(501),
@@ -51,47 +80,68 @@ export function showUpgradeUI(k, chosenUpgrades, onPick) {
     ]);
 
     const bonusText = k.add([
-      k.text(upgradeChoice.bonusText, { size: 20, align: "center" }),
-      k.pos(x, y + 15),
+      k.text(upgradeChoice.bonusText ?? "", { size: 16, align: "center" }),
+      k.pos(x, y - 6),
       k.anchor("center"),
-      k.color(...upgradeChoice.color),
+      k.color(...colorArr),
       k.fixed(),
       k.z(501),
       "upgradeUI",
     ]);
 
-    // Apply hover scaling to card elements
-    cardBox.onHoverUpdate(() => {
-      const scaleFactor = k.vec2(1.1, 1.1);
-      cardBox.scale = scaleFactor;
-      titleText.scale = scaleFactor;
-      bonusText.scale = scaleFactor;
-    });
+    const descriptionText = k.add([
+      k.text(upgradeChoice.description ?? "", { size: 12, align: "center", width: 200 }),
+      k.pos(x, y + 34),
+      k.anchor("center"),
+      k.color(200, 200, 200),
+      k.fixed(),
+      k.z(501),
+      "upgradeUI",
+    ]);
 
-    cardBox.onHoverEnd(() => {
-      const normalScale = k.vec2(1, 1);
-      cardBox.scale = normalScale;
-      titleText.scale = normalScale;
-      bonusText.scale = normalScale;
-    });
+    // Hover scaling if API exists (guarded)
+    try {
+      if (typeof cardBox.onHoverUpdate === "function" && typeof cardBox.onHoverEnd === "function") {
+        cardBox.onHoverUpdate(() => {
+          const scaleFactor = (typeof k.vec2 === "function") ? k.vec2(1.08, 1.08) : 1.08;
+          cardBox.scale = scaleFactor;
+          titleText.scale = scaleFactor;
+          bonusText.scale = scaleFactor;
+          descriptionText.scale = scaleFactor;
+        });
+        cardBox.onHoverEnd(() => {
+          const normalScale = (typeof k.vec2 === "function") ? k.vec2(1, 1) : 1;
+          cardBox.scale = normalScale;
+          titleText.scale = normalScale;
+          bonusText.scale = normalScale;
+          descriptionText.scale = normalScale;
+        });
+      }
+    } catch (e) {}
 
-    cardBox.onClick(() => onPick(upgradeChoice));
+    // Click to pick (guard)
+    try {
+      if (typeof cardBox.onClick === "function") {
+        cardBox.onClick(() => onPick(upgradeChoice));
+      } else {
+        // fallback: listen for area click via k.mouseClick? (not assuming)
+        // If no onClick, still support programmatic pick via cardBox.upgradeChoice
+      }
+    } catch (e) {}
   };
 
-  // Position and create upgrade cards
-  const cardSpacing = 230;
-  createUpgradeCard(centerX - cardSpacing, centerY, chosenUpgrades[0]);
-  createUpgradeCard(centerX, centerY, chosenUpgrades[1]);
-  createUpgradeCard(centerX + cardSpacing, centerY, chosenUpgrades[2]);
+  // Create cards
+  createUpgradeCard(cardXs[0], cardY, chosenUpgrades[0]);
+  createUpgradeCard(cardXs[1], cardY, chosenUpgrades[1]);
+  createUpgradeCard(cardXs[2], cardY, chosenUpgrades[2]);
 
-  // Skip button positioning
+  // Skip button
   const skipButtonX = centerX + 320;
   const skipButtonY = centerY - 140;
-
   const skipButton = k.add([
     k.rect(140, 36, { radius: 8 }),
     k.color(90, 90, 90),
-    k.outline(2, k.rgb(220, 220, 220)),
+    k.outline ? k.outline(2, k.rgb(220, 220, 220)) : k.pos(0,0),
     k.pos(skipButtonX, skipButtonY),
     k.anchor("center"),
     k.area(),
@@ -111,20 +161,32 @@ export function showUpgradeUI(k, chosenUpgrades, onPick) {
     "upgradeUI",
   ]);
 
-  // Apply hover scaling to skip button
-  skipButton.onHoverUpdate(() => {
-    skipButton.scale = k.vec2(1.06, 1.06);
-  });
-  skipButton.onHoverEnd(() => {
-    skipButton.scale = k.vec2(1, 1);
-  });
+  try {
+    if (typeof skipButton.onHoverUpdate === "function" && typeof skipButton.onHoverEnd === "function") {
+      skipButton.onHoverUpdate(() => { skipButton.scale = (typeof k.vec2 === "function") ? k.vec2(1.06, 1.06) : 1.06; });
+      skipButton.onHoverEnd(() => { skipButton.scale = (typeof k.vec2 === "function") ? k.vec2(1, 1) : 1; });
+    }
+  } catch (e) {}
 
-  skipButton.onClick(() => onPick("skip"));
+  try {
+    if (typeof skipButton.onClick === "function") {
+      skipButton.onClick(() => onPick("skip"));
+    }
+  } catch (e) {}
 }
 
-/**
- * Destroys all UI elements related to the upgrade selection.
- */
 export function cleanupUpgradeUI(k) {
-  k.destroyAll("upgradeUI");
+  try {
+    if (typeof k.destroyAll === "function") {
+      k.destroyAll("upgradeUI");
+      return;
+    }
+  } catch (e) {}
+  // best-effort fallback: try to query and destroy
+  try {
+    const items = k.every ? k.every("upgradeUI") : [];
+    for (const it of items) {
+      try { k.destroy(it); } catch (e) {}
+    }
+  } catch (e) {}
 }

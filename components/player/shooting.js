@@ -1,155 +1,118 @@
 // components/player/shooting.js
 import { inputState, updateInput, aimWorldTarget } from "./controls.js";
+import { attachBuffManager } from "../effects/buffs/buffManager.js";
 
 const BASE_PROJECTILE_SIZE = 6;
 const DEFAULT_BULLET_SPREAD_DEG = 10;
-const MIN_FIRE_RATE = 0.04; // Minimum time between shots in seconds
-
-// Calculates damage scaling for multiple projectiles.
-// Returns a multiplier (0.1 to 1) based on the number of projectiles.
+const MIN_FIRE_RATE = 0.04;
 const MULTIPLE_PROJECTILE_SCALLING = 0.65;
-function getMultiProjectileDamageScale(numProjectiles) {
-  if (numProjectiles <= 1) return 1; // Single projectile gets 100% damage.
-  if (numProjectiles === 3) return MULTIPLE_PROJECTILE_SCALLING; // Baseline for 3 projectiles.
 
-  // For every projectile beyond 3, damage is reduced.
+function getMultiProjectileDamageScale(numProjectiles) {
+  if (numProjectiles <= 1) return 1;
+  if (numProjectiles === 3) return MULTIPLE_PROJECTILE_SCALLING;
   const extraProjectiles = numProjectiles - 3;
-  // Floor at 10% to prevent damage from hitting zero or going negative.
   return Math.max(0.1, MULTIPLE_PROJECTILE_SCALLING - 0.05 * extraProjectiles);
 }
 
 export function setupPlayerShooting(k, player, gameState) {
-  let canFire = true; // Controls the fire rate.
+  let canFire = true;
   const degToRad = (degrees) => (degrees * Math.PI) / 180;
 
-  // Calculates a multiplier indicating if the player's current damage is buffed
-  // compared to their base damage. Returns 1 if no base damage is found or is zero.
+  attachBuffManager(k, player);
+
   const getDamageBuffMultiplier = () => {
     const baseDamage = player._baseStats?.damage;
-    if (typeof baseDamage === "number" && baseDamage > 0) {
-      return player.damage / baseDamage;
-    }
-    return 1; // No discernible buff/debuff or base damage is zero.
+    if (typeof baseDamage === "number" && baseDamage > 0) return player.damage / baseDamage;
+    return 1;
   };
 
-  // Handles the logic for a single shot, including multiple projectiles.
   const fireProjectile = () => {
-    // Use unified aiming helper so desktop and mobile share behavior.
-    const targetVec = aimWorldTarget(k, player.pos); // k.vec2
-    const targetDirectionX = targetVec.x - player.pos.x;
-    const targetDirectionY = targetVec.y - player.pos.y;
-    const baseShotAngleRad = Math.atan2(targetDirectionY, targetDirectionX);
+    const targetVec = aimWorldTarget(k, player.pos);
+    const baseShotAngleRad = Math.atan2(targetVec.y - player.pos.y, targetVec.x - player.pos.x);
 
     const damageBuffMultiplier = getDamageBuffMultiplier();
-    const hasDamageBuff = Math.abs(damageBuffMultiplier - 1) > 0.0001; // Check if there's a significant damage buff.
+    const hasDamageBuff = Math.abs(damageBuffMultiplier - 1) > 0.0001;
 
-    // Calculate projectile count, defaulting to 1.
     const numProjectiles = Math.max(1, Math.floor(player.projectiles || 1));
-
-    // Determine total spread angle for multiple projectiles.
     const baseSpreadDegrees = player.bulletSpreadDeg ?? DEFAULT_BULLET_SPREAD_DEG;
-    const totalSpreadDegrees =
-      numProjectiles === 1 ? 0 : baseSpreadDegrees * Math.sqrt(numProjectiles);
+    const totalSpreadDegrees = numProjectiles === 1 ? 0 : baseSpreadDegrees * Math.sqrt(numProjectiles);
 
-    // Calculate individual angle offsets for each projectile to create the spread.
     const projectileAngleOffsetsDeg = [];
-    if (numProjectiles === 1) {
-      projectileAngleOffsetsDeg.push(0); // No offset for single projectile.
-    } else {
-      const angleStep = totalSpreadDegrees / (numProjectiles - 1);
-      const startAngle = -totalSpreadDegrees / 2;
-      for (let i = 0; i < numProjectiles; i++) {
-        projectileAngleOffsetsDeg.push(startAngle + i * angleStep);
-      }
+    if (numProjectiles === 1) projectileAngleOffsetsDeg.push(0);
+    else {
+      const step = totalSpreadDegrees / (numProjectiles - 1);
+      const start = -totalSpreadDegrees / 2;
+      for (let i = 0; i < numProjectiles; i++) projectileAngleOffsetsDeg.push(start + i * step);
     }
 
-    // Perform a single critical hit roll for the entire volley of projectiles.
     const critChance = Math.max(0, Math.min(1, player.critChance || 0));
     const isCriticalHit = Math.random() < critChance;
     const critDamageMultiplier = isCriticalHit ? (player.critMultiplier ?? 2) : 1;
 
-    // Calculate base damage for each individual projectile, considering multi-projectile penalty and crit.
     const multiProjectileDamageScale = getMultiProjectileDamageScale(numProjectiles);
     const damagePerProjectile = player.damage * critDamageMultiplier * multiProjectileDamageScale;
 
-    // Calculate projectile size based on current damage vs. base damage and crit multiplier.
-    // Damage buff no longer affects size, only color.
-    const basePlayerDamage = 1;
-    const damageSizeMultiplier = player.damage / basePlayerDamage;
-    const projectileSize = Math.max(
-      2,
-      BASE_PROJECTILE_SIZE * damageSizeMultiplier * critDamageMultiplier,
-    );
+    const damageSizeMultiplier = player.damage / 1;
+    const projectileSize = Math.max(2, BASE_PROJECTILE_SIZE * damageSizeMultiplier * critDamageMultiplier);
 
-    // Iterate through each projectile to create and launch it.
+    const projectileEffects = (player._projectileEffects ?? []).map(e => ({ ...e, params: { ...(e.params || {}) } }));
+
     for (const offsetDeg of projectileAngleOffsetsDeg) {
-      const finalProjectileAngleRad = baseShotAngleRad + degToRad(offsetDeg);
-      const projectileDirection = k.vec2(
-        Math.cos(finalProjectileAngleRad),
-        Math.sin(finalProjectileAngleRad),
-      );
+      const finalAngle = baseShotAngleRad + degToRad(offsetDeg);
+      const dir = k.vec2(Math.cos(finalAngle), Math.sin(finalAngle));
 
-      // Determine projectile color: magenta for damage buff, red for critical, yellow otherwise.
-      let projectileColor = hasDamageBuff ? k.rgb(255, 0, 255) : k.rgb(255, 255, 0);
-      if (isCriticalHit) projectileColor = k.rgb(255, 0, 0);
+      let color = hasDamageBuff ? k.rgb(255, 0, 255) : k.rgb(255, 255, 0);
+      if (isCriticalHit) color = k.rgb(255, 0, 0);
 
-      // Create and add the projectile to the game.
+      const sourceId = player.id ?? `player_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+
       const projectile = k.add([
         k.rect(projectileSize, projectileSize),
-        k.color(projectileColor),
-        k.pos(player.pos), // Projectile starts at player's position.
+        k.color(color),
+        k.pos(player.pos),
         k.area(),
         k.anchor("center"),
-        k.offscreen({ destroy: true }), // Destroy projectile when it goes off-screen.
-        "projectile", // Tag for collision detection.
+        k.offscreen({ destroy: true }),
+        "projectile",
         {
-          velocity: projectileDirection.scale(player.bulletSpeed), // Store initial velocity.
+          velocity: dir.scale(player.bulletSpeed),
           damage: damagePerProjectile,
           isCritical: isCriticalHit,
+          effects: projectileEffects.map(pe => ({ ...pe, params: { ...(pe.params || {}) } })),
+          source: player,
+          sourceId,
         },
       ]);
 
-      // Update projectile position each frame.
+      // initialize ricochet bounces if effect present
+      const ric = projectile.effects?.find(ef => ef.type === "ricochet");
+      if (ric?.params?.bounces) projectile._bouncesLeft = Math.max(0, Math.floor(ric.params.bounces));
+      else projectile._bouncesLeft = projectile._bouncesLeft ?? 0;
+
       projectile.onUpdate(() => {
-        if (!gameState.isPaused) {
-          projectile.pos = projectile.pos.add(projectile.velocity.scale(k.dt()));
-        }
+        if (!gameState.isPaused) projectile.pos = projectile.pos.add(projectile.velocity.scale(k.dt()));
       });
+
+      // DO NOT register collision handlers on projectiles here.
+      // enemy.onCollide("projectile", ...) handles collision, effects application and destruction.
     }
   };
 
-  // Attempts to fire a projectile, respecting the player's fire rate.
   const tryFire = () => {
-    if (!canFire) return; // Cannot fire if on cooldown.
-
-    fireProjectile(); // Execute the shot.
-    canFire = false; // Set cooldown.
-
-    // Calculate fire rate, ensuring it's not faster than MIN_FIRE_RATE.
+    if (!canFire) return;
+    fireProjectile();
+    canFire = false;
     const fireRate = Math.max(MIN_FIRE_RATE, player.attackSpeed || 0.1);
-
-    // Reset canFire after the cooldown period.
-    k.wait(fireRate, () => {
-      canFire = true;
-    });
+    k.wait(fireRate, () => { canFire = true; });
   };
 
-  // Keep desktop mouse handlers for mouse users (no change).
   k.onMouseDown(() => (player.isShooting = true));
   k.onMouseRelease(() => (player.isShooting = false));
 
-  // Game update loop: check if player is shooting (desktop) or aiming (mobile) and game is not paused.
   k.onUpdate(() => {
-    if (gameState.isPaused) return; // Do nothing if game is paused.
-
-    // Update unified input state so mobile firing/aiming is fresh this frame.
+    if (gameState.isPaused) return;
     updateInput(k, player.pos);
-
-    // Determine whether to shoot:
-    // - Desktop: player.isShooting is set by mouse handlers.
-    // - Mobile: inputState.firing is set by controls.updateInput when aim joystick is active.
     const shootingNow = !!player.isShooting || !!inputState.firing;
-
     if (shootingNow) tryFire();
   });
 }

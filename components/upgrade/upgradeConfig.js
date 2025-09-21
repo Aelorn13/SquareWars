@@ -1,11 +1,6 @@
-//components/upgrade/upgradeConfig.js
-/**
- * @file Defines configurations for player upgrades, rarities, and related utility functions.
- */
+// components/upgrade/upgradeConfig.js
+// Centralized upgrade + rarity configuration + UI formatter
 
-/**
- * Defines the different rarities for upgrades.
- */
 export const RARITY_CONFIG = [
   { name: "Common",    color: [255, 255, 255], tier: 1, multiplier: 0.1, weight: 40 },
   { name: "Uncommon",  color: [0, 255, 0],     tier: 2, multiplier: 0.2, weight: 30 },
@@ -14,111 +9,212 @@ export const RARITY_CONFIG = [
   { name: "Legendary", color: [255, 165, 0],   tier: 5, multiplier: 0.5, weight: 2  },
 ];
 
-/**
- * A centralized configuration for all available player upgrades.
- */
 export const UPGRADE_CONFIG = {
   damage:         { name: "Damage Boost",    icon: "🔫", scale: 1.0 },
   speed:          { name: "Move Speed",      icon: "🏃", scale: 0.8 },
   luck:           { name: "Luck",            icon: "🍀", scale: 0.5, isAdditive: true, cap: 1.0 },
   bulletSpeed:    { name: "Bullet Speed",    icon: "💨", scale: 3.0 },
   attackSpeed:    { name: "Attack Interval", icon: "⚡", scale: 0.5, isInverse: true, cap: 0.05 },
-  dashDuration:   { name: "Dash Duration",   icon: "⏱️", scale: 5.0 },
-  dashCooldown:   { name: "Dash Cooldown",   icon: "♻️", scale: 1.5, isInverse: true, cap: 0.05 },
   critChance:     { name: "Critical Chance", icon: "🎯", scale: 0.5, isAdditive: true, cap: 1.0 },
   critMultiplier: { name: "Critical Damage", icon: "💥", scale: 2.0 },
-  projectiles:    {
+
+  projectiles: {
     name: "Multi-Shot",
     icon: "🔱",
-    // Projectiles have special logic and don't use standard scaling.
     isSpecial: true,
-    // Define rarity-specific bonuses directly in the config.
-    bonuses: {
-      4: 2, // Epic: +2 projectiles
-      5: 4, // Legendary: +4 projectiles
-    },
-    // Restrict which rarities can be rolled for this stat.
+    bonuses: { 4: 2, 5: 4 },
     allowedTiers: [4, 5],
+  },
+
+  burnOnHit: {
+    name: "Incendiary Rounds",
+    icon: "🔥",
+    isEffect: true,
+    isUnique: true,
+    effectType: "burn",
+    allowedTiers: [3, 4, 5],
+    bonuses: {
+      3: { damagePerTick: 0.35, duration: 3, tickInterval: 1 },
+      4: { damagePerTick: 0.5,  duration: 4, tickInterval: 1 },
+      5: { damagePerTick: 1.0,  duration: 4, tickInterval: 1 },
+    },
+  },
+
+  knockbackOnHit: {
+    name: "Shove Rounds",
+    icon: "🛡️",
+    isEffect: true,
+    isUnique: true,
+    effectType: "knockback",
+    allowedTiers: [3, 4, 5],
+    bonuses: {
+      3: { force: 300, duration: 0.12 },
+      4: { force: 500, duration: 0.16 },
+      5: { force: 800, duration: 0.20 },
+    },
+  },
+
+  slowOnHit: {
+    name: "Chilling Rounds",
+    icon: "🧊",
+    isEffect: true,
+    isUnique: true,
+    effectType: "slow",
+    allowedTiers: [3, 4, 5],
+    bonuses: {
+      3: { slowFactor: 0.25, duration: 1.5 },
+      4: { slowFactor: 0.45, duration: 2.2 },
+      5: { slowFactor: 0.65, duration: 3.0 },
+    },
+  },
+
+  ricochet: {
+    name: "Ricochet Rounds",
+    icon: "🔁",
+    isEffect: true,
+    isUnique: true,
+    effectType: "ricochet",
+    allowedTiers: [3, 4, 5],
+    bonuses: {
+      3: { bounces: 1, spread: 10 },
+      4: { bounces: 2, spread: 18 },
+      5: { bounces: 3, spread: 26 },
+    },
   },
 };
 
+/* ----------------- Rarity utilities (cached weights) ----------------- */
 
-/* ----------------- Rarity Roll Utilities ----------------- */
+const _weightsCache = new WeakMap();
 
-/**
- * Rolls a random rarity from a given list, weighted by the 'weight' field.
- * @param {Array<Object>} [rarityPool=RARITY_DEFINITIONS] - The array of rarity objects to pick from.
- * @returns {Object} The randomly selected rarity object.
- */
-export function rollWeightedRarity(rarityPool = RARITY_CONFIG) {
-  const totalWeight = rarityPool.reduce((sum, rarity) => sum + (rarity.weight ?? 1), 0);
-  if (totalWeight <= 0) {
-    return rarityPool[0]; // Prevent division by zero.
-  }
-
-  let randomRoll = Math.random() * totalWeight;
-  for (const rarity of rarityPool) {
-    randomRoll -= (rarity.weight ?? 1);
-    if (randomRoll <= 0) {
-      return rarity;
-    }
-  }
-  return rarityPool[rarityPool.length - 1]; // Fallback.
+function _buildCache(pool) {
+  const weights = pool.map(r => Math.max(0, r.weight ?? 1));
+  const total = weights.reduce((s, v) => s + v, 0);
+  const entry = { weights, total };
+  _weightsCache.set(pool, entry);
+  return entry;
 }
 
 /**
- * Rolls a rarity for a given stat, respecting any tier restrictions in its configuration.
- * @param {string} statName - The key of the stat in UPGRADE_CONFIG.
- * @returns {Object} The randomly selected rarity object.
+ * rollWeightedRarity(rarityPool = RARITY_CONFIG)
+ * Returns a shallow copy of the chosen rarity config.
  */
-export function rollRarityForStat(statName) {
-  const statConfig = UPGRADE_CONFIG[statName];
-  const allowedTiers = statConfig?.allowedTiers;
-
-  if (allowedTiers) {
-    const filteredRarities = RARITY_CONFIG.filter(r => allowedTiers.includes(r.tier));
-    return rollWeightedRarity(filteredRarities);
+export function rollWeightedRarity(rarityPool = RARITY_CONFIG) {
+  const cache = _weightsCache.get(rarityPool) ?? _buildCache(rarityPool);
+  const total = cache.total;
+  if (total <= 0) return { ...(rarityPool[0] ?? {}) };
+  let v = Math.random() * total;
+  for (let i = 0; i < rarityPool.length; i++) {
+    v -= cache.weights[i];
+    if (v <= 0) return { ...rarityPool[i] };
   }
+  return { ...rarityPool[rarityPool.length - 1] };
+}
 
+export function rollRarityForStat(statName) {
+  const cfg = UPGRADE_CONFIG[statName];
+  const allowed = cfg?.allowedTiers;
+  if (allowed) {
+    const pool = RARITY_CONFIG.filter(r => allowed.includes(r.tier));
+    return rollWeightedRarity(pool);
+  }
   return rollWeightedRarity();
 }
 
-
-/* ----------------- UI Formatting ----------------- */
+/* ----------------- UI formatting: numeric descriptions ----------------- */
 
 /**
- * Formats an upgrade and its rolled rarity into an object suitable for UI display.
- * @param {string} statName - The key of the stat (e.g., "damage").
- * @param {Object} rolledRarity - The selected rarity object.
- * @returns {Object} A formatted upgrade object for the UI.
+ * formatUpgradeForUI(statName, rolledRarity)
+ * Returns:
+ *  { stat, name, icon, color, rarity, bonusText, description }
  */
 export function formatUpgradeForUI(statName, rolledRarity) {
-  const statConfig = UPGRADE_CONFIG[statName];
-  const upgradeData = {
+  const cfg = UPGRADE_CONFIG[statName];
+  const rarityTier = rolledRarity?.tier ?? 1;
+  const rarityMult = rolledRarity?.multiplier ?? 0;
+
+  const out = {
     stat: statName,
-    name: statConfig.name,
-    icon: statConfig.icon,
-    color: rolledRarity.color,
+    name: cfg?.name ?? statName,
+    icon: cfg?.icon ?? "",
+    color: rolledRarity?.color ?? [255, 255, 255],
     rarity: rolledRarity,
     bonusText: "",
+    description: "",
   };
 
-  // Handle special cases like projectiles first.
-  if (statConfig.isSpecial && statName === "projectiles") {
-    const bonus = statConfig.bonuses[rolledRarity.tier] ?? 2;
-    upgradeData.bonusText = `+${bonus} projectiles`;
-    return upgradeData;
+  if (!cfg) {
+    out.bonusText = "";
+    out.description = `Tier ${rarityTier}`;
+    return out;
   }
 
-  // General formatting for numeric stats.
-  const rawChange = rolledRarity.multiplier * statConfig.scale;
-
-  if (statConfig.isAdditive) {
-    upgradeData.bonusText = `+${(rawChange * 100).toFixed(0)}%`;
-  } else {
-    const displayPercentage = rawChange * 100 * (statConfig.isInverse ? -1 : 1);
-    upgradeData.bonusText = `${displayPercentage > 0 ? "+" : ""}${displayPercentage.toFixed(0)}%`;
+  // projectiles special
+  if (cfg.isSpecial && statName === "projectiles") {
+    const bonus = cfg.bonuses?.[rarityTier] ?? 0;
+    out.bonusText = `+${bonus} projectiles`;
+    out.description = `Fire ${bonus} extra projectiles`;
+    return out;
   }
 
-  return upgradeData;
+  // effect upgrades: produce numeric description using explicit bonuses if present
+  if (cfg.isEffect) {
+    const tierBon = cfg.bonuses?.[rarityTier] ?? {};
+    switch (cfg.effectType) {
+      case "burn": {
+        const dps = Number(tierBon.damagePerTick ?? 0);
+        const dur = Number(tierBon.duration ?? 0);
+        out.bonusText = `${cfg.name}`;
+        out.description = `Damages target for ${dur}s with ${dps} per second`;
+        return out;
+      }
+      case "knockback": {
+        const force = Number(tierBon.force ?? 0);
+        const dur = Number(tierBon.duration ?? 0);
+        out.bonusText = `${cfg.name}`;
+        out.description = `Pushes enemy (force ${force}) and stuns for ${dur}s`;
+        return out;
+      }
+      case "slow": {
+        const sf = Number(tierBon.slowFactor ?? 0);
+        const dur = Number(tierBon.duration ?? 0);
+        out.bonusText = `${cfg.name}`;
+        out.description = `Reduces move speed by ${Math.round(sf * 100)}% for ${dur}s`;
+        return out;
+      }
+      case "ricochet": {
+        const b = Number(tierBon.bounces ?? 0);
+        const sp = Number(tierBon.spread ?? 0);
+        out.bonusText = `${cfg.name}`;
+        out.description = `Ricochet: ${b} bounces, spread ${sp}°`;
+        return out;
+      }
+      default: {
+        out.bonusText = `${cfg.name}`;
+        out.description = `Effect (tier ${rarityTier})`;
+        return out;
+      }
+    }
+  }
+
+  // default numeric stat formatting
+  if (cfg.scale !== undefined) {
+    const rawChange = rarityMult * (cfg.scale ?? 0);
+    if (cfg.isAdditive) {
+      const pct = Math.round(rawChange * 100);
+      out.bonusText = `+${pct}%`;
+      out.description = `${cfg.name}: +${pct}%`;
+    } else {
+      const signed = cfg.isInverse ? -rawChange : rawChange;
+      const pct = Math.round(signed * 100);
+      out.bonusText = `${pct > 0 ? "+" : ""}${pct}%`;
+      out.description = `${cfg.name}: ${pct > 0 ? "+" : ""}${pct}%`;
+    }
+    return out;
+  }
+
+  // fallback
+  out.bonusText = `${cfg.name}`;
+  out.description = `${cfg.name} (tier ${rarityTier})`;
+  return out;
 }

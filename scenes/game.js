@@ -33,7 +33,9 @@ import { makeSecretToggle } from "../components/utils/secretToggle.js";
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
 
-function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
+
+export function defineGameScene(k, scoreRef) {
+  function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
   console.log(
     `Spawning miniboss at ${spawnTime} with ability: ${ability.name}`
   );
@@ -43,8 +45,6 @@ function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
     scaling,
   });
 }
-
-export function defineGameScene(k, scoreRef) {
   k.scene("game", () => {
     if (isMobileDevice()) {
       registerMobileController(() => makeMobileController(k));

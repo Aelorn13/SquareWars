@@ -174,3 +174,57 @@ export function registerVisualEffects(EFFECT_HANDLERS = {}, kInstance = null) {
     };
   };
 }
+//===================================SLOW EFFECT======================================
+
+const activeSlowVfx = new Set();
+
+function startSlowUpdater(k) {
+  if (startSlowUpdater._started) return;
+  startSlowUpdater._started = true;
+
+  k.onUpdate(() => {
+    const t = k.time?.() ?? (performance ? performance.now() / 1000 : Date.now() / 1000);
+
+    for (const fx of Array.from(activeSlowVfx)) {
+      const target = fx?._follow;
+      if (!target || target.dead || target._isDead || target._destroyed || target._removed || target.hidden) {
+        activeSlowVfx.delete(fx);
+        continue;
+      }
+
+      // Subtle pulsing blue tint
+      const pulse = 0.6 + 0.4 * Math.sin(t * 6 + (fx._phase ?? 0)); // oscillates between 0.2 and 1
+      if (typeof target.color === "function") {
+        target.color(0, 180 * pulse, 255 * pulse);
+      } else if (target.color) {
+        target.color.r = 0;
+        target.color.g = 180 * pulse;
+        target.color.b = 255 * pulse;
+      }
+    }
+  });
+}
+
+export function createSlowVfx(k, target) {
+  if (!target) return null;
+  startSlowUpdater(k);
+
+  const phase = Math.random() * Math.PI * 2;
+  const fx = { _follow: target, _phase: phase };
+  activeSlowVfx.add(fx);
+
+  return [fx]; // keep return signature compatible with destroySlowVfx
+}
+
+export function destroySlowVfx(k, vfx) {
+  if (!Array.isArray(vfx)) return;
+  for (const fx of vfx) activeSlowVfx.delete(fx);
+
+  // Optionally reset target color to default
+  for (const fx of vfx) {
+    const t = fx._follow;
+    if (t && typeof t.color === "function") t.color(255, 255, 255);
+    else if (t && t.color) { t.color.r = 255; t.color.g = 255; t.color.b = 255; }
+  }
+}
+

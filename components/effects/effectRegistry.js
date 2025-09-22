@@ -1,6 +1,6 @@
 // components/effects/effectRegistry.js
 import * as vec from "./vectorUtils.js";
-import { registerVisualEffects } from "./visualEffects.js";
+import { registerVisualEffects,createSlowVfx,destroySlowVfx } from "./visualEffects.js";
 
 /**
  * Defensive, Kaboom-safe effect handler registry.
@@ -117,37 +117,55 @@ export const EFFECT_HANDLERS = {
   },
 
   // SLOW (Reduces movement speed)
-  slow: (kaboom, params = {}) => {
-    const slowFactor = Math.max(0, Math.min(0.99, params.slowFactor ?? 0.3));
-    const duration = params.duration ?? 2.0;
+ slow: (kaboom, params = {}) => {
+  const k = kaboom ?? globalThis.k;
+  const slowFactor = Math.max(0, Math.min(0.99, params.slowFactor ?? 0.3));
+  const duration = params.duration ?? 2.0;
 
-    return {
-      name: "slow",
-      install(target, context = {}) {
-        if (!target?._buffManager) return;
-        
-        target._buffManager.applyBuff({
-          id: generateBuffId("slow", context),
-          type: "slow",
+  return {
+    name: "slow",
+    install(target, context = {}) {
+      if (!target?._buffManager) return;
+
+      // Apply the actual slow stat
+      target._buffManager.applyBuff({
+        id: generateBuffId("slow", context),
+        type: "slow",
+        duration,
+        data: { factor: slowFactor },
+        onApply(buff) {
+          target._slowMultipliers ??= [];
+          target._slowMultipliers.push(buff.data.factor);
+          target.recomputeStat?.("moveSpeed");
+        },
+        onRemove(buff) {
+          if (!Array.isArray(target._slowMultipliers)) return;
+          const index = target._slowMultipliers.indexOf(buff.data.factor);
+          if (index > -1) target._slowMultipliers.splice(index, 1);
+          target.recomputeStat?.("moveSpeed");
+        },
+      });
+
+      // Attach visual effect like burn
+      const buffManager = target._buffManager;
+      const vfxBuffId = generateBuffId("slow_vfx", context);
+      const createVfx = () => createSlowVfx(k, target, { count: 1, size: params.visualSize ?? 16 });
+
+      if (buffManager?.applyBuff) {
+        buffManager.applyBuff({
+          id: vfxBuffId,
+          type: "slow_vfx",
           duration,
-          data: { factor: slowFactor },
-          onApply(buff) {
-            target._slowMultipliers ??= [];
-            target._slowMultipliers.push(buff.data.factor);
-            target.recomputeStat?.("moveSpeed");
-          },
-          onRemove(buff) {
-            if (!Array.isArray(target._slowMultipliers)) return;
-            const index = target._slowMultipliers.indexOf(buff.data.factor);
-            if (index > -1) {
-              target._slowMultipliers.splice(index, 1);
-            }
-            target.recomputeStat?.("moveSpeed");
-          },
+          onApply(buff) { buff._vfx = createVfx(); },
+          onRemove(buff) { destroySlowVfx(k, buff._vfx); },
         });
-      },
-    };
-  },
+      } else {
+        const vfx = createVfx();
+        k.wait?.(duration, () => destroySlowVfx(k, vfx)) || setTimeout(() => destroySlowVfx(k, vfx), duration * 1000);
+      }
+    },
+  };
+},
 
   // RICOCHET (Causes a projectile to bounce off a target)
   ricochet: (kaboom, params = {}) => {

@@ -137,10 +137,10 @@ export function defineGameScene(k, scoreRef) {
         time: BOSS_SPAWN_TIME / 2,
         scaling: { hpMultiplier: 1, speedMultiplier: 1 },
       },
-      {
-        time: (BOSS_SPAWN_TIME * 3) / 4,
-        scaling: { hpMultiplier: 1.5, speedMultiplier: 1.1 },
-      },
+      // {
+      //   time: (BOSS_SPAWN_TIME * 3) / 4,
+      //   scaling: { hpMultiplier: 1.5, speedMultiplier: 1.1 },
+      // },
     ];
 
     let minibossesSpawned = 0;

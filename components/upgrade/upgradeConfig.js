@@ -62,9 +62,9 @@ export const UPGRADE_CONFIG = {
     effectType: "slow",
     allowedTiers: [3, 4, 5],
     bonuses: {
-      3: { slowFactor: 0.25, duration: 1.5 },
-      4: { slowFactor: 0.45, duration: 2.2 },
-      5: { slowFactor: 0.65, duration: 3.0 },
+      3: { slowFactor: 0.25, duration: 3 },
+      4: { slowFactor: 0.50, duration: 4 },
+      5: { slowFactor: 0.75, duration: 5 },
     },
   },
 

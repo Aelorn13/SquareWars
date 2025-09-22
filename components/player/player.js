@@ -1,4 +1,9 @@
-import { updateInput, consumeDash, moveVec, aimWorldTarget } from "./controls.js";
+import {
+  updateInput,
+  consumeDash,
+  moveVec,
+  aimWorldTarget,
+} from "./controls.js";
 import { setupPlayerCosmetics } from "./cosmetics/playerCosmetic.js";
 const PLAYER_CONFIG = {
   SIZE: 28,
@@ -14,8 +19,8 @@ const PLAYER_CONFIG = {
     attackSpeed: 0.5,
     dashDuration: 0.2,
     dashCooldown: 3,
-    dashSpeedMultiplier: 4
-  }
+    dashSpeedMultiplier: 4,
+  },
 };
 
 export function createPlayer(k, sharedState) {
@@ -24,7 +29,7 @@ export function createPlayer(k, sharedState) {
     active: false,
     cooldown: 0,
     duration: 0,
-    
+
     update(dt) {
       this.cooldown = Math.max(0, this.cooldown - dt);
       if (this.duration > 0) {
@@ -32,22 +37,24 @@ export function createPlayer(k, sharedState) {
         if (this.duration === 0) this.active = false;
       }
     },
-    
+
     trigger(player) {
       if (this.cooldown > 0 || this.active) return;
       this.active = true;
       this.duration = player.dashDuration;
       this.cooldown = player.dashCooldown;
     },
-    
+
     getCooldownProgress(player) {
-      return player.dashCooldown === 0 ? 1 : 1 - this.cooldown / player.dashCooldown;
-    }
+      return player.dashCooldown === 0
+        ? 1
+        : 1 - this.cooldown / player.dashCooldown;
+    },
   };
-  
+
   const { area } = sharedState;
   const centerPos = k.vec2(area.x + area.w / 2, area.y + area.h / 2);
-  
+
   const player = k.add([
     k.rect(PLAYER_CONFIG.SIZE, PLAYER_CONFIG.SIZE),
     k.anchor("center"),
@@ -64,50 +71,53 @@ export function createPlayer(k, sharedState) {
       ...PLAYER_CONFIG.INITIAL_STATS,
       isShooting: false,
       isInvincible: false,
-      
+
       takeDamage(amount) {
         if (this.isInvincible) return;
         this.hurt(amount);
         this.applyInvincibility(2);
         k.shake(10);
       },
-      
+
       applyInvincibility(seconds) {
         this.isInvincible = true;
-        const flashLoop = k.loop(0.1, () => this.hidden = !this.hidden);
+        const flashLoop = k.loop(0.1, () => (this.hidden = !this.hidden));
         k.wait(seconds, () => {
           this.isInvincible = false;
           this.hidden = false;
           flashLoop.cancel();
         });
-      }
-    }
+      },
+    },
   ]);
-  
+
   player.onUpdate(() => {
     if (sharedState.isPaused) return;
-    
+
     updateInput(k, player.pos);
     dash.update(k.dt());
-    
+
     if (consumeDash()) dash.trigger(player);
-    
+
     // Face cursor/aim direction
     const target = aimWorldTarget(k, player.pos);
     player.rotateTo(target.angle(player.pos));
-    
+
     // Movement with dash boost
     const move = moveVec(k);
-    const speed = dash.active ? player.speed * player.dashSpeedMultiplier : player.speed;
+    const speed = dash.active
+      ? player.speed * player.dashSpeedMultiplier
+      : player.speed;
     player.move(move.scale(speed));
-    
+
     // Constrain to arena
-    player.pos.x = k.clamp(player.pos.x, area.x, area.x + area.w);
-    player.pos.y = k.clamp(player.pos.y, area.y, area.y + area.h);
+    const half = PLAYER_CONFIG.SIZE / 2;
+    player.pos.x = k.clamp(player.pos.x, area.x + half, area.x + area.w - half);
+    player.pos.y = k.clamp(player.pos.y, area.y + half, area.y + area.h - half);
   });
-  
+
   player.getDashCooldownProgress = () => dash.getCooldownProgress(player);
   setupPlayerCosmetics(k, player);
-  
+
   return player;
 }

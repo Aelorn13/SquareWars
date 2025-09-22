@@ -19,19 +19,38 @@ export const summonMinions = {
   },
   getParams(phase = 1) { return BOSS_CONFIG.phases[phase].abilities.summon; },
   execute(k, entity, player, gameContext, params) {
-    for (let i = 0; i < params.count; i++) {
-      const angleInRadians = k.deg2rad(k.rand(0, 360));
-      const direction = k.vec2(Math.cos(angleInRadians), Math.sin(angleInRadians));
-      const baseDistance = entity.width * 0.75;
-      const randomOffset = k.rand(30, 70);
-      const offset = direction.scale(baseDistance + randomOffset);
-      const spawnPos = entity.pos.add(offset);
+    const doSpawn = () => {
+      for (let i = 0; i < params.count; i++) {
+        const angleInRadians = k.deg2rad(k.rand(0, 360));
+        const direction = k.vec2(Math.cos(angleInRadians), Math.sin(angleInRadians));
+        const baseDistance = entity.width * 0.75;
+        const randomOffset = k.rand(30, 70);
+        const offset = direction.scale(baseDistance + randomOffset);
+        const spawnPos = entity.pos.add(offset);
 
-      spawnEnemy(k, player, gameContext, {
-        forceType: params.minionType,
-        spawnPos,
-      });
+        spawnEnemy(k, player, gameContext, {
+          forceType: params.minionType,
+          spawnPos,
+        });
+      }
+    };
+
+    if (!gameContext?.sharedState?.isPaused) {
+      doSpawn();
+      return;
     }
+
+    // Defer until unpaused. Use entity.onUpdate so this callback is paused when the game is paused.
+    const waiter = entity.onUpdate(() => {
+      if (!entity.exists()) {
+        waiter.cancel();
+        return;
+      }
+      if (!gameContext.sharedState.isPaused) {
+        waiter.cancel();
+        doSpawn();
+      }
+    });
   }
 };
 
@@ -47,25 +66,43 @@ export const spreadShot = {
     return params || { damage: 1, speed: 250, count: 8 };
   },
   execute(k, entity, player, gameContext, params) {
-    const angleStep = 360 / params.count;
-    for (let i = 0; i < params.count; i++) {
-      const currentAngle = i * angleStep;
-      const angleInRadians = k.deg2rad(currentAngle);
-      const direction = k.vec2(Math.cos(angleInRadians), Math.sin(angleInRadians));
-      k.add([
-        k.rect(8, 8), k.color(255, 120, 0), k.pos(entity.pos), k.area(), k.anchor("center"),
-        k.offscreen({ destroy: true }), "bossBullet",
-        {
-          damage: params.damage,
-          velocity: direction.scale(params.speed),
-          update() {
-            if (!gameContext.sharedState.isPaused) {
-              this.pos = this.pos.add(this.velocity.scale(k.dt()));
+    const doShoot = () => {
+      const angleStep = 360 / params.count;
+      for (let i = 0; i < params.count; i++) {
+        const currentAngle = i * angleStep;
+        const angleInRadians = k.deg2rad(currentAngle);
+        const direction = k.vec2(Math.cos(angleInRadians), Math.sin(angleInRadians));
+        k.add([
+          k.rect(8, 8), k.color(255, 120, 0), k.pos(entity.pos), k.area(), k.anchor("center"),
+          k.offscreen({ destroy: true }), "bossBullet",
+          {
+            damage: params.damage,
+            velocity: direction.scale(params.speed),
+            update() {
+              if (!gameContext.sharedState.isPaused) {
+                this.pos = this.pos.add(this.velocity.scale(k.dt()));
+              }
             }
-          }
-        },
-      ]);
+          },
+        ]);
+      }
+    };
+
+    if (!gameContext?.sharedState?.isPaused) {
+      doShoot();
+      return;
     }
+
+    const waiter = entity.onUpdate(() => {
+      if (!entity.exists()) {
+        waiter.cancel();
+        return;
+      }
+      if (!gameContext.sharedState.isPaused) {
+        waiter.cancel();
+        doShoot();
+      }
+    });
   }
 };
 

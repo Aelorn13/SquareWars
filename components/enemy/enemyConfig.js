@@ -33,7 +33,7 @@ export const ENEMY_CONFIGS = {
     miniboss: {
     name: "miniboss",
     score: 30, spawnWeight: 0, color: [140, 40, 140], size: 50,
-    maxHp: 50, speed: 75, damage: 2, rarity: 98, // rarity doesn't matter much with 0 weight
+    maxHp: 40, speed: 75, damage: 2, rarity: 98, // rarity doesn't matter much with 0 weight
   },
   boss: {
     name :"boss",

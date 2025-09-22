@@ -29,7 +29,8 @@ import {
 } from "../components/player/controls.js";
 import { makeMobileController } from "../components/player/mobile/index.js";
 import { makeSecretToggle } from "../components/utils/secretToggle.js";
-
+import { EFFECT_HANDLERS } from "../components/effects/effectRegistry.js";
+import { registerVisualEffects } from "../components/effects/visualEffects.js";
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
 
@@ -46,6 +47,8 @@ export function defineGameScene(k, scoreRef) {
   });
 }
   k.scene("game", () => {
+        registerVisualEffects(EFFECT_HANDLERS, k);
+
     if (isMobileDevice()) {
       registerMobileController(() => makeMobileController(k));
     }
@@ -108,7 +111,7 @@ export function defineGameScene(k, scoreRef) {
     };
     setupEnemyPlayerCollisions(k, gameContext);
     setupBossBehaviors(k, gameContext);
-
+    
     // --- UI Elements ---
     const scoreLabel = createScoreLabel(k);
     drawHealthBar(k, player.hp());

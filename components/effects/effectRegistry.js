@@ -1,36 +1,51 @@
 // components/effects/effectRegistry.js
+import * as vec from "./vectorUtils.js";
+import { registerVisualEffects } from "./visualEffects.js";
+
 /**
  * Defensive, Kaboom-safe effect handler registry.
- * Each factory: (k, params) => handler
- * Handler may implement:
- *  - install(target, ctx)         // buff-style (DoT/slow/heal)
- *  - apply(target, ctx, projectile) // immediate action (knockback, ricochet)
+ * Each factory creates a handler with one of two methods:
+ * - install(target, ctx): Applies a continuous or timed effect (e.g., DoT, slow).
+ * - apply(target, ctx, projectile): Applies an immediate, one-off action (e.g., knockback).
  */
 
+/**
+ * Generates a unique, non-stacking ID for a buff based on its source.
+ * @param {string} effectType - The type of the effect (e.g., "burn").
+ * @param {object} context - The effect context, containing source information.
+ * @returns {string} A unique identifier string.
+ */
+const generateBuffId = (effectType, context) => {
+  const sourceId = context.sourceId ?? context.projectile?.id ?? context.source?.id ?? Math.floor(Math.random() * 1e9);
+  const sourceUpgrade = context.sourceUpgrade ?? "generic";
+  return `${effectType}_${sourceId}_${sourceUpgrade}`;
+};
+
 export const EFFECT_HANDLERS = {
-  // BURN (DoT)
-  burn: (k, params = {}) => {
+  // BURN (Damage over Time)
+  burn: (kaboom, params = {}) => {
     const damagePerTick = params.damagePerTick ?? 1;
     const duration = params.duration ?? 3;
     const tickInterval = params.tickInterval ?? 1;
+
     return {
       name: "burn",
-      install(target, ctx = {}) {
+      install(target, context = {}) {
         if (!target?._buffManager) return;
-        const sid = ctx.sourceId ?? ctx.projectile?.id ?? ctx.source?.id ?? Math.floor(Math.random() * 1e9);
-        const id = `burn_${sid}_${ctx.sourceUpgrade ?? "generic"}`;
+
         target._buffManager.applyBuff({
-          id,
+          id: generateBuffId("burn", context),
           type: "burn",
           duration,
           tickInterval,
-          data: { dmg: damagePerTick, source: ctx.source },
-          onTick(self) {
-            const dmg = self.data.dmg ?? 0;
+          data: { damage: damagePerTick, source: context.source },
+          onTick(buff) {
+            const damage = buff.data.damage ?? 0;
+            // Prefer the target's damage-taking method, but fall back to direct HP modification.
             if (typeof target.takeDamage === "function") {
-              target.takeDamage(dmg, { source: self.data.source, type: "burn" });
+              target.takeDamage(damage, { source: buff.data.source, type: "burn" });
             } else {
-              target.hp = Math.max(0, (target.hp ?? 0) - dmg);
+              target.hp = Math.max(0, (target.hp ?? 0) - damage);
             }
           },
         });
@@ -38,222 +53,173 @@ export const EFFECT_HANDLERS = {
     };
   },
 
-  // KNOCKBACK (push away from shooter)
-  knockback: (k, params = {}) => {
+  // KNOCKBACK (Pushes a target away from the effect source)
+  knockback: (kaboom, params = {}) => {
     const force = params.force ?? 600;
-    const duration = params.duration ?? 0.14;
+    const stunDuration = params.duration ?? 0.14;
+
     return {
       name: "knockback",
-      apply(target, ctx = {}, projectile = {}) {
+      apply(target, context = {}, projectile = {}) {
         if (!target) return;
+        const k = kaboom ?? globalThis.k;
 
-        const K = ctx.k ?? k ?? globalThis.k;
-
-        // Determine direction vector robustly
-        let dirVec = null;
-        try {
-          if (projectile?.pos && target?.pos && typeof projectile.pos.x === "number" && typeof target.pos.x === "number") {
-            dirVec = target.pos.sub(projectile.pos).unit();
-          } else if (projectile?.velocity && typeof projectile.velocity.x === "number") {
-            const v = projectile.velocity;
-            const s = Math.max(1e-6, Math.sqrt((v.x || 0) ** 2 + (v.y || 0) ** 2));
-            dirVec = (K?.vec2 ? K.vec2((v.x || 0) / s, (v.y || 0) / s) : { x: (v.x || 0) / s, y: (v.y || 0) / s });
-          }
-        } catch (e) {
-          dirVec = null;
+        // Determine the direction of knockback.
+        let direction = null;
+        if (projectile?.pos && target?.pos) {
+          direction = vec.normalize(vec.subtract(target.pos, projectile.pos));
+        } else if (projectile?.velocity) {
+          direction = vec.normalize(projectile.velocity);
         }
-        if (!dirVec) dirVec = (K?.vec2 ? K.vec2(0, -1) : { x: 0, y: -1 });
+        
+        direction ??= { x: 0, y: -1 }; // Default to upwards if no direction is found.
 
-        // compute impulse robustly
-        let impulse;
-        try { impulse = dirVec.scale(force); } catch (e) { impulse = { x: (dirVec.x || 0) * force, y: (dirVec.y || 0) * force }; }
-
-        // Add to velocity if possible, otherwise nudge position
-        if (target?.velocity && typeof target.velocity.add === "function") {
-          try { target.velocity = target.velocity.add(impulse); } catch (e) {
-            target.velocity = { x: (target.velocity.x || 0) + (impulse.x || 0), y: (target.velocity.y || 0) + (impulse.y || 0) };
+        const impulse = vec.scale(direction, force);
+        if (!impulse) return;
+        
+        // Apply impulse, converting the result back to a kaboom.vec2 if the instance is available.
+        if (target.velocity) {
+          const newVelocity = vec.add(target.velocity, impulse);
+          if (newVelocity && k?.vec2) {
+            target.velocity = k.vec2(newVelocity.x, newVelocity.y);
+          } else if (newVelocity) {
+            target.velocity = newVelocity;
           }
-        } else if (target?.velocity && typeof target.velocity.x === "number") {
-          target.velocity = { x: (target.velocity.x || 0) + (impulse.x || 0), y: (target.velocity.y || 0) + (impulse.y || 0) };
-        } else if (target?.pos && typeof target.pos.x === "number") {
-          try {
-            if (typeof target.pos.add === "function") target.pos = target.pos.add((impulse.x ?? 0) * 0.03, (impulse.y ?? 0) * 0.03);
-            else { target.pos.x = (target.pos.x || 0) + (impulse.x ?? 0) * 0.03; target.pos.y = (target.pos.y || 0) + (impulse.y ?? 0) * 0.03; }
-          } catch (e) {
-            target.pos.x = (target.pos.x || 0) + (impulse.x ?? 0) * 0.03;
-            target.pos.y = (target.pos.y || 0) + (impulse.y ?? 0) * 0.03;
-          }
+        } else if (target.pos) {
+          const positionNudge = vec.scale(impulse, 0.03); // A small multiplier to prevent excessive movement.
+          const newPosition = vec.add(target.pos, positionNudge);
+           if (newPosition && k?.vec2) {
+            target.pos = k.vec2(newPosition.x, newPosition.y);
+           } else if (newPosition) {
+            target.pos = newPosition;
+           }
         }
 
-        // Stun via buff manager (non-stacking id)
-        if (target?._buffManager) {
-          const sid = ctx.sourceId ?? ctx.projectile?.id ?? ctx.source?.id ?? Math.floor(Math.random() * 1e9);
-          const id = `knockback_${sid}_${ctx.sourceUpgrade ?? "generic"}`;
+        // Apply a brief stun.
+        if (target._buffManager) {
           target._buffManager.applyBuff({
-            id,
+            id: generateBuffId("knockback_stun", context),
             type: "knockback",
-            duration,
-            data: { source: ctx.source },
-            onApply(self) { target._isStunned = true; },
-            onRemove(self) { target._isStunned = false; },
+            duration: stunDuration,
+            onApply() { target._isStunned = true; },
+            onRemove() { target._isStunned = false; },
           });
         } else {
           target._isStunned = true;
-          // Use K.wait if available (kaboom), else fallback to setTimeout (ms)
-          try {
-            if (K?.wait) K.wait(duration, () => { target._isStunned = false; });
-            else setTimeout(() => { target._isStunned = false; }, duration * 1000);
-          } catch (e) {
-            setTimeout(() => { target._isStunned = false; }, duration * 1000);
+          if (k?.wait) {
+            k.wait(stunDuration, () => { target._isStunned = false; });
+          } else {
+            setTimeout(() => { target._isStunned = false; }, stunDuration * 1000);
           }
         }
       },
     };
   },
 
-  // SLOW (install as buff)
-  slow: (k, params = {}) => {
+  // SLOW (Reduces movement speed)
+  slow: (kaboom, params = {}) => {
     const slowFactor = Math.max(0, Math.min(0.99, params.slowFactor ?? 0.3));
     const duration = params.duration ?? 2.0;
+
     return {
       name: "slow",
-      install(target, ctx = {}) {
+      install(target, context = {}) {
         if (!target?._buffManager) return;
-        const sid = ctx.sourceId ?? ctx.projectile?.id ?? ctx.source?.id ?? Math.floor(Math.random() * 1e9);
-        const id = `slow_${sid}_${ctx.sourceUpgrade ?? "generic"}`;
+        
         target._buffManager.applyBuff({
-          id,
+          id: generateBuffId("slow", context),
           type: "slow",
           duration,
-          data: { factor: slowFactor, source: ctx.source },
-          onApply(self) {
+          data: { factor: slowFactor },
+          onApply(buff) {
             target._slowMultipliers ??= [];
-            target._slowMultipliers.push(self.data.factor);
-            if (typeof target.recomputeStat === "function") target.recomputeStat("moveSpeed");
+            target._slowMultipliers.push(buff.data.factor);
+            target.recomputeStat?.("moveSpeed");
           },
-          onRemove(self) {
-            if (Array.isArray(target._slowMultipliers)) {
-              const idx = target._slowMultipliers.indexOf(self.data.factor);
-              if (idx >= 0) target._slowMultipliers.splice(idx, 1);
+          onRemove(buff) {
+            if (!Array.isArray(target._slowMultipliers)) return;
+            const index = target._slowMultipliers.indexOf(buff.data.factor);
+            if (index > -1) {
+              target._slowMultipliers.splice(index, 1);
             }
-            if (typeof target.recomputeStat === "function") target.recomputeStat("moveSpeed");
+            target.recomputeStat?.("moveSpeed");
           },
         });
       },
     };
   },
 
-  // RICOCHET (bounce)
-   ricochet: (k, params = {}) => {
-    const spread = params.spread ?? 20;
-    const fallbackSpeed = Number(params.fallbackSpeed ?? params._fallbackSpeed ?? 300);
+  // RICOCHET (Causes a projectile to bounce off a target)
+  ricochet: (kaboom, params = {}) => {
+    const spreadDegrees = params.spread ?? 20;
+    const fallbackSpeed = params.fallbackSpeed ?? 300;
+
     return {
       name: "ricochet",
-      apply(target, ctx = {}, projectile = {}) {
+      apply(target, context = {}, projectile = {}) {
         if (!projectile) return;
-        // initialize bounces if missing (reading params.bounces)
+        const k = kaboom ?? globalThis.k;
+
         if (projectile._bouncesLeft === undefined) {
-          projectile._bouncesLeft = Math.max(0, Math.floor(Number(params.bounces) || 0));
+          projectile._bouncesLeft = Math.max(0, Math.floor(params.bounces ?? 0));
         }
 
-        // if no bounces left, mark for destruction and exit
-        if (!(projectile._bouncesLeft > 0)) {
+        if (projectile._bouncesLeft <= 0) {
           projectile._shouldDestroyAfterHit = true;
           return;
         }
+        
+        projectile._bouncesLeft--;
 
-        const K = ctx.k ?? k ?? globalThis.k;
+        let newVelocity = null;
+        if (projectile.velocity) {
+          const speed = Math.sqrt(projectile.velocity.x ** 2 + projectile.velocity.y ** 2);
+          const incidentVector = vec.normalize(projectile.velocity);
+          const surfaceNormal = vec.normalize(vec.subtract(projectile.pos, target.pos)) ?? { x: -incidentVector.x, y: -incidentVector.y };
+          
+          const dotProduct = (incidentVector.x * surfaceNormal.x) + (incidentVector.y * surfaceNormal.y);
+          let reflection = {
+            x: incidentVector.x - 2 * dotProduct * surfaceNormal.x,
+            y: incidentVector.y - 2 * dotProduct * surfaceNormal.y,
+          };
 
-        if (projectile.velocity && typeof projectile.velocity.x === "number") {
-          const v = projectile.velocity;
-          const speed = Math.max(1e-6, Math.sqrt((v.x || 0) ** 2 + (v.y || 0) ** 2));
-          const incident = (K?.vec2 ? K.vec2((v.x || 0) / speed, (v.y || 0) / speed) : { x: (v.x || 0) / speed, y: (v.y || 0) / speed });
-
-          // compute normal robustly: projectile.pos -> target.pos
-          let normal = null;
-          if (projectile?.pos && target?.pos && typeof projectile.pos.x === "number" && typeof target.pos.x === "number") {
-            try {
-              const nv = projectile.pos.sub(target.pos);
-              // compute length either via API or by hand
-              const len = (typeof nv.len === "function") ? nv.len() : Math.sqrt((nv.x || 0) ** 2 + (nv.y || 0) ** 2);
-              if (len > 1e-6) {
-                normal = (typeof nv.unit === "function") ? nv.unit() : (K?.vec2 ? K.vec2(nv.x / len, nv.y / len) : { x: nv.x / len, y: nv.y / len });
-              } else {
-                normal = null;
-              }
-            } catch (e) { normal = null; }
-          }
-          // fallback normal (opposite incident)
-          if (!normal) normal = (K?.vec2 ? K.vec2(-incident.x, -incident.y) : { x: -incident.x, y: -incident.y });
-
-          const dot = (incident.x * normal.x) + (incident.y * normal.y);
-          let refl = (K?.vec2
-            ? K.vec2(incident.x - 2 * dot * normal.x, incident.y - 2 * dot * normal.y)
-            : { x: incident.x - 2 * dot * normal.x, y: incident.y - 2 * dot * normal.y });
-
-          // add spread
-          const ang = (Math.random() - 0.5) * (spread * Math.PI / 180);
-          const cos = Math.cos(ang), sin = Math.sin(ang);
-          if (K?.vec2) {
-            refl = K.vec2(refl.x * cos - refl.y * sin, refl.x * sin + refl.y * cos);
-            projectile.velocity = refl.scale(speed);
-          } else {
-            const rx = refl.x * cos - refl.y * sin;
-            const ry = refl.x * sin + refl.y * cos;
-            projectile.velocity = { x: rx * speed, y: ry * speed };
-          }
-
-          // safe nudge if pos exists
-          if (projectile.pos && typeof projectile.pos.x === "number") {
-            try {
-              if (typeof projectile.pos.add === "function" && typeof projectile.velocity.scale === "function") {
-                projectile.pos = projectile.pos.add(projectile.velocity.scale(0.02));
-              } else {
-                projectile.pos.x = (projectile.pos.x || 0) + (projectile.velocity.x || 0) * 0.02;
-                projectile.pos.y = (projectile.pos.y || 0) + (projectile.velocity.y || 0) * 0.02;
-              }
-            } catch (e) {}
-          }
+          const spreadRadians = (Math.random() - 0.5) * (spreadDegrees * Math.PI / 180);
+          const cos = Math.cos(spreadRadians);
+          const sin = Math.sin(spreadRadians);
+          
+          const rotatedX = reflection.x * cos - reflection.y * sin;
+          const rotatedY = reflection.x * sin + reflection.y * cos;
+          
+          newVelocity = vec.scale({ x: rotatedX, y: rotatedY }, speed);
+          
         } else {
-          // fallback random deflection
-          const angle = (Math.random() - 0.5) * (spread * Math.PI / 180);
-          const dir = K?.vec2 ? K.vec2(Math.cos(angle), Math.sin(angle)) : { x: Math.cos(angle), y: Math.sin(angle) };
-          projectile.velocity = (K?.vec2 ? dir.scale(fallbackSpeed) : { x: dir.x * fallbackSpeed, y: dir.y * fallbackSpeed });
+          // Fallback: give it a new random velocity.
+          const randomAngle = Math.random() * 2 * Math.PI;
+          newVelocity = {
+            x: Math.cos(randomAngle) * fallbackSpeed,
+            y: Math.sin(randomAngle) * fallbackSpeed,
+          };
+        }
+        
+        if (newVelocity && k?.vec2) {
+            projectile.velocity = k.vec2(newVelocity.x, newVelocity.y);
+        } else if (newVelocity) {
+            projectile.velocity = newVelocity;
         }
 
-        // consume one bounce but keep projectile alive now.
-        projectile._bouncesLeft = Math.max(0, projectile._bouncesLeft - 1);
+        // Nudge the projectile to prevent re-collision.
+        if (projectile.pos && projectile.velocity) {
+            const nudge = vec.scale(projectile.velocity, 0.02);
+            const newPosition = vec.add(projectile.pos, nudge);
 
-        // IMPORTANT: keep projectile alive after reflection so it can hit next target.
-        // It will be destroyed on the next hit if _bouncesLeft === 0.
+            if (newPosition && k?.vec2) {
+                projectile.pos = k.vec2(newPosition.x, newPosition.y);
+            } else if (newPosition) {
+                projectile.pos = newPosition;
+            }
+        }
+        
         projectile._shouldDestroyAfterHit = false;
-      },
-    };
-  },
-
-  // HEAL (install)
-  heal: (k, params = {}) => {
-    const healPerTick = params.healPerTick ?? 1;
-    const duration = params.duration ?? 3;
-    const tickInterval = params.tickInterval ?? 1;
-    return {
-      name: "heal",
-      install(target, ctx = {}) {
-        if (!target?._buffManager) return;
-        const sid = ctx.sourceId ?? ctx.projectile?.id ?? ctx.source?.id ?? Math.floor(Math.random() * 1e9);
-        const id = `heal_${sid}_${ctx.sourceUpgrade ?? "generic"}`;
-        target._buffManager.applyBuff({
-          id,
-          type: "heal",
-          duration,
-          tickInterval,
-          data: { heal: healPerTick, source: ctx.source },
-          onTick(self) {
-            const h = self.data.heal ?? 0;
-            if (typeof target.heal === "function") target.heal(h);
-            else target.hp = Math.min((target.maxHp ?? 99999), (target.hp ?? 0) + h);
-          },
-        });
       },
     };
   },

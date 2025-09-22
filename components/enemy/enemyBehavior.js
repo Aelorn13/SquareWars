@@ -1,7 +1,7 @@
 /** components/enemy/enemyBehavior.js */
 import { POWERUP_TYPES } from "../powerup/powerupTypes.js";
 import { spawnPowerUp } from "../powerup/spawnPowerup.js";
-import { interpolateColor } from "../utils/visualEffects.js";
+import { interpolateColor } from "./interpolateColor.js";
 import { getPlayerStatsSnapshot } from "../ui/playerStatsUI.js";
 
 import { applyProjectileEffects } from "../effects/applyProjectileEffects.js";

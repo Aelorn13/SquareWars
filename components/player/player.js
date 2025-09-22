@@ -1,6 +1,5 @@
 import { updateInput, consumeDash, moveVec, aimWorldTarget } from "./controls.js";
 import { setupPlayerCosmetics } from "./cosmetics/playerCosmetic.js";
-
 const PLAYER_CONFIG = {
   SIZE: 28,
   INITIAL_STATS: {

@@ -84,34 +84,82 @@ export const chargeAttack = {
       vulnerabilityDuration: VULNERABILITY_DURATION,
     };
   },
-  // --- This function was already correct, using 'entity' ---
+
+  // Pause-aware execute: uses entity.onUpdate for timers so everything freezes on pause.
   execute(k, entity, player, gameContext, params) {
     const chargeDirection = entity.chargeDirection || player.pos.sub(entity.pos).unit();
-    const moveEvent = entity.onUpdate(() => {
-      const moveVector = chargeDirection.scale(entity.baseSpeed * CHARGE_SPEED_MULTIPLIER);
-      entity.pos = entity.pos.add(moveVector.scale(k.dt()));
-    });
 
-    k.wait(params.moveDuration, () => {
-      if (!entity.exists()) return;
-      moveEvent.cancel();
-      entity.isVulnerable = true;
+    // ensure we have a safe original color array to avoid runtime errors
+    const origColorArr = Array.isArray(entity.originalColor) ? entity.originalColor : [255, 255, 255];
+    if (!Array.isArray(entity.originalColor)) {
+      entity.originalColor = origColorArr;
+    }
 
-      const flasher = k.loop(0.15, () => {
-        if (!entity.exists() || gameContext.sharedState.isPaused) return;
-        entity.color = entity.color.eq(k.rgb(...entity.originalColor))
-          ? k.rgb(...BOSS_CONFIG.telegraphs.vulnerable.color)
-          : k.rgb(...entity.originalColor);
-      });
+    let moveRemaining = params.moveDuration;
+    let vulnRemaining = params.vulnerabilityDuration;
+    let flashAcc = 0;
+    const flashInterval = 0.15;
 
-      k.wait(params.vulnerabilityDuration, () => {
-        if (entity.exists()) {
-          flasher.cancel();
-          entity.color = k.rgb(...entity.originalColor);
+    const updater = entity.onUpdate(() => {
+      if (!entity.exists()) {
+        updater.cancel();
+        return;
+      }
+
+      // honor global pause (also safe if k.dt() returns 0)
+      if (gameContext && gameContext.sharedState && gameContext.sharedState.isPaused) {
+        return;
+      }
+
+      const dt = k.dt();
+
+      // Phase 1: moving
+      if (moveRemaining > 0) {
+        const moveVec = chargeDirection.scale(entity.baseSpeed * CHARGE_SPEED_MULTIPLIER);
+        entity.pos = entity.pos.add(moveVec.scale(dt));
+        moveRemaining -= dt;
+
+        // transition to vulnerable when move finished
+        if (moveRemaining <= 0) {
+          entity.isVulnerable = true;
+          // reset flash accumulator so first toggle happens after interval
+          flashAcc = 0;
+        }
+
+        return;
+      }
+
+      // Phase 2: vulnerability flashing + timer
+      if (entity.isVulnerable && vulnRemaining > 0) {
+        vulnRemaining -= dt;
+        flashAcc += dt;
+
+        if (flashAcc >= flashInterval) {
+          flashAcc -= flashInterval;
+          // toggle color between original and vulnerable telegraph color
+          const origCol = k.rgb(...origColorArr);
+          const vulnCol = k.rgb(...BOSS_CONFIG.telegraphs.vulnerable.color);
+          entity.color = entity.color.eq(origCol) ? vulnCol : origCol;
+        }
+
+        // finish vulnerability window
+        if (vulnRemaining <= 0) {
+          entity.color = k.rgb(...origColorArr);
           entity.isVulnerable = false;
           entity.isBusy = false;
+          updater.cancel();
         }
-      });
+
+        return;
+      }
+
+      // Safety: if not vulnerable and no move remaining, ensure we clean up
+      if (moveRemaining <= 0 && vulnRemaining <= 0) {
+        entity.color = k.rgb(...origColorArr);
+        entity.isVulnerable = false;
+        entity.isBusy = false;
+        updater.cancel();
+      }
     });
-  }
+  },
 };

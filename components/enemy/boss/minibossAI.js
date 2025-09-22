@@ -4,6 +4,8 @@
 
 import { showCritEffect,lerpAngle } from "../enemyBehavior.js";
 import { VULNERABILITY_DAMAGE_MULTIPLIER } from "./bossConfig.js";
+import { applyProjectileEffects } from "../../effects/applyProjectileEffects.js";
+import { attachBuffManager } from "../../effects/buffs/buffManager.js";
 /**
  * Attaches the miniboss AI logic to a game object.
  * @param {object} k - The Kaboom context.
@@ -34,6 +36,8 @@ export function attachMinibossBrain(
   // --- Initialize State ---
   miniboss.isBusy = false;
   miniboss.isVulnerable = false;
+  miniboss.tag("miniboss");
+
   const COOLDOWN = 8;
   let cooldownTimer = COOLDOWN / 2;
 
@@ -91,7 +95,11 @@ export function attachMinibossBrain(
   // Simple projectile collision
   miniboss.onCollide("projectile", (projectile) => {
     if (miniboss.dead) return;
-    k.destroy(projectile);
+
+  attachBuffManager(k, miniboss);
+    
+      applyProjectileEffects(k, projectile, miniboss, { source: projectile.source, sourceId: projectile.sourceId });
+
     let damage = projectile.damage;
     if (miniboss.isVulnerable) {
       damage *= VULNERABILITY_DAMAGE_MULTIPLIER;
@@ -101,8 +109,15 @@ export function attachMinibossBrain(
       showCritEffect(k, miniboss.pos, "CRIT!", k.rgb(255, 0, 0));
     }
     miniboss.hurt(damage);
+
     if (miniboss.hp() <= 0) {
       miniboss.die();
     }
+          const shouldDestroy = projectile._shouldDestroyAfterHit === undefined ? true : !!projectile._shouldDestroyAfterHit;
+  if (shouldDestroy) {
+    try { k.destroy(projectile); } catch (e) {}
+  } else {
+    // keep projectile (ricochet already updated velocity/_bouncesLeft)
+  }
   });
 }

@@ -6,6 +6,8 @@ import { showCritEffect,lerpAngle } from "../enemyBehavior.js";
 import { BOSS_CONFIG, VULNERABILITY_DAMAGE_MULTIPLIER } from "./bossConfig.js";
 import { summonMinions, spreadShot, chargeAttack } from "./bossAbilities.js";
 
+import { applyProjectileEffects } from "../../effects/applyProjectileEffects.js";
+import { attachBuffManager } from "../../effects/buffs/buffManager.js";
 /**
  * Attaches the main AI logic to the boss game object.
  */
@@ -20,7 +22,7 @@ export function attachBossBrain(k, boss, player, gameContext) {
   // --- Core State Properties ---
   boss.isBusy = false;
   boss.isVulnerable = false;
-
+boss.tag("boss");
   boss.use(k.color(...boss.originalColor));
 
   // --- Main AI Update Loop ---
@@ -56,7 +58,10 @@ export function attachBossBrain(k, boss, player, gameContext) {
   // --- Collision Logic ---
   boss.onCollide("projectile", (projectile) => {
     if (boss.dead) return;
-    k.destroy(projectile);
+
+      attachBuffManager(k, boss);
+    
+      applyProjectileEffects(k, projectile, boss, { source: projectile.source, sourceId: projectile.sourceId });
 
     let damage = projectile.damage;
     if (boss.isVulnerable) {
@@ -72,6 +77,12 @@ export function attachBossBrain(k, boss, player, gameContext) {
     if (boss.hp() <= 0) {
       boss.die();
     }
+      const shouldDestroy = projectile._shouldDestroyAfterHit === undefined ? true : !!projectile._shouldDestroyAfterHit;
+  if (shouldDestroy) {
+    try { k.destroy(projectile); } catch (e) {}
+  } else {
+    // keep projectile (ricochet already updated velocity/_bouncesLeft)
+  }
   });
 }
 

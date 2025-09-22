@@ -55,13 +55,17 @@ export const EFFECT_HANDLERS = {
 
   // KNOCKBACK (Pushes a target away from the effect source)
   knockback: (kaboom, params = {}) => {
-    const force = params.force ?? 600;
+    let force = params.force ?? 600;
     const stunDuration = params.duration ?? 0.14;
 
     return {
       name: "knockback",
       apply(target, context = {}, projectile = {}) {
         if (!target) return;
+        //weaker effect if boss or miniboss
+         if (target.is("boss") || target.is("miniboss")) force/=3;
+
+
         const k = kaboom ?? globalThis.k;
 
         // Determine the direction of knockback.
@@ -119,13 +123,16 @@ export const EFFECT_HANDLERS = {
   // SLOW (Reduces movement speed)
  slow: (kaboom, params = {}) => {
   const k = kaboom ?? globalThis.k;
-  const slowFactor = Math.max(0, Math.min(0.99, params.slowFactor ?? 0.3));
+  let slowFactor = Math.max(0, Math.min(0.99, params.slowFactor ?? 0.3));
   const duration = params.duration ?? 2.0;
 
   return {
     name: "slow",
     install(target, context = {}) {
+
       if (!target?._buffManager) return;
+        //weaker effect if boss or miniboss
+         if (target.is("boss") || target.is("miniboss")) slowFactor/=3;
 
       // Apply the actual slow stat
       target._buffManager.applyBuff({
@@ -147,6 +154,12 @@ export const EFFECT_HANDLERS = {
       });
 
       // Attach visual effect like burn
+        if (target.is("boss") || target.is("miniboss"))
+        {
+          return;
+        }
+        else
+        {
       const buffManager = target._buffManager;
       const vfxBuffId = generateBuffId("slow_vfx", context);
       const createVfx = () => createSlowVfx(k, target, { count: 1, size: params.visualSize ?? 16 });
@@ -163,6 +176,7 @@ export const EFFECT_HANDLERS = {
         const vfx = createVfx();
         k.wait?.(duration, () => destroySlowVfx(k, vfx)) || setTimeout(() => destroySlowVfx(k, vfx), duration * 1000);
       }
+    }
     },
   };
 },

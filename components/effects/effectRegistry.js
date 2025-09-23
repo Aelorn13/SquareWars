@@ -1,6 +1,6 @@
 // components/effects/effectRegistry.js
 import * as vec from "./vectorUtils.js";
-import { registerVisualEffects,createSlowVfx,destroySlowVfx } from "./visualEffects.js";
+import { createSlowVfx, destroySlowVfx, createBurnVfx, destroyBurnVfx } from "./visualEffects.js";
 
 /**
  * Defensive, Kaboom-safe effect handler registry.
@@ -22,36 +22,71 @@ const generateBuffId = (effectType, context) => {
 };
 
 export const EFFECT_HANDLERS = {
-  // BURN (Damage over Time)
-  burn: (kaboom, params = {}) => {
-    const damagePerTick = params.damagePerTick ?? 1;
-    const duration = params.duration ?? 3;
-    const tickInterval = params.tickInterval ?? 1;
+ burn: (kaboom, params = {}) => {
+  const k = kaboom ?? globalThis.k;
+  const damagePerTick = params.damagePerTick ?? 1;
+  const duration = params.duration ?? 3;
+  const tickInterval = params.tickInterval ?? 1;
 
-    return {
-      name: "burn",
-      install(target, context = {}) {
-        if (!target?._buffManager) return;
+  return {
+    name: "burn",
+    install(target, context = {}) {
+      if (!target?._buffManager) return;
 
-        target._buffManager.applyBuff({
-          id: generateBuffId("burn", context),
-          type: "burn",
+      // Core DoT buff
+      target._buffManager.applyBuff({
+        id: generateBuffId("burn", context),
+        type: "burn",
+        duration,
+        tickInterval,
+        data: { damage: damagePerTick, source: context.source },
+        onTick(buff) {
+          const damage = buff.data.damage ?? 0;
+          if (typeof target.takeDamage === "function") {
+            target.takeDamage(damage, { source: buff.data.source, type: "burn" });
+          } else if (typeof target.hurt === "function") {
+            target.hurt(damage);
+          } else {
+            target.hp = Math.max(0, (target.hp ?? 0) - damage);
+          }
+        },
+      });
+
+      // Decide whether to attach visuals.
+      const allowBossVisual = params.visualOnBoss === true || context.forceVfx === true;
+      const isBoss = target.is?.("boss") || target.is?.("miniboss");
+      if (isBoss && !allowBossVisual) return; // skip VFX for bosses unless explicitly allowed
+
+      const buffManager = target._buffManager;
+      const vfxBuffId = generateBuffId("burn_vfx", context);
+
+      if (buffManager?.applyBuff) {
+        buffManager.applyBuff({
+          id: vfxBuffId,
+          type: "burn_vfx",
           duration,
-          tickInterval,
-          data: { damage: damagePerTick, source: context.source },
-          onTick(buff) {
-            const damage = buff.data.damage ?? 0;
-            // Prefer the target's damage-taking method, but fall back to direct HP modification.
-            if (typeof target.takeDamage === "function") {
-              target.takeDamage(damage, { source: buff.data.source, type: "burn" });
-            } else {
-              target.hp = Math.max(0, (target.hp ?? 0) - damage);
-            }
-          },
+          onApply(buff) { buff._vfx = createBurnVfx(k, target, { size: params.visualSize ?? 14, count: params.visualCount ?? 1, allowBoss: allowBossVisual }); },
+          onRemove(buff) { try { destroyBurnVfx(k, buff._vfx); } catch {} },
         });
-      },
-    };
-  },
+      } else {
+        const vfx = createBurnVfx(k, target, { size: params.visualSize ?? 14, count: params.visualCount ?? 1, allowBoss: allowBossVisual });
+        if (vfx) k.wait?.(duration, () => destroyBurnVfx(k, vfx)) || setTimeout(() => destroyBurnVfx(k, vfx), duration * 1000);
+      }
+    },
+
+    apply(target) {
+      if (!target) return;
+      const allowBossVisual = params.visualOnBoss === true || false;
+      const isBoss = target.is?.("boss") || target.is?.("miniboss");
+      if (isBoss && !allowBossVisual) return;
+
+      const vfx = createBurnVfx(k, target, { size: Math.max(12, (params.visualSize ?? 14) - 4), count: 1, allowBoss: allowBossVisual });
+      if (!vfx) return;
+      k.wait?.(0.45, () => destroyBurnVfx(k, vfx)) || setTimeout(() => destroyBurnVfx(k, vfx), 450);
+    },
+  };
+},
+
 
   // KNOCKBACK (Pushes a target away from the effect source)
   knockback: (kaboom, params = {}) => {
@@ -63,8 +98,7 @@ export const EFFECT_HANDLERS = {
       apply(target, context = {}, projectile = {}) {
         if (!target) return;
         //weaker effect if boss or miniboss
-         if (target.is("boss") || target.is("miniboss")) force/=3;
-
+        if (target.is("boss") || target.is("miniboss")) force /= 3;
 
         const k = kaboom ?? globalThis.k;
 
@@ -92,11 +126,11 @@ export const EFFECT_HANDLERS = {
         } else if (target.pos) {
           const positionNudge = vec.scale(impulse, 0.03); // A small multiplier to prevent excessive movement.
           const newPosition = vec.add(target.pos, positionNudge);
-           if (newPosition && k?.vec2) {
+          if (newPosition && k?.vec2) {
             target.pos = k.vec2(newPosition.x, newPosition.y);
-           } else if (newPosition) {
+          } else if (newPosition) {
             target.pos = newPosition;
-           }
+          }
         }
 
         // Apply a brief stun.
@@ -121,65 +155,62 @@ export const EFFECT_HANDLERS = {
   },
 
   // SLOW (Reduces movement speed)
- slow: (kaboom, params = {}) => {
-  const k = kaboom ?? globalThis.k;
-  let slowFactor = Math.max(0, Math.min(0.99, params.slowFactor ?? 0.3));
-  const duration = params.duration ?? 2.0;
+  slow: (kaboom, params = {}) => {
+    const k = kaboom ?? globalThis.k;
+    let slowFactor = Math.max(0, Math.min(0.99, params.slowFactor ?? 0.3));
+    const duration = params.duration ?? 2.0;
 
-  return {
-    name: "slow",
-    install(target, context = {}) {
+    return {
+      name: "slow",
+      install(target, context = {}) {
 
-      if (!target?._buffManager) return;
+        if (!target?._buffManager) return;
         //weaker effect if boss or miniboss
-         if (target.is("boss") || target.is("miniboss")) slowFactor/=3;
+        if (target.is("boss") || target.is("miniboss")) slowFactor /= 3;
 
-      // Apply the actual slow stat
-      target._buffManager.applyBuff({
-        id: generateBuffId("slow", context),
-        type: "slow",
-        duration,
-        data: { factor: slowFactor },
-        onApply(buff) {
-          target._slowMultipliers ??= [];
-          target._slowMultipliers.push(buff.data.factor);
-          target.recomputeStat?.("moveSpeed");
-        },
-        onRemove(buff) {
-          if (!Array.isArray(target._slowMultipliers)) return;
-          const index = target._slowMultipliers.indexOf(buff.data.factor);
-          if (index > -1) target._slowMultipliers.splice(index, 1);
-          target.recomputeStat?.("moveSpeed");
-        },
-      });
-
-      // Attach visual effect like burn
-        if (target.is("boss") || target.is("miniboss"))
-        {
-          return;
-        }
-        else
-        {
-      const buffManager = target._buffManager;
-      const vfxBuffId = generateBuffId("slow_vfx", context);
-      const createVfx = () => createSlowVfx(k, target, { count: 1, size: params.visualSize ?? 16 });
-
-      if (buffManager?.applyBuff) {
-        buffManager.applyBuff({
-          id: vfxBuffId,
-          type: "slow_vfx",
+        // Apply the actual slow stat
+        target._buffManager.applyBuff({
+          id: generateBuffId("slow", context),
+          type: "slow",
           duration,
-          onApply(buff) { buff._vfx = createVfx(); },
-          onRemove(buff) { destroySlowVfx(k, buff._vfx); },
+          data: { factor: slowFactor },
+          onApply(buff) {
+            target._slowMultipliers ??= [];
+            target._slowMultipliers.push(buff.data.factor);
+            target.recomputeStat?.("moveSpeed");
+          },
+          onRemove(buff) {
+            if (!Array.isArray(target._slowMultipliers)) return;
+            const index = target._slowMultipliers.indexOf(buff.data.factor);
+            if (index > -1) target._slowMultipliers.splice(index, 1);
+            target.recomputeStat?.("moveSpeed");
+          },
         });
-      } else {
-        const vfx = createVfx();
-        k.wait?.(duration, () => destroySlowVfx(k, vfx)) || setTimeout(() => destroySlowVfx(k, vfx), duration * 1000);
-      }
-    }
-    },
-  };
-},
+
+        // Attach visual effect (skip bosses)
+        if (target.is("boss") || target.is("miniboss")) {
+          return;
+        } else {
+          const buffManager = target._buffManager;
+          const vfxBuffId = generateBuffId("slow_vfx", context);
+          const createVfx = () => createSlowVfx(k, target, { count: 1, size: params.visualSize ?? 16 });
+
+          if (buffManager?.applyBuff) {
+            buffManager.applyBuff({
+              id: vfxBuffId,
+              type: "slow_vfx",
+              duration,
+              onApply(buff) { buff._vfx = createVfx(); },
+              onRemove(buff) { destroySlowVfx(k, buff._vfx); },
+            });
+          } else {
+            const vfx = createVfx();
+            k.wait?.(duration, () => destroySlowVfx(k, vfx)) || setTimeout(() => destroySlowVfx(k, vfx), duration * 1000);
+          }
+        }
+      },
+    };
+  },
 
   // RICOCHET (Causes a projectile to bounce off a target)
   ricochet: (kaboom, params = {}) => {

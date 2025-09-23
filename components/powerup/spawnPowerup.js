@@ -1,26 +1,24 @@
-//components/powerup/spawnPowerup.js
-/**
- * @file Manages the spawning and lifecycle of power-up objects in the game world.
- */
-
+// components/powerup/spawnPowerup.js
 import { DEFAULT_POWERUP_DURATION, POWERUP_CONFIG } from "./powerupTypes.js";
 
 /**
- * Creates and manages a power-up entity in the game world.
- *
- * @param {Vec2} position - The initial position of the power-up.
- * @param {string} type - The type of power-up (e.g., "SPEED", "DAMAGE").
- * @param {object} sharedState - Shared game state, such as `isPaused`.
- * @returns {GameObject} The created power-up game object.
+ * Creates and manages a power-up entity.
+ * If the player comes within `magnetRadius` the power-up will drift toward them.
  */
 export function spawnPowerUp(k, position, type, sharedState) {
   const POWERUP_SIZE = 20;
-  const FADE_OUT_DURATION = 1; // Time in seconds to fade before expiring.
+  const FADE_OUT_DURATION = 1; // seconds
   const ROTATION_DEGREES_PER_SECOND = 120;
 
   const config = POWERUP_CONFIG[type] || {};
   const powerUpColor = k.rgb(...(config.color || [200, 200, 200]));
   const powerUpIcon = config.icon || "❓";
+
+  // Magnet tuning. Can be overridden per power-up in POWERUP_CONFIG.
+  const MAGNET_RADIUS = config.magnetRadius ?? 70;
+  const MAGNET_STRENGTH = config.magnetStrength ?? 1.0; // multiplier for max speed
+  const MIN_ATTRACT_SPEED = 30; // px/s when just inside radius
+  const MAX_ATTRACT_SPEED = 220 * MAGNET_STRENGTH; // px/s when close
 
   const powerUp = k.add([
     k.rect(POWERUP_SIZE, POWERUP_SIZE),
@@ -39,58 +37,80 @@ export function spawnPowerUp(k, position, type, sharedState) {
     },
   ]);
 
-  // The icon is a separate entity that follows the main power-up body.
   const icon = k.add([
     k.text(powerUpIcon, { size: POWERUP_SIZE * 0.8 }),
     k.pos(position),
     k.anchor("center"),
-    k.z(51), // Render above the power-up's square body.
+    k.z(51),
   ]);
 
   powerUp.onUpdate(() => {
-    // Continuous rotation for visual appeal.
+    // rotation
     powerUp.angle += ROTATION_DEGREES_PER_SECOND * k.dt();
 
-    // Pause all time-based logic if the game is paused.
+    // pause time-based logic while game paused
     if (sharedState?.isPaused) return;
 
-    // --- Duration and Expiration ---
+    // duration
     powerUp.duration -= k.dt();
     if (powerUp.duration <= 0) {
       k.destroy(powerUp);
       return;
     }
 
-    // --- Visual Effects (Pulsing and Fading) ---
+    // pulsing / fading
     if (powerUp.duration < FADE_OUT_DURATION) {
-      // Fade out smoothly in the last second of its life.
       powerUp.isFading = true;
       powerUp.opacity = k.map(powerUp.duration, 0, FADE_OUT_DURATION, 0, 1);
     } else if (!powerUp.isFading) {
-      // Apply a subtle pulsing effect when not fading.
       const pulse = Math.sin(k.time() * 6) * 0.2 + 0.8;
       powerUp.opacity = pulse;
     }
+
+    // --- attraction toward player ---
+    // find primary player (first with "player" tag)
+    const players = k.get?.("player") ?? [];
+    const player = players && players.length ? players[0] : null;
+    if (player && player.pos && typeof player.pos.x === "number") {
+      // compute distance
+      const dx = (player.pos.x ?? player.x ?? 0) - (powerUp.pos.x ?? powerUp.x ?? 0);
+      const dy = (player.pos.y ?? player.y ?? 0) - (powerUp.pos.y ?? powerUp.y ?? 0);
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 1 && dist <= MAGNET_RADIUS) {
+        // normalized attraction factor (0 at edge -> 1 at center)
+        let t = 1 - dist / MAGNET_RADIUS;
+        t = Math.max(0, Math.min(1, t));
+        // ease curve for smoother motion (quadratic)
+        const ease = t * t;
+        const speed = MIN_ATTRACT_SPEED + (MAX_ATTRACT_SPEED - MIN_ATTRACT_SPEED) * ease;
+        const move = speed * k.dt();
+
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        // apply movement by mutating pos components
+        powerUp.pos.x = (powerUp.pos.x ?? powerUp.x ?? 0) + nx * move;
+        powerUp.pos.y = (powerUp.pos.y ?? powerUp.y ?? 0) + ny * move;
+      }
+    }
   });
 
-  // Ensure the icon always stays perfectly synced with the main power-up object.
+  // keep icon synced
   icon.onUpdate(() => {
-    if (!powerUp.exists()) {
+    if (!powerUp.exists?.() && !powerUp.exists) {
       k.destroy(icon);
     } else {
+      // copy reference where possible so icon follows exactly
       icon.pos = powerUp.pos;
       icon.angle = powerUp.angle;
       icon.opacity = powerUp.opacity;
     }
   });
 
-  // When the power-up is destroyed, its icon should be too.
   powerUp.onDestroy(() => {
-      if (icon.exists()) {
-          k.destroy(icon);
-      }
+    if (icon.exists?.()) k.destroy(icon);
   });
-
 
   return powerUp;
 }

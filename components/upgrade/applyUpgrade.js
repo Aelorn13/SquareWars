@@ -144,8 +144,17 @@ export function applyUpgrade(...args) {
 export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThresholdRef, addScore) {
   if (sharedState.upgradeOpen || currentScore < nextThresholdRef.value) return;
 
+  // open upgrade screen and pause game
   sharedState.isPaused = true;
   sharedState.upgradeOpen = true;
+
+  // Interaction lock to prevent accidental immediate clicks.
+  // Use setTimeout because k.wait/k.time may be paused.
+  sharedState.upgradeInteractionLocked = true;
+  const CLICK_LOCK_MS = 1000;
+  const unlockTimer = setTimeout(() => {
+    sharedState.upgradeInteractionLocked = false;
+  }, CLICK_LOCK_MS);
 
   const ownedEffects = new Set((player._projectileEffects ?? []).map(e => e.type));
   const available = Object.keys(UPGRADE_CONFIG).filter((stat) => {
@@ -162,16 +171,23 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
     offered.push(formatUpgradeForUI(statName, rarity));
   }
 
+  // Wrap the callback so early clicks are ignored.
   showUpgradeUI(k, offered, (picked) => {
-    if (picked === "skip") addScore(10);
-    else {
-      // picked may be a formatted object or a stat string
-      applyUpgrade(player, picked);
+    if (sharedState.upgradeInteractionLocked) {
+      // ignore accidental clicks during the lock period
+      return;
     }
 
+    // normal handling
+    if (picked === "skip") addScore(10);
+    else applyUpgrade(player, picked);
+
+    // cleanup and restore state
+    clearTimeout(unlockTimer);
     cleanupUpgradeUI(k);
     sharedState.isPaused = false;
     sharedState.upgradeOpen = false;
+    sharedState.upgradeInteractionLocked = false;
   });
 
   nextThresholdRef.value = Math.floor(nextThresholdRef.value * 1.3) + 10;

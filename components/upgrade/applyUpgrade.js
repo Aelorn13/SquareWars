@@ -2,7 +2,7 @@
 import { showUpgradeUI, cleanupUpgradeUI } from "../ui/upgradeUI.js";
 import { UPGRADE_CONFIG, rollRarityForStat, formatUpgradeForUI } from "./upgradeConfig.js";
 import { getPermanentBaseStat, applyPermanentUpgrade } from "./statManager.js";
-import { attachBuffManager } from "../effects/buffs/buffManager.js";
+import { attachBuffManager } from "../buffManager.js";
 
 /**
  * Flexible signature:

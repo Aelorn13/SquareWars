@@ -5,7 +5,7 @@ import { interpolateColor } from "./interpolateColor.js";
 import { getPlayerStatsSnapshot } from "../ui/playerStatsUI.js";
 
 import { applyProjectileEffects } from "../effects/applyProjectileEffects.js";
-import { attachBuffManager } from "../effects/buffs/buffManager.js";
+import { attachBuffManager } from "../buffManager.js";
 
 export function lerpAngle(startAngle, endAngle, t) {
   let diff = endAngle - startAngle;

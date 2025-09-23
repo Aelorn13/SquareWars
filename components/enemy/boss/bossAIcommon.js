@@ -2,7 +2,7 @@
 import { showCritEffect, lerpAngle } from "../enemyBehavior.js";
 import { VULNERABILITY_DAMAGE_MULTIPLIER } from "./bossConfig.js";
 import { applyProjectileEffects } from "../../effects/applyProjectileEffects.js";
-import { attachBuffManager } from "../../effects/buffs/buffManager.js";
+import { attachBuffManager } from "../../buffManager.js";
 
 /**
  * Wait for `duration` seconds while respecting pause.

@@ -1,3 +1,4 @@
+//components/player/player.js
 import {
   updateInput,
   consumeDash,
@@ -5,6 +6,8 @@ import {
   aimWorldTarget,
 } from "./controls.js";
 import { setupPlayerCosmetics } from "./cosmetics/playerCosmetic.js";
+import { applyInvincibility as applyInvincibilityBuff } from "../powerup/powerupEffects/temporaryStatBuffEffect.js";
+
 const PLAYER_CONFIG = {
   SIZE: 28,
   INITIAL_STATS: {
@@ -75,18 +78,14 @@ export function createPlayer(k, sharedState) {
       takeDamage(amount) {
         if (this.isInvincible) return;
         this.hurt(amount);
+        // delegate to central buff system; pass sharedState so pause works
         this.applyInvincibility(2);
         k.shake(10);
       },
 
       applyInvincibility(seconds) {
-        this.isInvincible = true;
-        const flashLoop = k.loop(0.1, () => (this.hidden = !this.hidden));
-        k.wait(seconds, () => {
-          this.isInvincible = false;
-          this.hidden = false;
-          flashLoop.cancel();
-        });
+        // delegate to the unified implementation and pass sharedState
+        applyInvincibilityBuff(k, this, seconds, { sharedState });
       },
     },
   ]);

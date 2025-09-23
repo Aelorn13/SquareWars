@@ -1,16 +1,16 @@
-// components/effects/buffs/buffManager.js
 /**
- * attachBuffManager(k, entity)
- * Adds a _buffManager to entity with: applyBuff, removeBuff, update(dt), destroy()
+ * attachBuffManager(k, entity, opts?)
+ * Adds entity._buffManager if missing. opts: { pauseCheck: () => boolean }
  */
-
-export function attachBuffManager(k, entity) {
+export function attachBuffManager(k, entity, opts = {}) {
   if (entity._buffManager) return entity._buffManager;
 
   const manager = {
     initialized: true,
     buffs: [],
     baseStats: {},
+    // optional function that, when true, causes update() to skip ticking
+    pauseCheck: typeof opts.pauseCheck === "function" ? opts.pauseCheck : null,
 
     applyBuff(buff) {
       if (!buff || !buff.id) {
@@ -44,6 +44,9 @@ export function attachBuffManager(k, entity) {
 
     update(dt) {
       if (!Number.isFinite(dt)) return;
+      // Respect optional pause check.
+      if (typeof this.pauseCheck === "function" && this.pauseCheck()) return;
+
       for (let i = this.buffs.length - 1; i >= 0; i--) {
         const b = this.buffs[i];
         b.elapsed += dt;
@@ -62,11 +65,9 @@ export function attachBuffManager(k, entity) {
     },
 
     destroy() {
-      // clear buffs and mark uninitialized
       this.buffs.length = 0;
       this.baseStats = {};
       this.initialized = false;
-      // remove from global registry if present
       try {
         if (k?._globalBuffManagers && Array.isArray(k._globalBuffManagers)) {
           const idx = k._globalBuffManagers.indexOf(this);
@@ -89,23 +90,21 @@ export function attachBuffManager(k, entity) {
       k.onUpdate(() => {
         const dt = k.dt();
         for (const m of Array.from(k._globalBuffManagers)) {
-          // skip invalid/uninitialized managers
           if (m && m.initialized) m.update(dt);
         }
       });
     }
-    // avoid duplicate pushes
     if (!k._globalBuffManagers.includes(manager)) k._globalBuffManagers.push(manager);
   }
 
-  // If entity supports onDestroy, ensure we cleanup to avoid leaks.
+  // Cleanup on destroy if possible
   if (typeof entity.onDestroy === "function") {
     try {
       entity.onDestroy(() => {
         manager.destroy();
       });
     } catch (e) {
-      // not critical if onDestroy API differs; destroy can be called externally
+      /* ignore */
     }
   }
 

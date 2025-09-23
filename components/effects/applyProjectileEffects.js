@@ -5,7 +5,11 @@ import { EFFECT_HANDLERS } from "./index.js";
 export function applyProjectileEffects(k, projectile, target, ctx = {}) {
   const effects = projectile.effects ?? [];
   const source = projectile.owner ?? projectile.source ?? ctx.source ?? null;
-  const sourceId = projectile.owner?.id ?? projectile.source?.id ?? projectile._ownerId ?? ctx.sourceId;
+  const sourceId =
+    projectile.owner?.id ??
+    projectile.source?.id ??
+    projectile._ownerId ??
+    ctx.sourceId;
 
   for (const effect of effects) {
     try {
@@ -24,7 +28,7 @@ export function applyProjectileEffects(k, projectile, target, ctx = {}) {
         sourceUpgrade: effect.sourceUpgrade,
         source,
         sourceId,
-        projectile
+        projectile,
       };
 
       handler.install?.(target, effectCtx);

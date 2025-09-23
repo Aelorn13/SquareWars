@@ -1,5 +1,5 @@
 import { inputState, updateInput, aimWorldTarget } from "./controls.js";
-import { attachBuffManager } from "../effects/buffs/buffManager.js";
+import { attachBuffManager } from "../buffManager.js";
 
 const CONFIG = {
   BASE_SIZE: 6,

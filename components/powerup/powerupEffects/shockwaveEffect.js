@@ -1,17 +1,4 @@
-//components/powerup/powerupEffect/shockwaveEffect.js
-/**
- * @file Contains the logic for the shockwave power-up effect.
- */
-
-/**
- * Spawns a circular shockwave that expands outwards, damaging enemies.
- *
- * @param {object} k - The Kaboom.js context.
- * @param {Vec2} centerPosition - The shockwave's origin point.
- * @param {object} [options={}] - Configuration for the shockwave.
- */
 export function spawnShockwave(k, centerPosition, options = {}) {
-  // --- Configuration ---
   const {
     damage = 15,
     maxRadius = 400,
@@ -21,17 +8,16 @@ export function spawnShockwave(k, centerPosition, options = {}) {
     color = k.rgb(255, 150, 150),
   } = options;
 
-  // Take a snapshot of enemies to avoid issues with newly spawned enemies.
-  const enemiesInScene = k.get("enemy");
-  const hitEnemies = new Set(); // Tracks enemies already hit to prevent multiple hits.
+  const enemiesInScene = Array.from(k.get("enemy") || []);
+  const hitEnemies = new Set();
 
-  // --- Visuals Setup ---
-  const directionVectors = Array.from({ length: segmentCount }, (_, i) => {
-    const angle = k.map(i, 0, segmentCount, 0, 360);
-    return k.Vec2.fromAngle(angle);
+  // Precompute direction unit vectors using plain Math
+  const directions = Array.from({ length: segmentCount }, (_, i) => {
+    const angle = (i / segmentCount) * Math.PI * 2;
+    return { x: Math.cos(angle), y: Math.sin(angle) };
   });
 
-  const segments = directionVectors.map(() => k.add([
+  const segments = directions.map(() => k.add([
     k.rect(segmentSize, segmentSize, { radius: segmentSize / 2 }),
     k.color(color),
     k.pos(centerPosition),
@@ -40,53 +26,58 @@ export function spawnShockwave(k, centerPosition, options = {}) {
     k.z(210),
   ]));
 
-  // --- Controller Logic ---
-  const shockwaveController = k.add([
-    {
-      currentRadius: 0,
-      update() {
-        this.currentRadius += expansionSpeed * k.dt();
-        const progress = Math.min(1, this.currentRadius / maxRadius);
+  const controller = k.add([{
+    currentRadius: 0,
+    update() {
+      this.currentRadius += expansionSpeed * k.dt();
+      const progress = Math.min(1, this.currentRadius / maxRadius);
 
-        this.updateVisuals(progress);
-        this.checkCollisions();
+      // update visuals
+      const opacity = 1 - progress;
+      const pulseScale = 1 + 0.6 * (1 - Math.abs(0.5 - progress) * 2);
 
-        if (progress >= 1) {
-          segments.forEach(k.destroy);
-          k.destroy(this);
+      for (let i = 0; i < segments.length; i++) {
+        const dir = directions[i];
+        const seg = segments[i];
+        // safe add: handle kaboom vec2 or plain object
+        const px = (centerPosition.x ?? centerPosition[0] ?? 0) + dir.x * this.currentRadius;
+        const py = (centerPosition.y ?? centerPosition[1] ?? 0) + dir.y * this.currentRadius;
+        if (typeof seg.pos === "function") {
+          seg.pos(px, py);
+        } else {
+          seg.pos.x = px; seg.pos.y = py;
         }
-      },
-      updateVisuals(progress) {
-        const opacity = 1 - progress;
-        const pulseScale = 1 + 0.6 * (1 - Math.abs(0.5 - progress) * 2);
+        seg.opacity = opacity;
+        seg.scale = pulseScale;
+      }
 
-        segments.forEach((segment, i) => {
-          segment.pos = centerPosition.add(directionVectors[i].scale(this.currentRadius));
-          segment.opacity = opacity;
-          segment.scale = pulseScale;
-        });
-      },
-      checkCollisions() {
-        for (const enemy of enemiesInScene) {
-          if (!enemy.exists() || hitEnemies.has(enemy)) continue;
-
-          const distanceToEnemy = enemy.pos.dist(centerPosition);
-          if (distanceToEnemy <= this.currentRadius) {
-            enemy.hurt(damage);
-            hitEnemies.add(enemy);
-
-            // If the damage is fatal, simply tell the enemy to die.
-            // It will handle its own score, power-up drops, and animation.
-            if (enemy.hp() <= 0) {
-              enemy.die();
-            }
-          }
+      // collisions
+      for (const enemy of enemiesInScene) {
+        if (!enemy.exists || (typeof enemy.exists === "function" && !enemy.exists()) ) continue;
+        if (hitEnemies.has(enemy)) continue;
+        // compute distance robustly
+        const ex = enemy.pos?.x ?? enemy.x ?? 0;
+        const ey = enemy.pos?.y ?? enemy.y ?? 0;
+        const cx = centerPosition.x ?? centerPosition[0] ?? 0;
+        const cy = centerPosition.y ?? centerPosition[1] ?? 0;
+        const dx = ex - cx;
+        const dy = ey - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= this.currentRadius) {
+          try { enemy.hurt(damage); } catch (e) {}
+          hitEnemies.add(enemy);
+          try { if (typeof enemy.hp === "function" ? enemy.hp() <= 0 : (enemy.hp ?? 1) <= 0) enemy.die(); } catch (e) {}
         }
-      },
-    },
-  ]);
+      }
 
-  // --- Initial Flash Effect ---
+      if (progress >= 1) {
+        segments.forEach(s => k.destroy(s));
+        k.destroy(this);
+      }
+    }
+  }]);
+
+  // initial flash
   k.add([
     k.text("💥", { size: 32 }),
     k.pos(centerPosition),

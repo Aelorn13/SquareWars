@@ -34,9 +34,9 @@ export const UPGRADE_CONFIG = {
     effectType: "burn",
     allowedTiers: [3, 4, 5],
     bonuses: {
-      3: { damagePerTick: 0.35, duration: 3, tickInterval: 1 },
-      4: { damagePerTick: 0.5,  duration: 4, tickInterval: 1 },
-      5: { damagePerTick: 1.0,  duration: 4, tickInterval: 1 },
+      3: { damagePerTick: 0.25, duration: 2, tickInterval: 0.25 },
+      4: { damagePerTick: 0.5,  duration: 2, tickInterval: 0.25 },
+      5: { damagePerTick: 1.0,  duration: 2, tickInterval: 0.25 },
     },
   },
 

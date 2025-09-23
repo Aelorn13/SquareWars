@@ -175,32 +175,62 @@ export function registerVisualEffects(EFFECT_HANDLERS = {}, kInstance = null) {
   };
 }
 //===================================SLOW EFFECT======================================
-
 const activeSlowVfx = new Set();
+
+function _hpRatio(t) {
+  const hpNow = (typeof t.hp === "function" ? t.hp() : t.hp) ?? 0;
+  return t.maxHp ? Math.max(0.01, hpNow / t.maxHp) : 1;
+}
+
+function _computeRestoreColor(target) {
+  const orig = target.originalColor ?? [255, 255, 255];
+  const hp = _hpRatio(target);
+  const light = [240, 240, 240];
+  return [
+    Math.round(orig[0] * hp + light[0] * (1 - hp)),
+    Math.round(orig[1] * hp + light[1] * (1 - hp)),
+    Math.round(orig[2] * hp + light[2] * (1 - hp)),
+  ];
+}
+
+function _setColor(target, k, rgb) {
+  if (!target) return;
+  const [r, g, b] = rgb.map(v => Math.round(v));
+  // Prefer calling the setter if it exists
+  if (typeof target.color === "function") {
+    try { target.color(r, g, b); return; } catch (e) {}
+  }
+  // If it's an object with r/g/b fields, mutate it in-place
+  if (target.color && typeof target.color === "object") {
+    target.color.r = r; target.color.g = g; target.color.b = b;
+    return;
+  }
+  // Last-resort: create an rgb object if kaboom helper available
+  if (k && typeof k.rgb === "function") {
+    try { target.color = k.rgb(r, g, b); return; } catch (e) {}
+  }
+  // Fallback plain property
+  target.color = { r, g, b };
+}
 
 function startSlowUpdater(k) {
   if (startSlowUpdater._started) return;
   startSlowUpdater._started = true;
 
   k.onUpdate(() => {
-    const t = k.time?.() ?? (performance ? performance.now() / 1000 : Date.now() / 1000);
+    const tnow = k.time?.() ?? (performance ? performance.now() / 1000 : Date.now() / 1000);
 
     for (const fx of Array.from(activeSlowVfx)) {
       const target = fx?._follow;
       if (!target || target.dead || target._isDead || target._destroyed || target._removed || target.hidden) {
         activeSlowVfx.delete(fx);
+        // try to restore if target still reachable
+        if (target) fx._restore?.();
         continue;
       }
 
-      // Subtle pulsing blue tint
-      const pulse = 0.6 + 0.4 * Math.sin(t * 6 + (fx._phase ?? 0)); // oscillates between 0.2 and 1
-      if (typeof target.color === "function") {
-        target.color(0, 180 * pulse, 255 * pulse);
-      } else if (target.color) {
-        target.color.r = 0;
-        target.color.g = 180 * pulse;
-        target.color.b = 255 * pulse;
-      }
+      const pulse = 0.6 + 0.4 * Math.sin(tnow * 6 + (fx._phase ?? 0));
+      _setColor(target, k, [0, 180 * pulse, 255 * pulse]);
     }
   });
 }
@@ -209,22 +239,32 @@ export function createSlowVfx(k, target) {
   if (!target) return null;
   startSlowUpdater(k);
 
-  const phase = Math.random() * Math.PI * 2;
-  const fx = { _follow: target, _phase: phase };
-  activeSlowVfx.add(fx);
+  // Prevent duplicate slow VFX on same target
+  for (const ex of activeSlowVfx) {
+    if (ex._follow === target) return [ex];
+  }
 
-  return [fx]; // keep return signature compatible with destroySlowVfx
+  const phase = Math.random() * Math.PI * 2;
+  const fx = { _follow: target, _phase: phase, _restored: false };
+
+  // restore function computes colour based on current HP (so it returns the "moment" colour)
+  fx._restore = () => {
+    if (fx._restored) return;
+    try {
+      const col = _computeRestoreColor(target);
+      _setColor(target, k, col);
+    } catch (e) {}
+    fx._restored = true;
+  };
+
+  activeSlowVfx.add(fx);
+  return [fx];
 }
 
 export function destroySlowVfx(k, vfx) {
   if (!Array.isArray(vfx)) return;
-  for (const fx of vfx) activeSlowVfx.delete(fx);
-
-  // Optionally reset target color to default
   for (const fx of vfx) {
-    const t = fx._follow;
-    if (t && typeof t.color === "function") t.color(255, 255, 255);
-    else if (t && t.color) { t.color.r = 255; t.color.g = 255; t.color.b = 255; }
+    activeSlowVfx.delete(fx);
+    try { fx._restore?.(); } catch (e) {}
   }
 }
-

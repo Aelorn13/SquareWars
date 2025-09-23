@@ -29,8 +29,6 @@ import {
 } from "../components/player/controls.js";
 import { makeMobileController } from "../components/player/mobile/index.js";
 import { makeSecretToggle } from "../components/utils/secretToggle.js";
-import { EFFECT_HANDLERS } from "../components/effects/effectRegistry.js";
-// import { registerVisualEffects } from "../components/effects/visualEffects.js";
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
 

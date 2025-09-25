@@ -230,7 +230,7 @@ export function defineGameScene(k, scoreRef) {
                 .catch(console.error);
             }
           } else {
-            // Calculate progress based on the (now correctly updated) elapsed time
+            // Calculate progress based on the elapsed time
             const timeProgress = Math.min(
               gameState.elapsedTime / BOSS_SPAWN_TIME,
               1.0

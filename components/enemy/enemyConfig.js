@@ -23,7 +23,7 @@ export const ENEMY_CONFIGS = {
   tank: {
     name: "tank",
     score: 4, spawnWeight: 10, color: [100, 100, 255], size: 40,
-    maxHp: 8, speed: 60, damage: 3, rarity: 2,
+    maxHp: 8, speed: 60, damage: 2, rarity: 2,
   },
   rageTank: {
     name:"rageTank",

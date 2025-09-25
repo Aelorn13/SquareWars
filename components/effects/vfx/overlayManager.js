@@ -1,6 +1,4 @@
-// components/effects/vfx/overlayManager.js
 import { getCurrentTime, isTargetEffectivelyDead, getSafeEntityPos, safeDestroy } from './utils.js';
-import { destroyAllVfxForTarget } from './index.js'; // We'll need this for the die patch
 
 const activeOverlays = new Set();
 let overlayUpdaterStarted = false;
@@ -11,12 +9,14 @@ function startOverlayUpdater(k) {
 
   k.onUpdate(() => {
     const time = getCurrentTime(k);
-    for (const node of activeOverlays) {
+    // copy to avoid mutation issues while iterating
+    for (const node of Array.from(activeOverlays)) {
       const target = node._follow;
 
-      if (isTargetEffectivelyDead(target) || node._manualRemove) {
+      // If node or target is invalid, remove and destroy now.
+      if (!node || !node.exists || node._manualRemove || isTargetEffectivelyDead(target)) {
         activeOverlays.delete(node);
-        safeDestroy(k, node);
+        try { safeDestroy(k, node); } catch (e) {}
         continue;
       }
 
@@ -24,81 +24,122 @@ function startOverlayUpdater(k) {
       if (pos) node._lastPos = pos;
       if (!node._lastPos) continue;
 
-      const { x: offX = 0, y: offY = 0 } = node._off;
+      const { x: offX = 0, y: offY = 0 } = node._off ?? {};
       const wobble = Math.sin(time * 8 + node._phase) * 2;
-      
+
       if (typeof node.moveTo === "function") {
-        node.moveTo(node._lastPos.x + offX, node._lastPos.y + offY + wobble);
+        try { node.moveTo(node._lastPos.x + offX, node._lastPos.y + offY + wobble); } catch (e) {}
+      } else if (typeof node.move === "function") {
+        try { node.move(node._lastPos.x + offX - (node._lastPos.x || 0), node._lastPos.y + offY + wobble - (node._lastPos.y || 0)); } catch (e) {}
+      } else {
+        // best-effort fallback
+        try {
+          if (node.pos && typeof node.pos.x === "number") {
+            node.pos.x = node._lastPos.x + offX;
+            node.pos.y = node._lastPos.y + offY + wobble;
+          } else if ("x" in node && "y" in node) {
+            node.x = node._lastPos.x + offX;
+            node.y = node._lastPos.y + offY + wobble;
+          }
+        } catch (e) {}
       }
 
       const baseScale = node._baseScale ?? 1;
       const scale = baseScale * (1 + 0.12 * Math.sin(time * 8 + node._phase));
-      if (node.scale) node.scale.x = node.scale.y = scale;
+      if (node.scale) {
+        try { node.scale.x = node.scale.y = scale; } catch (e) {}
+      }
     }
   });
+}
+
+/**
+ * Destroy all overlays that follow a specific target.
+ * Exposed on k as _destroyVfxFor for immediate use from target.die.
+ */
+function _destroyAllOverlaysForTarget(k, target) {
+  for (const node of Array.from(activeOverlays)) {
+    if (!node) continue;
+    if (node._follow === target) {
+      activeOverlays.delete(node);
+      try { safeDestroy(k, node); } catch (e) {}
+    }
+  }
 }
 
 export function createOverlay(k, target, opts = {}) {
   if (!target || !k?.add) return null;
   startOverlayUpdater(k);
 
-  for (const existing of activeOverlays) {
-    if (existing._follow === target && existing.type === opts.type) {
-      existing._refCount = (existing._refCount ?? 1) + 1;
-      return existing;
+  // register global destroy helper on k so other modules can call it
+  if (!k._destroyVfxFor) k._destroyVfxFor = (t) => _destroyAllOverlaysForTarget(k, t);
+
+  // reuse rules
+  const preferReuse = opts.reuse !== false && !opts.forceNew && !opts.instanceId && !opts.allowMultiple;
+
+  if (preferReuse) {
+    for (const existing of activeOverlays) {
+      if (existing._follow === target && existing.type === opts.type) {
+        existing._refCount = (existing._refCount ?? 1) + 1;
+        return existing;
+      }
+    }
+  } else if (opts.instanceId) {
+    for (const existing of activeOverlays) {
+      if (existing._follow === target && existing._instanceId === opts.instanceId && existing.type === opts.type) {
+        existing._refCount = (existing._refCount ?? 1) + 1;
+        return existing;
+      }
     }
   }
 
   const initialPos = getSafeEntityPos(target) ?? { x: 0, y: 0 };
-  const offsetY = -(target.height ?? 0) * 0.5 - 8;
+  const defaultOffsetY = -(target.height ?? target.size ?? 0) * 0.5 - 8;
+  const providedOffset = opts.offset && typeof opts.offset === 'object' ? { x: opts.offset.x ?? 0, y: opts.offset.y ?? 0 } : null;
+  const nodeOffset = { x: providedOffset?.x ?? 0, y: providedOffset?.y ?? defaultOffsetY };
 
   const textComp = k.text?.(opts.icon ?? "🔥", { size: opts.size ?? 18 }) ?? {};
-let colorArg;
-if (Array.isArray(opts.color)) {
-  const [r=255,g=140,b=20] = opts.color;
-  colorArg = k.color?.(r,g,b) ?? {};
-} else {
-  const r = opts.color?.r ?? 255;
-  const g = opts.color?.g ?? 140;
-  const b = opts.color?.b ?? 20;
-  colorArg = k.color?.(r,g,b) ?? {};
-}
+  let colorArg;
+  if (Array.isArray(opts.color)) {
+    const [r = 255, g = 140, b = 20] = opts.color;
+    colorArg = k.color?.(r, g, b) ?? {};
+  } else {
+    const r = opts.color?.r ?? 255;
+    const g = opts.color?.g ?? 140;
+    const b = opts.color?.b ?? 20;
+    colorArg = k.color?.(r, g, b) ?? {};
+  }
   const originComp = k.origin?.("center") ?? {};
   const zComp = k.z?.(1000) ?? {};
 
   const node = k.add([
-    k.pos(initialPos.x, initialPos.y + offsetY),
+    k.pos(initialPos.x, initialPos.y + nodeOffset.y),
     textComp, colorArg, originComp, zComp, "vfx_overlay",
     {
       _follow: target,
-      _off: { x: 0, y: offsetY },
+      _off: nodeOffset,
       _phase: Math.random() * Math.PI * 2,
       _baseScale: opts.scale ?? 1,
       _lastPos: initialPos,
       _refCount: 1,
       type: opts.type ?? "burn_icon",
+      _instanceId: opts.instanceId ?? null,
     },
   ]);
 
   activeOverlays.add(node);
-  
+
+  // patch die to clear overlays immediately (only patch once)
   try {
     if (typeof target.die === "function" && !target._vfx_diePatched) {
       const origDie = target.die.bind(target);
       target._vfx_diePatched = true;
       target.die = function (...args) {
-        // destroyAllVfxForTarget is defined in vfx/index.js
-        // We will add it there to avoid circular dependencies.
-        k._destroyVfxFor?.(target);
+        try { k._destroyVfxFor?.(target); } catch (e) {}
         return origDie(...args);
       };
-      // Register a global helper on k to avoid import cycles.
-      if (!k._destroyVfxFor) {
-          k._destroyVfxFor = (t) => destroyAllVfxForTarget(k, t);
-      }
     }
   } catch (e) { /* ignore */ }
-
 
   return node;
 }
@@ -107,9 +148,8 @@ export function destroyOverlay(k, node) {
   if (!node) return;
   node._refCount = Math.max(0, (node._refCount ?? 1) - 1);
   if (node._refCount > 0) return;
-  
+
   activeOverlays.delete(node);
-  // Flag for removal in case it's still in the update loop this frame
-  node._manualRemove = true; 
-  safeDestroy(k, node);
+  node._manualRemove = true;
+  try { safeDestroy(k, node); } catch (e) {}
 }

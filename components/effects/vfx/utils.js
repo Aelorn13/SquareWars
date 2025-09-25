@@ -95,3 +95,40 @@ export const computeBaseColorCached = (target) => {
   _hpCache.set(target, { hp, color });
   return color;
 };
+
+export function _applyOffsetToEntity(k, ent, offset) {
+  if (!ent || !offset) return;
+  if (Array.isArray(ent)) return ent.forEach(e => _applyOffsetToEntity(k, e, offset));
+  try {
+    if (typeof ent.move === "function") {
+      ent.move(offset.x ?? 0, offset.y ?? 0);
+      return;
+    }
+    if (ent.pos && typeof ent.pos.add === "function") {
+      // try to set pos via vector add (best-effort)
+      try { ent.pos = ent.pos.add(k.vec2(offset.x ?? 0, offset.y ?? 0)); return; } catch(e){}
+    }
+    if ("x" in ent && "y" in ent) {
+      ent.x = (ent.x ?? 0) + (offset.x ?? 0);
+      ent.y = (ent.y ?? 0) + (offset.y ?? 0);
+      return;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+export function _randomLocalOffset(k, target, opts = {}) {
+  const w = (target.width ?? target.size ?? opts.targetWidth ?? 40);
+  const h = (target.height ?? target.size ?? opts.targetHeight ?? w);
+  const radius = Math.max(6, Math.min(w, h) * 0.45);
+  const ang = Math.random() * Math.PI * 2;
+  const r = Math.random() * radius;
+  return { x: Math.cos(ang) * r, y: Math.sin(ang) * r };
+}
+
+export function _ringOffset(index, total, target, opts = {}) {
+  const w = (target.width ?? target.size ?? opts.targetWidth ?? 40);
+  const h = (target.height ?? target.size ?? opts.targetHeight ?? w);
+  const radius = Math.max(8, Math.min(w, h) * 0.45);
+  const ang = (index / Math.max(1, total)) * Math.PI * 2;
+  return { x: Math.cos(ang) * radius, y: Math.sin(ang) * radius };
+}

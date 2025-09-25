@@ -13,7 +13,7 @@ export const UPGRADE_CONFIG = {
   damage:         { name: "Damage Boost",    icon: "🔫", scale: 1.0 },
   speed:          { name: "Move Speed",      icon: "🏃", scale: 0.8 },
   luck:           { name: "Luck",            icon: "🍀", scale: 0.5, isAdditive: true, cap: 1.0 },
-  bulletSpeed:    { name: "Bullet Speed",    icon: "💨", scale: 3.0 },
+  bulletSpeed:    { name: "Bullet Speed",    icon: "💨", scale: 3.0, cap: 900 },
   attackSpeed:    { name: "Attack Interval", icon: "⚡", scale: 0.5, isInverse: true, cap: 0.05 },
   critChance:     { name: "Critical Chance", icon: "🎯", scale: 0.5, isAdditive: true, cap: 1.0 },
   critMultiplier: { name: "Critical Damage", icon: "💥", scale: 2.0 },
@@ -34,14 +34,14 @@ export const UPGRADE_CONFIG = {
     effectType: "burn",
     allowedTiers: [3, 4, 5],
     bonuses: {
-      3: { damagePerTick: 0.25, duration: 2, tickInterval: 0.25 },
-      4: { damagePerTick: 0.5,  duration: 2, tickInterval: 0.25 },
-      5: { damagePerTick: 1.0,  duration: 2, tickInterval: 0.25 },
+      3: { damagePerTick: 0.25, duration: 2, tickInterval: 0.5 },
+      4: { damagePerTick: 0.5,  duration: 2, tickInterval: 0.5 },
+      5: { damagePerTick: 1.0,  duration: 2, tickInterval: 0.5 },
     },
   },
 
   knockbackOnHit: {
-    name: "Shove Rounds",
+    name: "Knockback Rounds",
     icon: "🛡️",
     isEffect: true,
     isUnique: true,
@@ -164,8 +164,9 @@ export function formatUpgradeForUI(statName, rolledRarity) {
       case "burn": {
         const dps = Number(tierBon.damagePerTick ?? 0);
         const dur = Number(tierBon.duration ?? 0);
+        const tick = Number(tierBon.tickInterval ?? 0);
         out.bonusText = `${cfg.name}`;
-        out.description = `Damages target for ${dur}s with ${dps} per second`;
+        out.description = `Apply a stack of debuff that deals ${dur/tick*dps} damage over ${dur} per seconds`;
         return out;
       }
       case "knockback": {

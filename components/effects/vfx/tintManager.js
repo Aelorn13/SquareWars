@@ -68,7 +68,6 @@ export function createTintVfx(k, target, opts = {}) {
     type: opts.type ?? "tint",
     _phase: Math.random() * Math.PI * 2,
     _params: {
-      // CRITICAL FIX: Add default values back to prevent crash
       color: opts.color ?? [255, 255, 255],
       alpha: opts.alpha ?? 0.4,
       baseIntensity: opts.baseIntensity ?? 1,

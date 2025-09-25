@@ -28,7 +28,7 @@ export function applyPowerUp(k, player, powerUpType, gameContext, onHeal) {
           effect.value,
           DEFAULT_POWERUP_DURATION,
           effect.mode,
-          gameContext // Pass gameContext for pause handling
+          gameContext 
         );
         break;
 
@@ -46,7 +46,6 @@ export function applyPowerUp(k, player, powerUpType, gameContext, onHeal) {
         break;
 
       case 'invincibility':
-        // Use the new pausable invincibility function
         applyInvincibility(k, player, DEFAULT_POWERUP_DURATION, gameContext);
         break;
 

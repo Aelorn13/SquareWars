@@ -1,4 +1,4 @@
-/**
+/**components/buffManager.js
  * attachBuffManager(k, entity, opts?)
  * Adds entity._buffManager if missing. opts: { pauseCheck: () => boolean }
  */
@@ -13,56 +13,85 @@ export function attachBuffManager(k, entity, opts = {}) {
     pauseCheck: typeof opts.pauseCheck === "function" ? opts.pauseCheck : null,
 
     applyBuff(buff) {
-      if (!buff || !buff.id) {
-        console.warn("applyBuff called with invalid buff", buff);
-        return null;
-      }
-      const existing = this.buffs.find(b => b.id === buff.id);
-      if (existing) {
-        // Merge new values onto existing, but reset timers
-        Object.assign(existing, { ...existing, ...buff });
-        existing.duration = buff.duration ?? existing.duration;
-        existing.elapsed = 0;
-        existing.elapsedTick = 0;
-        return existing;
-      }
+  if (!buff || !buff.id) {
+    console.warn('[buffManager] applyBuff called with invalid buff', buff);
+    return null;
+  }
 
-      buff.elapsed = 0;
-      buff.elapsedTick = 0;
-      this.buffs.push(buff);
-      try { buff.onApply?.(buff); } catch (e) { console.error(e); }
-      return buff;
-    },
+  const existing = this.buffs.find(b => b.id === buff.id);
+  if (existing) {
+    // preserve oldDuration before merging
+    const oldDuration = existing.duration;
 
-    removeBuff(id) {
-      const idx = this.buffs.findIndex(b => b.id === id);
-      if (idx >= 0) {
-        const [b] = this.buffs.splice(idx, 1);
-        try { b.onRemove?.(b); } catch (e) { console.error(e); }
+    // merge incoming fields but DO NOT blindly overwrite duration
+    for (const key of Object.keys(buff)) {
+      if (key === 'duration') continue;
+      existing[key] = buff[key];
+    }
+
+    // only set duration when the incoming value is a finite number
+    existing.duration = Number.isFinite(buff.duration) ? buff.duration : oldDuration;
+
+    // restart timers when merging/extending
+    existing.elapsed = 0;
+    existing.elapsedTick = 0;
+    return existing;
+  }
+
+  // new buff: normalise duration; warn + trace if non-finite
+  if (buff.duration !== undefined && !Number.isFinite(buff.duration)) {
+    console.warn('[buffManager] new buff has non-finite duration; setting to undefined', buff.id, buff.duration);
+    console.trace();
+    buff.duration = undefined;
+  }
+
+  buff.elapsed = 0;
+  buff.elapsedTick = 0;
+  this.buffs.push(buff);
+
+  try { buff.onApply?.(buff); } catch (e) { console.error(e); }
+  return buff;
+},
+
+removeBuff(id) {
+  const idx = this.buffs.findIndex(b => b.id === id);
+  if (idx >= 0) {
+    const [b] = this.buffs.splice(idx, 1);
+    try { b.onRemove?.(b); } catch (e) { console.error(e); }
+  }
+},
+
+update(dt) {
+  if (!Number.isFinite(dt)) return;
+  if (typeof this.pauseCheck === "function" && this.pauseCheck()) return;
+
+  for (let i = this.buffs.length - 1; i >= 0; i--) {
+    const b = this.buffs[i];
+    b.elapsed += dt;
+
+    if (Number.isFinite(b.tickInterval) && b.tickInterval > 0) {
+      b.elapsedTick += dt;
+      if (b.elapsedTick >= b.tickInterval) {
+        b.elapsedTick -= b.tickInterval;
+        try { b.onTick?.(b); } catch (e) { console.error(e); }
       }
-    },
+    }
 
-    update(dt) {
-      if (!Number.isFinite(dt)) return;
-      // Respect optional pause check.
-      if (typeof this.pauseCheck === "function" && this.pauseCheck()) return;
+    if (b.duration !== undefined && !Number.isFinite(b.duration)) {
+      console.warn('[buffManager] buff has non-finite duration', b.id, b.duration, b);
+      console.trace();
+    }
 
-      for (let i = this.buffs.length - 1; i >= 0; i--) {
-        const b = this.buffs[i];
-        b.elapsed += dt;
-        if (Number.isFinite(b.tickInterval) && b.tickInterval > 0) {
-          b.elapsedTick += dt;
-          if (b.elapsedTick >= b.tickInterval) {
-            b.elapsedTick -= b.tickInterval;
-            try { b.onTick?.(b); } catch (e) { console.error(e); }
-          }
-        }
-        if (b.duration !== undefined && b.elapsed >= b.duration) {
-          try { b.onRemove?.(b); } catch (e) { console.error(e); }
-          this.buffs.splice(i, 1);
-        }
-      }
-    },
+    if (b.duration !== undefined && Number.isFinite(b.duration) && b.elapsed >= b.duration) {
+      // remove first so onRemove runs with the buff already gone from manager.buffs
+      const [removed] = this.buffs.splice(i, 1);
+      try { removed.onRemove?.(removed); } catch (e) { console.error(e); }
+    }
+  }
+},
+
+
+
 
     destroy() {
       this.buffs.length = 0;

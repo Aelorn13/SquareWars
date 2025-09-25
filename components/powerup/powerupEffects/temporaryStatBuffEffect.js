@@ -70,26 +70,29 @@ export function applyTemporaryStatBuff(
 ) {
   if (!target) return;
 
+  const DEFAULT_DUR = 10;
+  const dur = Number.isFinite(durationSeconds) ? durationSeconds : DEFAULT_DUR;
   const pauseCheck = () => !!gameContext?.sharedState?.isPaused;
   const mgr = attachBuffManager(k, target, { pauseCheck });
   if (!mgr) return;
 
-  // expose recomputeStat API for compatibility
+  // expose recomputeStat API
   target.recomputeStat = (s) => recomputeStatFor(target, s, mgr);
 
-  // ensure baseStats initialised
   mgr.baseStats = mgr.baseStats || {};
   if (target._baseStats && target._baseStats[statName] !== undefined) {
     mgr.baseStats[statName] = Number(target._baseStats[statName]);
   }
 
-  // id encodes stat/mode/value so identical buffs merge by id
   const id = `stat_${statName}_${mode}_${String(value)}`;
 
-  // extend existing identical buff instead of re-applying
   const existing = mgr.buffs.find(b => b.id === id);
   if (existing) {
-    existing.duration = (existing.duration || 0) + (durationSeconds || 0);
+    const old = existing.duration || 0;
+  existing.duration = old + dur;
+    existing.elapsed = 0;
+    existing.elapsedTick = 0;
+
     recomputeStatFor(target, statName, mgr);
     return;
   }
@@ -97,10 +100,9 @@ export function applyTemporaryStatBuff(
   mgr.applyBuff({
     id,
     type: 'stat',
-    duration: durationSeconds,
+    duration: dur,
     data: { stat: statName, mode, value },
     onApply() {
-      // ensure base set then recompute
       mgr.baseStats[statName] = mgr.baseStats[statName] ?? Number(target._baseStats?.[statName] ?? target[statName] ?? 0);
       recomputeStatFor(target, statName, mgr);
     },
@@ -110,12 +112,16 @@ export function applyTemporaryStatBuff(
   });
 }
 
+
 /**
  * Apply temporary invincibility using the central buff manager.
  * Stacks by adding duration when already present.
- */
-export function applyInvincibility(k, player, durationSeconds, gameContext) {
+ */export function applyInvincibility(k, player, durationSeconds, gameContext) {
   if (!player) return;
+
+  const DEFAULT_DUR = 10;
+  const dur = Number.isFinite(durationSeconds) ? durationSeconds : DEFAULT_DUR;
+
 
   const pauseCheck = () => !!gameContext?.sharedState?.isPaused;
   const mgr = attachBuffManager(k, player, { pauseCheck });
@@ -124,7 +130,9 @@ export function applyInvincibility(k, player, durationSeconds, gameContext) {
   const id = 'invincibility';
   const existing = mgr.buffs.find(b => b.id === id);
   if (existing) {
-    existing.duration = (existing.duration || 0) + (durationSeconds || 0);
+    existing.duration = (existing.duration || 0) + dur;
+    existing.elapsed = 0;
+    existing.elapsedTick = 0;
     player.isInvincible = true;
     return;
   }
@@ -132,10 +140,9 @@ export function applyInvincibility(k, player, durationSeconds, gameContext) {
   mgr.applyBuff({
     id,
     type: 'invincibility',
-    duration: durationSeconds,
+    duration: dur,
     onApply(buff) {
       try { player.isInvincible = true; } catch (e) {}
-      // create blink effect and keep handle on buff so onRemove can cancel
       try {
         buff._blink = k.loop?.(0.12, () => { try { player.hidden = !player.hidden; } catch (e) {} });
       } catch (e) {
@@ -149,3 +156,4 @@ export function applyInvincibility(k, player, durationSeconds, gameContext) {
     },
   });
 }
+

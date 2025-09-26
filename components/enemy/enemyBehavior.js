@@ -14,38 +14,97 @@ export function lerpAngle(startAngle, endAngle, t) {
   return startAngle + diff * t;
 }
 
+const KNOCKBACK_DISTANCE = 120;
+const KNOCKBACK_DURATION = 0.1;
+
+/**
+ * Centralised handler for an enemy hitting the player.
+ * Returns true if the hit was applied.
+ */
+function handleEnemyPlayerCollision(k, enemy, player, gameContext) {
+  if (enemy.dead || player.isInvincible || player.isKnockedBack) return false;
+
+  // Apply damage using player API if present
+  if (typeof player.takeDamage === "function") {
+    player.takeDamage(enemy.damage ?? 1, { source: enemy });
+  } else if (typeof player.hurt === "function") {
+    player.hurt(enemy.damage ?? 1);
+  } else {
+    player.hp = Math.max(0, (player.hp ?? 0) - (enemy.damage ?? 1));
+  }
+  gameContext.updateHealthBar?.();
+
+  // Boss knockback else enemy dies on contact
+  if (enemy.type === "boss" || enemy.type === "miniboss") {
+    player.isKnockedBack = true;
+    const knockbackDir = player.pos.sub(enemy.pos).unit();
+    const knockbackDest = player.pos.add(knockbackDir.scale(KNOCKBACK_DISTANCE));
+    k.tween(player.pos, knockbackDest, KNOCKBACK_DURATION, (p) => (player.pos = p)).then(() => {
+      player.isKnockedBack = false;
+    });
+  } else {
+    enemy.die();
+  }
+
+  // clear any pending-touch flag
+  enemy._touchingPlayer = false;
+
+  const playerHpNow = typeof player.hp === "function" ? player.hp() : player.hp;
+  if ((playerHpNow ?? 0) <= 0) {
+    const snapshot = getPlayerStatsSnapshot(gameContext.player);
+    k.go("gameover", { statsSnapshot: snapshot });
+  }
+
+  return true;
+}
+
+function isOverlapping(enemy, player) {
+  // use explicit _size if set, fallback to sensible default
+  const eSize = enemy._size ?? enemy._rectSize ?? 32;
+  const pSize = player._size ?? player._rectSize ?? 32;
+  const overlapDist = (eSize + pSize) * 0.5;
+  return enemy.pos.dist(player.pos) <= overlapDist;
+}
+
 export function setupEnemyPlayerCollisions(k, gameContext) {
-  const KNOCKBACK_DISTANCE = 120;
-  const KNOCKBACK_DURATION = 0.1;
+  // Watch player invincibility toggle and replay pending touches when it ends.
+  // Keep a small, local closure-level prev flag.
+  let prevInv = !!gameContext.player?.isInvincible;
+
+  k.onUpdate(() => {
+    const player = gameContext.player;
+    if (!player) return;
+    const nowInv = !!player.isInvincible;
+
+    if (prevInv && !nowInv) {
+      // invincibility just ended -> check enemies that were touching or still overlap
+      k.get("enemy").forEach((enemy) => {
+        if (enemy.dead) return;
+        if (enemy._touchingPlayer || isOverlapping(enemy, player)) {
+          if (!player.isInvincible && !player.isKnockedBack) {
+            handleEnemyPlayerCollision(k, enemy, player, gameContext);
+          }
+        }
+        enemy._touchingPlayer = false;
+      });
+    }
+
+    prevInv = nowInv;
+  });
 
   k.onCollide("enemy", "player", (enemy, player) => {
-    if (enemy.dead || player.isInvincible || player.isKnockedBack) return;
+    // If enemy already dead nothing to do
+    if (enemy.dead) return;
 
-    if (typeof player.takeDamage === "function") {
-      player.takeDamage(enemy.damage ?? 1, { source: enemy });
-    } else if (typeof player.hurt === "function") {
-      player.hurt(enemy.damage ?? 1);
-    } else {
-      player.hp = Math.max(0, (player.hp ?? 0) - (enemy.damage ?? 1));
-    }
-    gameContext.updateHealthBar?.();
-
-    if (enemy.type === "boss" || enemy.type === "miniboss") {
-      player.isKnockedBack = true;
-      const knockbackDir = player.pos.sub(enemy.pos).unit();
-      const knockbackDest = player.pos.add(knockbackDir.scale(KNOCKBACK_DISTANCE));
-      k.tween(player.pos, knockbackDest, KNOCKBACK_DURATION, (p) => (player.pos = p)).then(() => {
-        player.isKnockedBack = false;
-      });
-    } else {
-      enemy.die();
+    // If player invincible or being knocked back, mark this enemy as touching and return.
+    // We do not apply damage now so enemy doesn't die or knock the player during invuln.
+    if (player.isInvincible || player.isKnockedBack) {
+      enemy._touchingPlayer = true;
+      return;
     }
 
-    const playerHpNow = typeof player.hp === "function" ? player.hp() : player.hp;
-    if ((playerHpNow ?? 0) <= 0) {
-      const snapshot = getPlayerStatsSnapshot(gameContext.player);
-      k.go("gameover", { statsSnapshot: snapshot });
-    }
+    // Normal immediate collision handling
+    handleEnemyPlayerCollision(k, enemy, player, gameContext);
   });
 }
 
@@ -115,6 +174,10 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
   if (config.hasBody !== false) components.push(k.body({ isSensor: true }));
 
   const enemy = k.add(components);
+
+  // store a reliable size for simple overlap checks elsewhere
+  enemy._size = config.size;
+
   attachBuffManager(k, enemy);
   enemy.recomputeStat?.("moveSpeed");
   return enemy;
@@ -131,46 +194,38 @@ export function attachEnemyBehaviors(k, enemy, player) {
     enemy.moveTo(player.pos, enemy.speed);
   });
 
-enemy.onCollide("projectile", (projectile) => {
-  if (enemy.dead) return;
+  enemy.onCollide("projectile", (projectile) => {
+    if (enemy.dead) return;
 
-  // ensure buff manager present
-  attachBuffManager(k, enemy);
+    attachBuffManager(k, enemy);
 
-  // 1) Apply projectile effects first (ricochet may adjust projectile._shouldDestroyAfterHit & velocity)
-  applyProjectileEffects(k, projectile, enemy, { source: projectile.source, sourceId: projectile.sourceId });
+    applyProjectileEffects(k, projectile, enemy, { source: projectile.source, sourceId: projectile.sourceId });
 
-  // 2) Apply immediate damage via unified API
-  if (typeof enemy.takeDamage === "function") {
-    enemy.takeDamage(projectile.damage, { source: projectile.source, isCrit: projectile.isCritical });
-  } else if (typeof enemy.hurt === "function") {
-    enemy.hurt(projectile.damage);
-  } else {
-    enemy.hp = Math.max(0, (enemy.hp ?? 0) - projectile.damage);
-  }
-
-  // 3) Update visuals / special behavior
-  const hpNow = (typeof enemy.hp === "function" ? enemy.hp() : enemy.hp) ?? 0;
-  if (hpNow > 0) {
-    if (enemy.type === "rageTank") {
-      const hpRatio = enemy.hp() / enemy.maxHp;
-      enemy.speed = enemy.baseSpeed * (2 + (1 - hpRatio));
+    if (typeof enemy.takeDamage === "function") {
+      enemy.takeDamage(projectile.damage, { source: projectile.source, isCrit: projectile.isCritical });
+    } else if (typeof enemy.hurt === "function") {
+      enemy.hurt(projectile.damage);
+    } else {
+      enemy.hp = Math.max(0, (enemy.hp ?? 0) - projectile.damage);
     }
-    const hpRatio = Math.max(0.01, enemy.hp() / enemy.maxHp);
-    enemy.color = k.rgb(...interpolateColor(enemy.originalColor, [240, 240, 240], hpRatio));
-  } else {
-    enemy.die();
-  }
 
-  // 4) Decide whether to destroy projectile:
-  // If handler set _shouldDestroyAfterHit=false we keep it alive; default = destroy.
-  const shouldDestroy = projectile._shouldDestroyAfterHit === undefined ? true : !!projectile._shouldDestroyAfterHit;
-  if (shouldDestroy) {
-    try { k.destroy(projectile); } catch (e) {}
-  } else {
-    // keep projectile (ricochet already updated velocity/_bouncesLeft)
-  }
-});
+    const hpNow = (typeof enemy.hp === "function" ? enemy.hp() : enemy.hp) ?? 0;
+    if (hpNow > 0) {
+      if (enemy.type === "rageTank") {
+        const hpRatio = enemy.hp() / enemy.maxHp;
+        enemy.speed = enemy.baseSpeed * (2 + (1 - hpRatio));
+      }
+      const hpRatio = Math.max(0.01, enemy.hp() / enemy.maxHp);
+      enemy.color = k.rgb(...interpolateColor(enemy.originalColor, [240, 240, 240], hpRatio));
+    } else {
+      enemy.die();
+    }
+
+    const shouldDestroy = projectile._shouldDestroyAfterHit === undefined ? true : !!projectile._shouldDestroyAfterHit;
+    if (shouldDestroy) {
+      try { k.destroy(projectile); } catch (e) {}
+    }
+  });
 }
 
 function dropPowerUp(k, player, position, sharedState) {

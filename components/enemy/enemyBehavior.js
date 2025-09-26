@@ -60,8 +60,8 @@ function handleEnemyPlayerCollision(k, enemy, player, gameContext) {
 
 function isOverlapping(enemy, player) {
   // use explicit _size if set, fallback to sensible default
-  const eSize = enemy._size ?? enemy._rectSize ?? 32;
-  const pSize = player._size ?? player._rectSize ?? 32;
+  const eSize = enemy._size ?? enemy.width ?? enemy.height ?? 28;
+  const pSize = player.width ?? player.height ?? 28;
   const overlapDist = (eSize + pSize) * 0.5;
   return enemy.pos.dist(player.pos) <= overlapDist;
 }

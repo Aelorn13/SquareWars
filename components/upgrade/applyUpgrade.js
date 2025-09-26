@@ -82,6 +82,34 @@ export function applyUpgrade(...args) {
 
     return;
   }
+    // Special: Improve Dash (affects both dashDuration and dashCooldown)
+  if (statName === "improveDash") {
+    const scaleVal = statConfig?.scale ?? 0.5;
+    const strength = (rarity?.multiplier ?? 0) * scaleVal;
+
+    // read persistent base if present, else use runtime value, else fallback defaults
+    const baseDur = typeof getPermanentBaseStat(player, "dashDuration") === "number"
+      ? getPermanentBaseStat(player, "dashDuration")
+      : (typeof player.dashDuration === "number" ? player.dashDuration : 0.2);
+    const baseCd = typeof getPermanentBaseStat(player, "dashCooldown") === "number"
+      ? getPermanentBaseStat(player, "dashCooldown")
+      : (typeof player.dashCooldown === "number" ? player.dashCooldown : 2.5);
+
+    // compute new values
+    const MAX_DUR = 5.0;
+    const MIN_CD = 0.2;
+
+    const newDur = Math.min(MAX_DUR, Math.max(0.01, baseDur * (1 + strength))); // increase duration
+    const newCd = Math.max(MIN_CD, baseCd * Math.max(0.01, (1 - strength))); // reduce cooldown
+
+    // persist and apply immediately
+    applyPermanentUpgrade(player, "dashDuration", newDur);
+    applyPermanentUpgrade(player, "dashCooldown", newCd);
+    player.dashDuration = newDur;
+    player.dashCooldown = newCd;
+
+    return;
+  }
 
   if (statName === "projectiles") {
     const currentBase = getPermanentBaseStat(player, "projectiles") || 1;

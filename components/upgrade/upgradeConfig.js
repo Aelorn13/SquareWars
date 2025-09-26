@@ -87,12 +87,20 @@ export const UPGRADE_CONFIG = {
     isEffect: true,
     isUnique: true,
     effectType: "ghost",
-    allowedTiers: [3],
+    allowedTiers: [4],
     // no numeric bonus needed; presence of the upgrade grants the behaviour
     bonuses: {
-      3: { /* semantic placeholder */ },
+      4: { /* semantic placeholder */ },
     },
   },
+    improveDash: {
+    name: "Improve Dash",
+    icon: "💨",
+    // scale controls magnitude. rarity.multiplier * scale = strength (fractional)
+    // e.g. scale 0.5 and Legendary (0.5) => strength = 0.25 = +25% duration / -25% cooldown
+    scale: 1,
+  },
+
 };
 
 /* ----------------- Rarity utilities (cached weights) ----------------- */
@@ -213,6 +221,16 @@ export function formatUpgradeForUI(statName, rolledRarity) {
         return out;
       }
     }
+  }
+    // Special combined dash upgrade
+  if (statName === "improveDash") {
+    const scaleVal = cfg?.scale ?? 0.5;
+    const strength = (rarityMult ?? 0) * scaleVal;
+    const durPct = Math.round(strength * 100);
+    const cdPct = Math.round(strength * 100);
+    out.bonusText = `${durPct > 0 ? "+" + durPct + "%" : "+0%"} / -${cdPct}%`;
+    out.description = `Dash: +${durPct}% duration, -${cdPct}% cooldown`;
+    return out;
   }
 
   // default numeric stat formatting

@@ -88,21 +88,22 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
         enemy._touchingPlayer = false;
       });
     }
-
     prevInv = nowInv;
   });
 
   k.onCollide("enemy", "player", (enemy, player) => {
     // If enemy already dead nothing to do
     if (enemy.dead) return;
-
+        // If player is ghosting during dash, allow pass-through.
+    if (player._isGhosting) {
+      return; // do nothing; don't mark _touchingPlayer
+    }
     // If player invincible or being knocked back, mark this enemy as touching and return.
     // We do not apply damage now so enemy doesn't die or knock the player during invuln.
     if (player.isInvincible || player.isKnockedBack) {
       enemy._touchingPlayer = true;
       return;
     }
-
     // Normal immediate collision handling
     handleEnemyPlayerCollision(k, enemy, player, gameContext);
   });

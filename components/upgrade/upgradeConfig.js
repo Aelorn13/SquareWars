@@ -81,6 +81,18 @@ export const UPGRADE_CONFIG = {
       5: { bounces: 3, spread: 26 },
     },
   },
+    ghost: {
+    name: "Ghost",
+    icon: "👻",
+    isEffect: true,
+    isUnique: true,
+    effectType: "ghost",
+    allowedTiers: [3],
+    // no numeric bonus needed; presence of the upgrade grants the behaviour
+    bonuses: {
+      3: { /* semantic placeholder */ },
+    },
+  },
 };
 
 /* ----------------- Rarity utilities (cached weights) ----------------- */
@@ -188,6 +200,11 @@ export function formatUpgradeForUI(statName, rolledRarity) {
         const sp = Number(tierBon.spread ?? 0);
         out.bonusText = `${cfg.name}`;
         out.description = `Ricochet: ${b} bounces, spread ${sp}°`;
+        return out;
+      }
+         case "ghost": {
+        out.bonusText = `${cfg.name}`;
+        out.description = `While dashing you become invincible and phase through enemies.`;
         return out;
       }
       default: {

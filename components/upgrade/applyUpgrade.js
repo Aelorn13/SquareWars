@@ -54,8 +54,20 @@ export function applyUpgrade(...args) {
 
   // generate stable-ish source id for effects
   const sourceId = player.id ?? player._id ?? player.name ?? `p_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-
-  // Special: multi-projectiles
+ // Special: Ghost (unique, non-projectile effect)
+if (statName === "ghost") {
+  if (!player) return;
+  if (player.hasGhost) return; // idempotent
+  player.hasGhost = true;
+  player._upgrades ??= [];
+  player._upgrades.push({
+    stat: "ghost",
+    rarity: rarity ?? null,   // <- use local variable
+    sourceId: sourceId ?? null, // <- use local variable
+    appliedAt: Date.now(),
+  });
+  return;
+}
   if (statName === "projectiles") {
     const currentBase = getPermanentBaseStat(player, "projectiles") || 1;
     const bonus = statConfig.bonuses?.[rarity?.tier] ?? 2;
@@ -159,7 +171,17 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
   const ownedEffects = new Set((player._projectileEffects ?? []).map(e => e.type));
   const available = Object.keys(UPGRADE_CONFIG).filter((stat) => {
     const cfg = UPGRADE_CONFIG[stat];
-    if (cfg?.isEffect && cfg?.isUnique && ownedEffects.has(cfg.effectType)) return false;
+    if (!cfg) return false;
+
+    // If upgrade is unique, exclude if already owned
+    if (cfg.isUnique) {
+      // projectile-typed unique effects stored in player._projectileEffects
+      if (cfg.isEffect && cfg.effectType && ownedEffects.has(cfg.effectType)) return false;
+
+      // non-projectile unique upgrades (e.g. ghost) stored as flags on player
+      if (stat === "ghost" && player.hasGhost) return false;
+    }
+
     return true;
   });
 

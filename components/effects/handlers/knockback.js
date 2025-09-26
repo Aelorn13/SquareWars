@@ -17,7 +17,7 @@ export const knockback = (kaboom, params = {}) => {
   // Behavior options (optional params)
   // params.scaleMode: "linear" | "sqrt" (default "linear")
   // params.minMultiplier: minimum multiplier to avoid zero (~0.1 recommended)
-  const scaleMode = params.scaleMode ?? "linear";
+  const scaleMode = params.scaleMode ?? "sqrt";
   const minMultiplier = params.minMultiplier ?? 0.1;
 
   return {

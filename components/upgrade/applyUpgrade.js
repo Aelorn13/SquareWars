@@ -54,20 +54,35 @@ export function applyUpgrade(...args) {
 
   // generate stable-ish source id for effects
   const sourceId = player.id ?? player._id ?? player.name ?? `p_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
- // Special: Ghost (unique, non-projectile effect)
-if (statName === "ghost") {
-  if (!player) return;
-  if (player.hasGhost) return; // idempotent
-  player.hasGhost = true;
-  player._upgrades ??= [];
-  player._upgrades.push({
-    stat: "ghost",
-    rarity: rarity ?? null,   // <- use local variable
-    sourceId: sourceId ?? null, // <- use local variable
-    appliedAt: Date.now(),
-  });
-  return;
-}
+  // Special: Ghost (unique, non-projectile effect)
+  if (statName === "ghost") {
+    if (!player) return;
+    if (player.hasGhost) return; // idempotent
+
+    // mark ownership + metadata
+    player.hasGhost = true;
+    player._upgrades ??= [];
+    player._upgrades.push({
+      stat: "ghost",
+      rarity: rarity ?? null,
+      sourceId: sourceId ?? null,
+      appliedAt: Date.now(),
+    });
+
+    // Double dashDuration: prefer permanent base if present, fallback to runtime value, then persist.
+    const curBase = getPermanentBaseStat(player, "dashDuration");
+    const currentBase = typeof curBase === "number"
+      ? curBase
+      : (typeof player.dashDuration === "number" ? player.dashDuration : 0.2);
+    const newDash = Math.max(0.01, currentBase * 2);
+
+    // Persist using your stat manager and apply immediately to the player object.
+    applyPermanentUpgrade(player, "dashDuration", newDash);
+    player.dashDuration = newDash;
+
+    return;
+  }
+
   if (statName === "projectiles") {
     const currentBase = getPermanentBaseStat(player, "projectiles") || 1;
     const bonus = statConfig.bonuses?.[rarity?.tier] ?? 2;

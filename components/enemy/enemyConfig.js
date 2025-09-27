@@ -33,7 +33,7 @@ export const ENEMY_CONFIGS = {
   spawner: {
     name: "spawner",
     score: 8,
-    spawnWeight: 1000,
+    spawnWeight: 7,
     color: [200, 50, 150],
     size: 36,
     maxHp: 6,

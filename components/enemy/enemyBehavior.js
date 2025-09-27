@@ -38,8 +38,15 @@ function handleEnemyPlayerCollision(k, enemy, player, gameContext) {
   if (enemy.type === "boss" || enemy.type === "miniboss") {
     player.isKnockedBack = true;
     const knockbackDir = player.pos.sub(enemy.pos).unit();
-    const knockbackDest = player.pos.add(knockbackDir.scale(KNOCKBACK_DISTANCE));
-    k.tween(player.pos, knockbackDest, KNOCKBACK_DURATION, (p) => (player.pos = p)).then(() => {
+    const knockbackDest = player.pos.add(
+      knockbackDir.scale(KNOCKBACK_DISTANCE)
+    );
+    k.tween(
+      player.pos,
+      knockbackDest,
+      KNOCKBACK_DURATION,
+      (p) => (player.pos = p)
+    ).then(() => {
       player.isKnockedBack = false;
     });
   } else {
@@ -80,6 +87,7 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
       // invincibility just ended -> check enemies that were touching or still overlap
       k.get("enemy").forEach((enemy) => {
         if (enemy.dead) return;
+        if (enemy._spawnGrace) return; // ignore newly spawned enemies during grace
         if (enemy._touchingPlayer || isOverlapping(enemy, player)) {
           if (!player.isInvincible && !player.isKnockedBack) {
             handleEnemyPlayerCollision(k, enemy, player, gameContext);
@@ -93,11 +101,8 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
 
   k.onCollide("enemy", "player", (enemy, player) => {
     // If enemy already dead nothing to do
-    if (enemy.dead) return;
-        // If player is ghosting during dash, allow pass-through.
-    if (player._isGhosting) {
-      return; // do nothing; don't mark _touchingPlayer
-    }
+    if (enemy.dead || enemy._spawnGrace || player._isGhosting) return;
+
     // If player invincible or being knocked back, mark this enemy as touching and return.
     // We do not apply damage now so enemy doesn't die or knock the player during invuln.
     if (player.isInvincible || player.isKnockedBack) {
@@ -109,7 +114,13 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
   });
 }
 
-export function createEnemyGameObject(k, player, config, spawnPos, gameContext) {
+export function createEnemyGameObject(
+  k,
+  player,
+  config,
+  spawnPos,
+  gameContext
+) {
   const components = [
     k.rect(config.size, config.size),
     k.color(...config.color),
@@ -148,10 +159,13 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
 
       recomputeStat(statName) {
         if (statName === "moveSpeed" || statName === "speed") {
-          const slowArr = Array.isArray(this._slowMultipliers) ? this._slowMultipliers : [];
+          const slowArr = Array.isArray(this._slowMultipliers)
+            ? this._slowMultipliers
+            : [];
           let multiplier = 1;
           for (const f of slowArr) multiplier *= Math.max(0, 1 - (f ?? 0));
-          if (typeof this._buffedMoveMultiplier === "number") multiplier *= this._buffedMoveMultiplier;
+          if (typeof this._buffedMoveMultiplier === "number")
+            multiplier *= this._buffedMoveMultiplier;
           multiplier = Math.max(0.01, multiplier);
           this.speed = (this.baseSpeed ?? this.speed ?? 0) * multiplier;
         }
@@ -162,7 +176,9 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
         this.dead = true;
         this.area.enabled = false;
         this.gameContext.increaseScore?.(this.score);
-        dropPowerUp(k, player, this.pos, this.gameContext.sharedState);
+        if (this.canDropPowerup !== false) {
+          dropPowerUp(k, player, this.pos, this.gameContext.sharedState);
+        }
         enemyDeathAnimation(k, this);
         if (this.type === "boss") {
           const snapshot = getPlayerStatsSnapshot(gameContext.player);
@@ -200,10 +216,16 @@ export function attachEnemyBehaviors(k, enemy, player) {
 
     attachBuffManager(k, enemy);
 
-    applyProjectileEffects(k, projectile, enemy, { source: projectile.source, sourceId: projectile.sourceId });
+    applyProjectileEffects(k, projectile, enemy, {
+      source: projectile.source,
+      sourceId: projectile.sourceId,
+    });
 
     if (typeof enemy.takeDamage === "function") {
-      enemy.takeDamage(projectile.damage, { source: projectile.source, isCrit: projectile.isCritical });
+      enemy.takeDamage(projectile.damage, {
+        source: projectile.source,
+        isCrit: projectile.isCritical,
+      });
     } else if (typeof enemy.hurt === "function") {
       enemy.hurt(projectile.damage);
     } else {
@@ -217,14 +239,21 @@ export function attachEnemyBehaviors(k, enemy, player) {
         enemy.speed = enemy.baseSpeed * (2 + (1 - hpRatio));
       }
       const hpRatio = Math.max(0.01, enemy.hp() / enemy.maxHp);
-      enemy.color = k.rgb(...interpolateColor(enemy.originalColor, [240, 240, 240], hpRatio));
+      enemy.color = k.rgb(
+        ...interpolateColor(enemy.originalColor, [240, 240, 240], hpRatio)
+      );
     } else {
       enemy.die();
     }
 
-    const shouldDestroy = projectile._shouldDestroyAfterHit === undefined ? true : !!projectile._shouldDestroyAfterHit;
+    const shouldDestroy =
+      projectile._shouldDestroyAfterHit === undefined
+        ? true
+        : !!projectile._shouldDestroyAfterHit;
     if (shouldDestroy) {
-      try { k.destroy(projectile); } catch (e) {}
+      try {
+        k.destroy(projectile);
+      } catch (e) {}
     }
   });
 }
@@ -237,8 +266,20 @@ function dropPowerUp(k, player, position, sharedState) {
 }
 
 function enemyDeathAnimation(k, enemy) {
-  k.tween(enemy.scale, k.vec2(0.1), 0.4, (s) => (enemy.scale = s), k.easings.easeInQuad);
-  k.tween(enemy.opacity, 0, 0.4, (o) => (enemy.opacity = o), k.easings.linear).then(() => {
+  k.tween(
+    enemy.scale,
+    k.vec2(0.1),
+    0.4,
+    (s) => (enemy.scale = s),
+    k.easings.easeInQuad
+  );
+  k.tween(
+    enemy.opacity,
+    0,
+    0.4,
+    (o) => (enemy.opacity = o),
+    k.easings.linear
+  ).then(() => {
     k.destroy(enemy);
   });
 }

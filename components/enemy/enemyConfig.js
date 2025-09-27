@@ -30,6 +30,32 @@ export const ENEMY_CONFIGS = {
     score: 6, spawnWeight: 3, color: [153, 36, 27], size: 36,
     maxHp: 9, speed: 60, damage: 2, rarity: 3,
   },
+  spawner: {
+    name: "spawner",
+    score: 8,
+    spawnWeight: 1000,
+    color: [200, 50, 150],
+    size: 36,
+    maxHp: 6,
+    speed: 55,
+    damage: 1,
+    rarity: 2,
+  },
+
+  small: {
+    name: "small",
+    score: 1,
+    spawnWeight: 0,   // do not spawn via random picker
+    color: [220, 220, 220],
+    size: 16,
+    maxHp: 1,         
+    speed: 140,
+    damage: 1,
+    rarity: 0,
+    hasBody: false,
+    opacity: 1,
+  },
+
     miniboss: {
     name: "miniboss",
     score: 30, spawnWeight: 0, color: [140, 40, 140], size: 50,

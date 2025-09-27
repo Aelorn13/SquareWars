@@ -6,6 +6,7 @@ import { ENEMY_CONFIGS, RARITY_SPAWN_BIAS } from "./enemyConfig.js";
 import { createEnemyGameObject, attachEnemyBehaviors } from "./enemyBehavior.js";
 import { attachBossBrain } from "./boss/bossAI.js";
 import { attachMinibossBrain } from "./boss/minibossAI.js";
+import { createSpawnerEnemy } from "./spawnerEnemy.js";
 
 const TELEGRAPH_DURATION = 0.6;
 
@@ -19,6 +20,10 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
   const spawnPos = posOverride ?? pickEdgeSpawnPosFarFromPlayer(k, gameContext.sharedState, player);
 
   const createAndFinalizeEnemy = () => {
+    if (enemyConfig.name === "spawner") {
+      return createSpawnerEnemy(k, player, gameContext, spawnPos);
+    }
+
     const enemy = createEnemyGameObject(k, player, enemyConfig, spawnPos, gameContext);
     if (enemy.type === "boss") {
       attachBossBrain(k, enemy, player, gameContext);

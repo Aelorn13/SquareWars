@@ -1,4 +1,4 @@
-// applyProjectileEffects.js
+// components/effects/applyProjectileEffects.js
 import { EFFECT_HANDLERS } from "./index.js";
 
 // Apply all effects from a projectile to a target
@@ -31,8 +31,27 @@ export function applyProjectileEffects(k, projectile, target, ctx = {}) {
         projectile,
       };
 
-      handler.install?.(target, effectCtx);
-      handler.apply?.(target, effectCtx, projectile);
+      // Try install first. If install indicates it successfully applied a persistent
+      // buff then skip apply(). If install returns a Promise handle that case.
+      try {
+        const installed = handler.install?.(target, effectCtx);
+        if (installed && typeof installed.then === "function") {
+          // async install -> await result then call apply only if install failed
+          installed
+            .then((res) => {
+              if (!res) handler.apply?.(target, effectCtx, projectile);
+            })
+            .catch(() => {
+              handler.apply?.(target, effectCtx, projectile);
+            });
+        } else {
+          // sync install result (boolean-ish). If not installed call apply.
+          if (!installed) handler.apply?.(target, effectCtx, projectile);
+        }
+      } catch (err) {
+        // If install throws, fall back to apply to preserve visual feedback
+        handler.apply?.(target, effectCtx, projectile);
+      }
     } catch (err) {
       console.error("Error applying effect", effect, err);
     }

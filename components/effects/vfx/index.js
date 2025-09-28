@@ -18,7 +18,6 @@ export function destroySlowVfx(k, vfx) {
   if (!vfx) return;
   (Array.isArray(vfx) ? vfx : [vfx]).forEach(item => destroyTint(getKaboomInstance(k), item));
 }
-
 // createBurnVfx: returns overlay node or array of nodes (matching createOverlay behavior)
 export function createBurnVfx(k, target, opts = {}) {
   if (!target) return null;
@@ -35,6 +34,7 @@ export function createBurnVfx(k, target, opts = {}) {
       allowMultiple: false,
       reuse: true,
       offset: opts.offset ?? null,
+      instanceId: opts.instanceId ?? undefined,
     });
     return overlay ? (Array.isArray(overlay) ? overlay : overlay) : null;
   }
@@ -46,6 +46,12 @@ export function createBurnVfx(k, target, opts = {}) {
 
   const results = [];
   for (let i = 0; i < count; i++) {
+    // When only one overlay is requested, preserve the provided instanceId exactly.
+    // If multiple overlays are created, append :i to keep them unique.
+    const instanceIdForOverlay = opts.instanceId
+      ? (count === 1 ? opts.instanceId : `${opts.instanceId}:${i}`)
+      : undefined;
+
     const off = Array.isArray(opts.offset) ? opts.offset[i] ?? opts.offset[0] : opts.offset ?? null;
     const overlay = createOverlay(kInstance, target, {
       type: "burn_icon",
@@ -53,8 +59,8 @@ export function createBurnVfx(k, target, opts = {}) {
       size: opts.size ?? opts.visualSize ?? 12,
       forceNew: !!opts.forceNew,
       allowMultiple: !!opts.allowMultiple || !!opts.forceNew,
-      offset: off ?? opts.randomSpot ? opts.offset ?? null : null,
-      instanceId: opts.instanceId ? `${opts.instanceId}:${i}` : undefined,
+      offset: off ?? (opts.randomSpot ? opts.offset ?? null : null),
+      instanceId: instanceIdForOverlay,
     });
     if (overlay) results.push(overlay);
   }

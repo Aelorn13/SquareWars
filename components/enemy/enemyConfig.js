@@ -78,4 +78,10 @@ export const ENEMY_CONFIGS = {
     color: [60,20,20], size: 80,
     maxHp: 300, speed: 80, damage: 3, rarity: 99,
   },
+    DUMMY: {
+    name: "DUMMY",
+    score: 0, spawnWeightStart: 0, spawnWeightEnd: 0,
+    color: [40,40,40], size: 80,
+    maxHp: 400, speed: 40, damage: 0, rarity: 99,
+  },
 };

@@ -2,7 +2,7 @@
  * @file Handles the logic for selecting, positioning, and spawning enemies.
  */
 
-import { ENEMY_CONFIGS, RARITY_SPAWN_BIAS } from "./enemyConfig.js";
+import { ENEMY_CONFIGS } from "./enemyConfig.js";
 import { createEnemyGameObject, attachEnemyBehaviors } from "./enemyBehavior.js";
 import { attachBossBrain } from "./boss/bossAI.js";
 import { attachMinibossBrain } from "./boss/minibossAI.js";
@@ -65,29 +65,44 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
 /**
  * Selects a random enemy type, biasing the choice based on game progress.
  */
+/**
+ * Selects a random enemy type, biasing the choice based on game progress.
+ * Uses per-enemy spawnWeightStart (progress=0) and spawnWeightEnd (progress=1).
+
+ */
 function chooseEnemyType(gameProgress) {
   const enemyTypes = Object.values(ENEMY_CONFIGS);
-  const clampedProgress = Math.max(0, Math.min(1, gameProgress));
+  const p = Math.max(0, Math.min(1, gameProgress));
 
   const effectiveWeights = enemyTypes.map((enemy) => {
-    if (enemy.spawnWeight === 0) return 0;
-    const rarityBias = RARITY_SPAWN_BIAS[enemy.rarity] ?? 0;
-    const biasMultiplier = Math.max(0, 1 + clampedProgress * rarityBias);
-    return enemy.spawnWeight * biasMultiplier;
+    const start = (enemy.spawnWeightStart ?? 0);
+    if (start === 0) return 0; // skip forced-zero types (bosses, smalls)
+
+    let end;
+    if (enemy.spawnWeightEnd !== undefined) {
+      end = enemy.spawnWeightEnd;
+    }  else {
+      end = start;
+    }
+    // linear interpolation between start and end across progress [0..1]
+    const weight = start + (end - start) * p;
+    return Math.max(0, weight);
   });
 
-  const totalWeight = effectiveWeights.reduce((sum, weight) => sum + weight, 0);
-  if (totalWeight <= 0) return enemyTypes[0];
+  const totalWeight = effectiveWeights.reduce((sum, w) => sum + w, 0);
+  if (totalWeight <= 0) {
+    const fallback = enemyTypes.find(e => (e.spawnWeightStart ?? 0) > 0);
+    return fallback ?? enemyTypes[0];
+  }
 
-  let randomRoll = Math.random() * totalWeight;
+  let r = Math.random() * totalWeight;
   for (let i = 0; i < enemyTypes.length; i++) {
-    randomRoll -= effectiveWeights[i];
-    if (randomRoll <= 0) {
-      return enemyTypes[i];
-    }
+    r -= effectiveWeights[i];
+    if (r <= 0) return enemyTypes[i];
   }
   return enemyTypes[0];
 }
+
 
 /**
  * Picks a random spawn position just outside the game arena.

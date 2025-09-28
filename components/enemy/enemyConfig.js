@@ -55,6 +55,17 @@ export const ENEMY_CONFIGS = {
     hasBody: false,
     opacity: 1,
   },
+  sniper: {
+    name: "sniper",
+    score: 6,
+    spawnWeight: 6,
+    color: [120, 40, 200],
+    size: 30,
+    maxHp: 5,
+    speed: 120,     // base speed used for moveTo
+    damage: 1,      // base damage applied by projectiles
+    rarity: 1,
+  },
 
     miniboss: {
     name: "miniboss",
@@ -66,6 +77,7 @@ export const ENEMY_CONFIGS = {
     score: 50, spawnWeight: 0, color: [60, 20, 20], size: 80,
     maxHp: 300, speed: 80, damage: 3, rarity: 99,
   },
+  
 };
 
 /**

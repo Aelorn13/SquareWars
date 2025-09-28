@@ -112,6 +112,40 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
     // Normal immediate collision handling
     handleEnemyPlayerCollision(k, enemy, player, gameContext);
   });
+    // --- handle enemy projectiles hitting the player ---
+  k.onCollide("player", "enemyProjectile", (player, projectile) => {
+    // Ignore if projectile or player invalid
+    if (!player || !projectile) return;
+    // allow ghosting to bypass bullets
+    if (player._isGhosting) return;
+    // if player is invincible/knocked-back ignore (consistent with enemy collisions)
+    if (player.isInvincible || player.isKnockedBack) return;
+
+    // Apply damage using player API if present
+    const dmg = projectile.damage ?? 1;
+    if (typeof player.takeDamage === "function") {
+      player.takeDamage(dmg, { source: projectile.source });
+    } else if (typeof player.hurt === "function") {
+      player.hurt(dmg);
+    } else {
+      player.hp = Math.max(0, (player.hp ?? 0) - dmg);
+    }
+
+    gameContext.updateHealthBar?.();
+
+    // destroy the projectile if it should
+    const shouldDestroy = projectile._shouldDestroyAfterHit === undefined ? true : !!projectile._shouldDestroyAfterHit;
+    if (shouldDestroy) {
+      try { k.destroy(projectile); } catch (e) {}
+    }
+
+    // check for player death
+    const playerHpNow = typeof player.hp === "function" ? player.hp() : player.hp;
+    if ((playerHpNow ?? 0) <= 0) {
+      const snapshot = getPlayerStatsSnapshot(gameContext.player);
+      k.go("gameover", { statsSnapshot: snapshot });
+    }
+  });
 }
 
 export function createEnemyGameObject(

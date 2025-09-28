@@ -2,7 +2,7 @@
 import { createPlayer } from "../components/player/player.js";
 import { spawnEnemy } from "../components/enemy/enemySpawner.js";
 import { setupEnemyPlayerCollisions } from "../components/enemy/enemyBehavior.js";
-import { setupBossBehaviors } from "../components/enemy/boss/bossSetup.js";
+// import { setupBossBehaviors } from "../components/enemy/boss/bossSetup.js";
 import {
   createPlayerStatsUI,
   createScoreLabel,
@@ -108,7 +108,7 @@ export function defineGameScene(k, scoreRef) {
       updateHealthBar: () => drawHealthBar(k, player.hp()),
     };
     setupEnemyPlayerCollisions(k, gameContext);
-    setupBossBehaviors(k, gameContext);
+    // setupBossBehaviors(k, gameContext);
     
     // --- UI Elements ---
     const scoreLabel = createScoreLabel(k);

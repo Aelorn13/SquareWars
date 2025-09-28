@@ -7,6 +7,7 @@ import { createEnemyGameObject, attachEnemyBehaviors } from "./enemyBehavior.js"
 import { attachBossBrain } from "./boss/bossAI.js";
 import { attachMinibossBrain } from "./boss/minibossAI.js";
 import { createSpawnerEnemy } from "./spawnerEnemy.js";
+import { createSniperEnemy } from "./sniperEnemy.js";
 
 const TELEGRAPH_DURATION = 0.6;
 
@@ -23,7 +24,9 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
     if (enemyConfig.name === "spawner") {
       return createSpawnerEnemy(k, player, gameContext, spawnPos);
     }
-
+      if (enemyConfig.name === "sniper") {
+    return createSniperEnemy(k, player, gameContext, spawnPos);
+  }
     const enemy = createEnemyGameObject(k, player, enemyConfig, spawnPos, gameContext);
     if (enemy.type === "boss") {
       attachBossBrain(k, enemy, player, gameContext);

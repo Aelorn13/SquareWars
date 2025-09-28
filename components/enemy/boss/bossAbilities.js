@@ -72,19 +72,29 @@ export const spreadShot = {
         const currentAngle = i * angleStep;
         const angleInRadians = k.deg2rad(currentAngle);
         const direction = k.vec2(Math.cos(angleInRadians), Math.sin(angleInRadians));
-        k.add([
-          k.rect(8, 8), k.color(255, 120, 0), k.pos(entity.pos), k.area(), k.anchor("center"),
-          k.offscreen({ destroy: true }), "bossBullet",
-          {
-            damage: params.damage,
-            velocity: direction.scale(params.speed),
-            update() {
-              if (!gameContext.sharedState.isPaused) {
-                this.pos = this.pos.add(this.velocity.scale(k.dt()));
-              }
-            }
-          },
-        ]);
+k.add([
+  k.rect(8, 8),
+  k.pos(entity.pos),
+  k.anchor("center"),
+  k.color(255, 120, 0),
+  k.opacity(1),              // required when using lifespan or fade
+  k.area(),
+  k.offscreen({ destroy: true }),
+  "enemyProjectile",
+  {
+    damage: params.damage,
+    // velocity stored so update() can move respecting pause
+    velocity: direction.scale(params.speed),
+    source: entity,
+    _shouldDestroyAfterHit: true,
+    
+    update() {
+      if (!gameContext.sharedState.isPaused) {
+        this.pos = this.pos.add(this.velocity.scale(k.dt()));
+      }
+    },
+  },
+]);
       }
     };
 

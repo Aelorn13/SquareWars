@@ -2,7 +2,6 @@
 import { createPlayer } from "../components/player/player.js";
 import { setupEnemyPlayerCollisions } from "../components/enemy/enemyBehavior.js";
 import { spawnEnemy } from "../components/enemy/enemySpawner.js";
-// import { setupBossBehaviors } from "../components/enemy/boss/bossSetup.js";
 
 import {
   createScoreLabel,
@@ -108,7 +107,6 @@ export function defineDebugScene(k) {
     };
 
     setupEnemyPlayerCollisions(k, gameContext);
-    // setupBossBehaviors(k, gameContext);
 
     const checkSecretToggle = makeSecretToggle(k, "game", keysPressed);
 

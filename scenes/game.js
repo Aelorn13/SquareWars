@@ -2,7 +2,6 @@
 import { createPlayer } from "../components/player/player.js";
 import { spawnEnemy } from "../components/enemy/enemySpawner.js";
 import { setupEnemyPlayerCollisions } from "../components/enemy/enemyBehavior.js";
-// import { setupBossBehaviors } from "../components/enemy/boss/bossSetup.js";
 import {
   createPlayerStatsUI,
   createScoreLabel,
@@ -45,8 +44,6 @@ export function defineGameScene(k, scoreRef) {
   });
 }
   k.scene("game", () => {
-        // registerVisualEffects(EFFECT_HANDLERS, k);
-
     if (isMobileDevice()) {
       registerMobileController(() => makeMobileController(k));
     }
@@ -108,7 +105,6 @@ export function defineGameScene(k, scoreRef) {
       updateHealthBar: () => drawHealthBar(k, player.hp()),
     };
     setupEnemyPlayerCollisions(k, gameContext);
-    // setupBossBehaviors(k, gameContext);
     
     // --- UI Elements ---
     const scoreLabel = createScoreLabel(k);

@@ -34,7 +34,6 @@ export const burn = (kaboom, params = {}) => {
       const defaultCap = isBoss(target) ? Math.max(1, computedCap * 2) : computedCap;
       const maxStacks = requestedMaxStacks ?? defaultCap;
 
-      // --- FIX #1: Handle Max Stacks to prevent flickering ---
       // If stacks are at the limit, refresh existing burn buffs instead of adding a new one.
       const currentStacks = (target._buffManager.buffs || []).filter(b => b.type === "burn").length;
       if (currentStacks >= maxStacks) {
@@ -64,9 +63,6 @@ export const burn = (kaboom, params = {}) => {
           target._burnStackCount = (target._burnStackCount || 0) + 1;
 
           if (showVfx) {
-            // --- FIX #2: Correctly create a new VFX for each stack ---
-            // This section is now corrected to ensure a new visual is always created
-            // for a new buff instance, fixing the "only one VFX" bug.
             try {
               const offset = _randomLocalOffset(k, target, 0.45);
               const created = createBurnVfx(k, target, {

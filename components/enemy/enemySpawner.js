@@ -1,7 +1,5 @@
-/**components/enemy/enemySpawner.js
- * @file Handles the logic for selecting, positioning, and spawning enemies.
- */
 
+// ===== components/enemy/enemySpawner.js =====
 import { ENEMY_CONFIGS } from "./enemyConfig.js";
 import { createEnemyGameObject, attachEnemyBehaviors } from "./enemyBehavior.js";
 import { attachBossBrain } from "./boss/bossAI.js";
@@ -11,27 +9,28 @@ import { createSniperEnemy } from "./sniperEnemy.js";
 
 const TELEGRAPH_DURATION = 0.6;
 
-/**
- * Orchestrates spawning an enemy, handling telegraphs and delayed creation.
- */
 export function spawnEnemy(k, player, gameContext, options = {}) {
-  const { forceType = null, spawnPos: posOverride = null, progress = 0, ability = null, scaling = {} } = options;
+  const { forceType, spawnPos: posOverride, progress = 0, ability, scaling = {} } = options;
 
   const enemyConfig = forceType ? ENEMY_CONFIGS[forceType] : chooseEnemyType(progress);
   const spawnPos = posOverride ?? pickEdgeSpawnPosFarFromPlayer(k, gameContext.sharedState, player);
 
-  const createAndFinalizeEnemy = () => {
+  const createEnemy = () => {
+    // Special enemy types
     if (enemyConfig.name === "spawner") {
       return createSpawnerEnemy(k, player, gameContext, spawnPos);
     }
-      if (enemyConfig.name === "sniper") {
-    return createSniperEnemy(k, player, gameContext, spawnPos);
-  }
+    if (enemyConfig.name === "sniper") {
+      return createSniperEnemy(k, player, gameContext, spawnPos);
+    }
+
+    // Standard enemy creation
     const enemy = createEnemyGameObject(k, player, enemyConfig, spawnPos, gameContext);
+    
+    // Attach appropriate AI
     if (enemy.type === "boss") {
       attachBossBrain(k, enemy, player, gameContext);
-    } 
-    else if (enemy.type === "miniboss") {
+    } else if (enemy.type === "miniboss") {
       if (!ability) {
         console.error("Miniboss spawned without an ability!");
         return;  
@@ -40,149 +39,146 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
     } else {
       attachEnemyBehaviors(k, enemy, player);
     }
+    
     return enemy;
   };
 
+  // Immediate spawn if position override
   if (posOverride) {
-    return createAndFinalizeEnemy();
+    return createEnemy();
   }
 
+  // Show telegraph before spawning
   showSpawnTelegraph(k, spawnPos, gameContext.sharedState, TELEGRAPH_DURATION);
 
+  // Boss spawns return a promise
   if (enemyConfig.name === "boss") {
-    return new Promise((resolve) => {
-      k.wait(TELEGRAPH_DURATION, () => {
-        const boss = createAndFinalizeEnemy();
-        resolve(boss);
-      });
+    return new Promise(resolve => {
+      k.wait(TELEGRAPH_DURATION, () => resolve(createEnemy()));
     });
-  } else {
-    k.wait(TELEGRAPH_DURATION, createAndFinalizeEnemy);
-    return null;
   }
+
+  // Regular enemies spawn after telegraph
+  k.wait(TELEGRAPH_DURATION, createEnemy);
+  return null;
 }
 
 /**
- * Selects a random enemy type, biasing the choice based on game progress.
+ * Select enemy type based on game progress
+ * Progress 0-1 interpolates between start and end spawn weights
  */
-/**
- * Selects a random enemy type, biasing the choice based on game progress.
- * Uses per-enemy spawnWeightStart (progress=0) and spawnWeightEnd (progress=1).
+function chooseEnemyType(progress) {
+  const types = Object.values(ENEMY_CONFIGS);
+  const p = Math.max(0, Math.min(1, progress));
 
- */
-function chooseEnemyType(gameProgress) {
-  const enemyTypes = Object.values(ENEMY_CONFIGS);
-  const p = Math.max(0, Math.min(1, gameProgress));
-
-  const effectiveWeights = enemyTypes.map((enemy) => {
-    const start = (enemy.spawnWeightStart ?? 0);
-    if (start === 0) return 0; // skip forced-zero types (bosses, smalls)
-
-    let end;
-    if (enemy.spawnWeightEnd !== undefined) {
-      end = enemy.spawnWeightEnd;
-    }  else {
-      end = start;
-    }
-    // linear interpolation between start and end across progress [0..1]
-    const weight = start + (end - start) * p;
-    return Math.max(0, weight);
+  // Calculate effective weights for current progress
+  const weights = types.map(enemy => {
+    const start = enemy.spawnWeightStart ?? 0;
+    if (start === 0) return 0; // Skip enemies with 0 start weight
+    
+    const end = enemy.spawnWeightEnd ?? start;
+    return Math.max(0, start + (end - start) * p);
   });
 
-  const totalWeight = effectiveWeights.reduce((sum, w) => sum + w, 0);
-  if (totalWeight <= 0) {
-    const fallback = enemyTypes.find(e => (e.spawnWeightStart ?? 0) > 0);
-    return fallback ?? enemyTypes[0];
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  if (total <= 0) {
+    // Fallback to first enemy with positive weight
+    return types.find(e => (e.spawnWeightStart ?? 0) > 0) ?? types[0];
   }
 
-  let r = Math.random() * totalWeight;
-  for (let i = 0; i < enemyTypes.length; i++) {
-    r -= effectiveWeights[i];
-    if (r <= 0) return enemyTypes[i];
+  // Weighted random selection
+  let r = Math.random() * total;
+  for (let i = 0; i < types.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return types[i];
   }
-  return enemyTypes[0];
+  return types[0];
 }
 
-
-/**
- * Picks a random spawn position just outside the game arena.
- */
 function pickEdgeSpawnPos(k, sharedState, offset = 24) {
-    const bounds = sharedState?.area ?? { x: 0, y: 0, w: k.width(), h: k.height() };
-    const edges = [
-        () => k.vec2(k.rand(bounds.x, bounds.x + bounds.w), bounds.y - offset),
-        () => k.vec2(k.rand(bounds.x, bounds.x + bounds.w), bounds.y + bounds.h + offset),
-        () => k.vec2(bounds.x - offset, k.rand(bounds.y, bounds.y + bounds.h)),
-        () => k.vec2(bounds.x + bounds.w + offset, k.rand(bounds.y, bounds.y + bounds.h)),
-    ];
-    return k.choose(edges)();
+  const bounds = sharedState?.area ?? { x: 0, y: 0, w: k.width(), h: k.height() };
+  
+  // Random position on one of four edges
+  const edges = [
+    () => k.vec2(k.rand(bounds.x, bounds.x + bounds.w), bounds.y - offset), // Top
+    () => k.vec2(k.rand(bounds.x, bounds.x + bounds.w), bounds.y + bounds.h + offset), // Bottom
+    () => k.vec2(bounds.x - offset, k.rand(bounds.y, bounds.y + bounds.h)), // Left
+    () => k.vec2(bounds.x + bounds.w + offset, k.rand(bounds.y, bounds.y + bounds.h)), // Right
+  ];
+  
+  return k.choose(edges)();
 }
 
 /**
- * Tries multiple times to find a spawn position that is a minimum distance from the player.
+ * Find spawn position far from player
  */
-function pickEdgeSpawnPosFarFromPlayer(k, sharedState, player, minDistance = 120, maxTries = 8) {
-  let bestPos = null;
+function pickEdgeSpawnPosFarFromPlayer(k, sharedState, player, minDist = 120, maxTries = 8) {
+  let best = null;
+  
   for (let i = 0; i < maxTries; i++) {
     const pos = pickEdgeSpawnPos(k, sharedState, 48);
-    if (pos.dist(player.pos) >= minDistance) {
-      return pos;
-    }
-    if (!bestPos) {
-      bestPos = pos;
-    }
+    if (pos.dist(player.pos) >= minDist) return pos;
+    if (!best) best = pos;
   }
-  return bestPos;
+  
+  return best;
 }
 
 /**
- * Displays a visual telegraph indicating an upcoming enemy spawn.
- * This version uses a manual onUpdate loop to precisely control the animation feel.
+ * Visual indicator for incoming enemy spawn
  */
-function showSpawnTelegraph(k, spawnPosition, sharedState, duration) {
-  const arenaBounds = sharedState?.area ?? { x: 0, y: 0, w: k.width(), h: k.height() };
-  const arenaCenter = k.vec2(arenaBounds.x + arenaBounds.w / 2, arenaBounds.y + arenaBounds.h / 2);
-  const directionToCenter = arenaCenter.sub(spawnPosition).unit();
+function showSpawnTelegraph(k, pos, sharedState, duration) {
+  const arena = sharedState?.area ?? { x: 0, y: 0, w: k.width(), h: k.height() };
+  const center = k.vec2(arena.x + arena.w / 2, arena.y + arena.h / 2);
+  const dirToCenter = center.sub(pos).unit();
 
-  // The parent object acts as an animation controller.
-  const telegraphController = k.add([
-    k.pos(spawnPosition),
+  const telegraph = k.add([
+    k.pos(pos),
     "spawnTelegraph",
     {
-      elapsedTime: 0,
-      // The update logic is now on the parent, controlling its children.
+      elapsed: 0,
       update() {
-        this.elapsedTime += k.dt();
-        // Destroy the controller and its children when the animation is done.
-        if (this.elapsedTime >= duration) {
+        this.elapsed += k.dt();
+        if (this.elapsed >= duration) {
           k.destroy(this);
           return;
         }
 
-        const progress = this.elapsedTime / duration;
-
-        // Animate the ring child
-        const scalePulse = 0.6 + Math.sin(progress * Math.PI) * 0.6;
-        this.ring.scale = k.vec2(scalePulse);
+        const progress = this.elapsed / duration;
+        
+        // Pulse ring
+        const pulse = 0.6 + Math.sin(progress * Math.PI) * 0.6;
+        this.ring.scale = k.vec2(pulse);
         this.ring.opacity = 0.9 * (1 - progress);
-
-        // Animate the pointer child
-        this.pointer.pos = directionToCenter.scale(8 * progress);
+        
+        // Animate pointer
+        this.pointer.pos = dirToCenter.scale(8 * progress);
         this.pointer.scale = k.vec2(1 + progress * 0.4);
         this.pointer.opacity = 0.9 * (1 - progress);
       },
     },
   ]);
 
-  // Children are added to the controller. They just exist; their parent animates them.
-  telegraphController.ring = telegraphController.add([
-    k.circle(9), k.pos(0, 0), k.anchor("center"), k.color(255, 255, 255),
-    k.opacity(0.9), k.scale(1), k.z(60),
+  // Ring indicator
+  telegraph.ring = telegraph.add([
+    k.circle(9),
+    k.pos(0, 0),
+    k.anchor("center"),
+    k.color(255, 255, 255),
+    k.opacity(0.9),
+    k.scale(1),
+    k.z(60),
   ]);
 
-  telegraphController.pointer = telegraphController.add([
-    k.rect(70, 6, { radius: 3 }), k.pos(0, 0), k.anchor("center"),
-    k.rotate(directionToCenter.angle()), k.color(255, 255, 255),
-    k.opacity(0.9), k.scale(1), k.z(61),
+  // Direction pointer
+  telegraph.pointer = telegraph.add([
+    k.rect(70, 6, { radius: 3 }),
+    k.pos(0, 0),
+    k.anchor("center"),
+    k.rotate(dirToCenter.angle()),
+    k.color(255, 255, 255),
+    k.opacity(0.9),
+    k.scale(1),
+    k.z(61),
   ]);
 }

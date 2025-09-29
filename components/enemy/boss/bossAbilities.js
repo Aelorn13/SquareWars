@@ -24,7 +24,7 @@ export const summonMinions = {
         const angleInRadians = k.deg2rad(k.rand(0, 360));
         const direction = k.vec2(Math.cos(angleInRadians), Math.sin(angleInRadians));
         const baseDistance = entity.width * 0.75;
-        const randomOffset = k.rand(30, 70);
+        const randomOffset = k.rand(10, 20);
         const offset = direction.scale(baseDistance + randomOffset);
         const spawnPos = entity.pos.add(offset);
 

@@ -31,7 +31,7 @@ export function createDpsHud(k, player, gameState, opts = {}) {
     const reqVal = Number.isFinite(req.requiredDPS) ? req.requiredDPS : (req.stabilityDPS || 0);
     const pSingle = (playerDps && playerDps.singleTarget && playerDps.singleTarget.totalDps) || 0;
     const pCrowd = (playerDps && playerDps.crowd && playerDps.crowd.totalDps) || 0;
-    return `ReqDPS: ${reqVal.toFixed(1)} | P(s): ${pSingle.toFixed(1)} | P(c): ${pCrowd.toFixed(1)} | spawn/s: ${req.spawnRate.toFixed(2)} | prog: ${(gameState.spawnProgress*100).toFixed(0)}%`;
+    return `ReqDPS: ${reqVal.toFixed(1)} | Player(solo): ${pSingle.toFixed(1)} | Player(aoe): ${pCrowd.toFixed(1)} | spawn/s: ${req.spawnRate.toFixed(2)} | prog: ${(gameState.spawnProgress*100).toFixed(0)}%`;
   }
 
   function detectEffects() {

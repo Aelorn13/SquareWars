@@ -1,4 +1,4 @@
-// components/enemy/boss/aiCommon.js
+// components/enemy/boss/bossAIcommon.js
 import { showCritEffect, lerpAngle } from "../enemyBehavior.js";
 import { VULNERABILITY_DAMAGE_MULTIPLIER } from "./bossConfig.js";
 import { applyProjectileEffects } from "../../effects/applyProjectileEffects.js";

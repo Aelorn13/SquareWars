@@ -28,6 +28,10 @@ import {
 } from "../components/player/controls.js";
 import { makeMobileController } from "../components/player/mobile/index.js";
 import { makeSecretToggle } from "../components/utils/secretToggle.js";
+
+import { createDpsHud } from "../components/utils/dpsHud.js";
+
+
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
 
@@ -47,6 +51,7 @@ export function defineGameScene(k, scoreRef) {
     if (isMobileDevice()) {
       registerMobileController(() => makeMobileController(k));
     }
+
 
     // --- Game Arena Setup ---
     const ARENA_MARGIN = Math.floor(Math.min(k.width(), k.height()) * 0.05);
@@ -122,6 +127,14 @@ export function defineGameScene(k, scoreRef) {
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
 
+    const dpsHud = createDpsHud(k, player, gameState, {
+  initialSpawnInterval: initialEnemySpawnInterval,
+  minimalSpawnInterval: MINIMAL_SPAWN_INTERVAL,
+  labelPos: { x: 200, y: 14 },
+  fontSize: 12,
+  updateInterval: 2,
+  safetyFactor: 1.2,
+});
     //debug things
     const checkSecretToggle = makeSecretToggle(k, "debug", keysPressed);
 
@@ -139,6 +152,7 @@ export function defineGameScene(k, scoreRef) {
 
     let minibossesSpawned = 0;
     let usedAbilities = [];
+
 
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
@@ -165,12 +179,13 @@ export function defineGameScene(k, scoreRef) {
       } else {
         wasPauseKeyPreviouslyPressed = false;
       }
+     dpsHud.update(k.dt(), keysPressed, gameState.isPaused || gameState.isUpgradePanelOpen);
+
       k.paused = gameState.isPaused || gameState.isUpgradePanelOpen;
 
       if (k.paused) return;
 
       gameState.elapsedTime += k.dt();
-
       // --- UI Updates ---
       dashCooldownBar.width =
         dashCooldownBar.fullWidth * player.getDashCooldownProgress();

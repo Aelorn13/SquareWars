@@ -81,6 +81,20 @@ export const UPGRADE_CONFIG = {
       5: { bounces: 3, spread: 26 },
     },
   },
+  pierce: {
+  name: "Piercing Rounds",
+  icon: "🗡️",
+  isEffect: true,
+  isUnique: true,
+  effectType: "pierce",
+  allowedTiers: [ 3, 4, 5],
+  bonuses: {
+    3: { pierces: 1 },
+    4: { pierces: 2 },
+    5: { pierces: 3 },
+  },
+},
+
     ghost: {
     name: "Ghost",
     icon: "👻",
@@ -213,6 +227,12 @@ export function formatUpgradeForUI(statName, rolledRarity) {
          case "ghost": {
         out.bonusText = `${cfg.name}`;
         out.description = `While dashing you become invincible and phase through enemies.`;
+        return out;
+      }
+          case "pierce": {
+        const p = Number(tierBon.pierces ?? 0);
+        out.bonusText = `${cfg.name}`;
+        out.description = `Pierce: ${p} enemies`;
         return out;
       }
       default: {

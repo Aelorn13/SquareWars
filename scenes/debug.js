@@ -28,6 +28,7 @@ import {
   createEnemySpawner,   
   createBossSpawner,    
 } from "../components/ui/debug/index.js";
+import { createManualUpgradeButton } from "../components/ui/debug/manualUpgradeButton.js";
 
 /**
  * Defines the debug game scene for testing game mechanics.
@@ -124,6 +125,7 @@ export function defineDebugScene(k) {
     let currentPanelY = debugPanelMargin;
     let isDebugUIVisible = true;
 
+
     const debugUIBase = k.add([
       k.rect(debugPanelWidth + 20, k.height() - debugPanelMargin * 2),
       k.pos(debugPanelX - 10, debugPanelMargin),
@@ -146,6 +148,12 @@ export function defineDebugScene(k) {
     });
     currentPanelY += 40;
 
+        createManualUpgradeButton(k, {
+  y: currentPanelY,
+  player,
+  gameState,
+  isDebugUIVisible: () => isDebugUIVisible,
+});
     // --- Power-up Spawner (moved into debug UI bundle) ---
     spawnAllDebugPowerUps(k, ARENA, gameState);
 

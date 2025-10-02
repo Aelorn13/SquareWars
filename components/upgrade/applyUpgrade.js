@@ -238,14 +238,19 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
 
   // Wrap the callback so early clicks are ignored.
   showUpgradeUI(k, offered, (picked) => {
+
     if (sharedState.upgradeInteractionLocked) {
       // ignore accidental clicks during the lock period
       return;
     }
 
     // normal handling
-    if (picked === "skip") addScore(10);
-    else applyUpgrade(player, picked);
+       if (picked === "skip") {
+      addScore(10);
+    }
+    else if (picked && picked.stat) {
+      applyUpgrade(player, picked);
+    }
 
     // cleanup and restore state
     clearTimeout(unlockTimer);

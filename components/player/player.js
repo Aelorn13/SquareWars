@@ -186,7 +186,7 @@ export function createPlayer(k, sharedState) {
   ]);
 
   player.onUpdate(() => {
-    if (sharedState.isPaused) return;
+    if (sharedState.isPaused || sharedState.upgradeOpen) return;
 
     updateInput(k);
     dash.update(k.dt());

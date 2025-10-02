@@ -247,16 +247,22 @@ export function createAimJoystick({
       return !!firing;
     },
     destroy() {
+            if (supportsPointer && pointerId !== null) {
+        try { base.releasePointerCapture(pointerId); } catch(e) {}
+        pointerId = null;
+      }
+      
       window.removeEventListener("resize", onResize);
       if (supportsPointer) {
         base.removeEventListener("pointerdown", onPointerDown);
-        window.removeEventListener("pointermove", onPointerMove);
-        window.removeEventListener("pointerup", onPointerUp);
         base.removeEventListener("pointercancel", onPointerUp);
         base.removeEventListener("lostpointercapture", onPointerUp);
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+        
       } else {
-        base.removeEventListener("touchstart", onTouchStart);
-        window.removeEventListener("touchmove", onTouchMove);
+        base.removeEventListener("touchstart", onTouchStart, { passive: false });
+        window.removeEventListener("touchmove", onTouchMove, { passive: false });
         window.removeEventListener("touchend", onTouchEnd);
         window.removeEventListener("touchcancel", onTouchEnd);
       }

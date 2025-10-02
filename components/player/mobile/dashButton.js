@@ -142,7 +142,7 @@ export function createDashButton({
         window.removeEventListener("pointerup", onPointerUp);
         btn.removeEventListener("pointercancel", onPointerUp);
       } else {
-        btn.removeEventListener("touchstart", onTouchStart);
+        btn.removeEventListener("touchstart", onTouchStart, { passive: false });
         window.removeEventListener("touchend", onTouchEnd);
         window.removeEventListener("touchcancel", onTouchEnd);
       }

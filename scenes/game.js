@@ -25,6 +25,7 @@ import {
 import {
   isMobileDevice,
   registerMobileController,
+  unregisterMobileController
 } from "../components/player/controls.js";
 import { makeMobileController } from "../components/player/mobile/index.js";
 import { makeSecretToggle } from "../components/utils/secretToggle.js";
@@ -49,8 +50,10 @@ export function defineGameScene(k, scoreRef) {
     });
   }
   k.scene("game", () => {
+        let mobileControllerIsRegistered = false;
     if (isMobileDevice()) {
       registerMobileController(() => makeMobileController(k));
+      mobileControllerIsRegistered = true;
     }
 
     // --- Game Arena Setup ---
@@ -74,7 +77,7 @@ export function defineGameScene(k, scoreRef) {
     // --- Game State & Context ---
     const gameState = {
       isPaused: false,
-      isUpgradePanelOpen: false,
+      upgradeOpen: false,
       area: ARENA,
       spawnProgress: 0,
       elapsedTime: 0,
@@ -128,6 +131,7 @@ export function defineGameScene(k, scoreRef) {
     let currentBoss = null;
     let wasAutoTogglePreviouslyPressed = false;
 
+
     const dpsHud = createDpsHud(k, player, gameState, {
       initialSpawnInterval: initialEnemySpawnInterval,
       minimalSpawnInterval: MINIMAL_SPAWN_INTERVAL,
@@ -156,7 +160,21 @@ export function defineGameScene(k, scoreRef) {
 
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
+      
       checkSecretToggle();
+            if (isMobileDevice()) {
+        const shouldBeRegistered = !gameState.isPaused && !gameState.upgradeOpen;
+
+        if (shouldBeRegistered && !mobileControllerIsRegistered) {
+          // Game is running, but controller is missing -> Register it
+          registerMobileController(() => makeMobileController(k));
+          mobileControllerIsRegistered = true;
+        } else if (!shouldBeRegistered && mobileControllerIsRegistered) {
+          // Game is paused, but controller is active -> Unregister it
+          unregisterMobileController();
+          mobileControllerIsRegistered = false;
+        }
+      }
 
       // --- Pause Handling ---
       if (keysPressed["KeyP"]) {
@@ -192,13 +210,16 @@ export function defineGameScene(k, scoreRef) {
       dpsHud.update(
         k.dt(),
         keysPressed,
-        gameState.isPaused || gameState.isUpgradePanelOpen
+        gameState.isPaused || gameState.upgradeOpen
       );
       autoShootTick(k, player, gameState);
+        //==========================================================================================================================================
+      // k.paused = gameState.isPaused || gameState.upgradeOpen;
+      // if (k.paused) return;
 
-      k.paused = gameState.isPaused || gameState.isUpgradePanelOpen;
-
-      if (k.paused) return;
+        if (gameState.isPaused || gameState.upgradeOpen) {
+          return;
+      }
 
       gameState.elapsedTime += k.dt();
       // --- UI Updates ---

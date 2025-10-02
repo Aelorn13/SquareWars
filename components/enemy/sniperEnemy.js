@@ -46,7 +46,6 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
     const aim = player.pos.sub(sniper.pos).unit();
     const offset = (sniper._size ?? 28) * 0.6 + 8;
     const bulletPos = sniper.pos.add(aim.scale(offset));
-    const velocity = aim.scale(260);
 
     const proj = k.add([
       k.circle(5),
@@ -59,7 +58,6 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
       {
         damage: sniper.damage ?? 2,
         source: sniper,
-        _shouldDestroyAfterHit: true,
         velocity: aim.scale(260),
       },
     ]);

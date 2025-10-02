@@ -1,7 +1,9 @@
-
 // ===== components/enemy/sniperEnemy.js =====
 import { ENEMY_CONFIGS } from "./enemyConfig.js";
-import { createEnemyGameObject, handleProjectileCollision } from "./enemyBehavior.js";
+import {
+  createEnemyGameObject,
+  handleProjectileCollision,
+} from "./enemyBehavior.js";
 
 export function createSniperEnemy(k, player, gameContext, spawnPos) {
   const cfg = ENEMY_CONFIGS.sniper;
@@ -22,9 +24,13 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
 
   sniper._shootCooldown = k.rand(1.8, 3.2);
 
-  const getArena = () => gameContext.sharedState?.area ?? { 
-    x: 0, y: 0, w: k.width(), h: k.height() 
-  };
+  const getArena = () =>
+    gameContext.sharedState?.area ?? {
+      x: 0,
+      y: 0,
+      w: k.width(),
+      h: k.height(),
+    };
 
   function computeMaxRadius(center) {
     const area = getArena();
@@ -36,35 +42,40 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
 
   function shootAtPlayer() {
     if (sniper.dead) return;
-    
+
     const aim = player.pos.sub(sniper.pos).unit();
     const offset = (sniper._size ?? 28) * 0.6 + 8;
     const bulletPos = sniper.pos.add(aim.scale(offset));
-    
-    k.add([
+    const velocity = aim.scale(260);
+
+    const proj = k.add([
       k.circle(5),
       k.pos(bulletPos),
       k.anchor("center"),
       k.area(),
-      k.move(aim, 260),
-      k.rotate(aim.angle()),
+      k.offscreen({ destroy: true }),
       k.color(255, 165, 0),
-      k.opacity(1),
-      k.lifespan(4, { fade: 0.08 }),
       "enemyProjectile",
-      { 
-        damage: sniper.damage ?? 2, 
-        source: sniper, 
-        _shouldDestroyAfterHit: true 
+      {
+        damage: sniper.damage ?? 2,
+        source: sniper,
+        _shouldDestroyAfterHit: true,
+        velocity: aim.scale(260),
       },
     ]);
-    
+
+    proj.onUpdate(() => {
+      if (gameContext?.sharedState?.isPaused) return;
+      if (!proj.exists()) return;
+      proj.pos = proj.pos.add(proj.velocity.scale(k.dt()));
+    });
+
     k.shake(0.04);
   }
 
   sniper.onUpdate(() => {
     if (sniper.gameContext.sharedState.isPaused || sniper.dead) return;
-    
+
     const dt = k.dt();
     const orbit = sniper._orbit;
 
@@ -77,12 +88,15 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
     if (orbit.changeTimer <= 0) {
       orbit.angSpeed = k.rand(0.9, 2.6) * k.choose([1, -1]);
       orbit.centerOffset = k.vec2(k.rand(-120, 120), k.rand(-120, 120));
-      
+
       const desiredCenter = player.pos.add(orbit.centerOffset);
       const maxAllowed = computeMaxRadius(desiredCenter);
-      orbit.radiusTarget = k.rand(orbit.minRadius, Math.max(orbit.minRadius, maxAllowed));
+      orbit.radiusTarget = k.rand(
+        orbit.minRadius,
+        Math.max(orbit.minRadius, maxAllowed)
+      );
       orbit.changeTimer = k.rand(1.0, 3.2);
-      
+
       // Occasional burst mode
       if (Math.random() < 0.28) {
         orbit.burstTimer = 0.18 + Math.random() * 0.4;
@@ -91,14 +105,14 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
 
     // Smooth radius changes
     orbit.radius += (orbit.radiusTarget - orbit.radius) * Math.min(1, dt * 2.6);
-    
+
     // Update angle (faster during burst)
     const speedMult = orbit.burstTimer > 0 ? 3 : 1;
     orbit.angle += orbit.angSpeed * speedMult * dt;
 
     // Smooth center tracking
     const desiredCenter = player.pos.add(orbit.centerOffset);
-    orbit.center = orbit.center 
+    orbit.center = orbit.center
       ? orbit.center.lerp(desiredCenter, Math.min(1, dt * 2.8))
       : desiredCenter;
 
@@ -110,7 +124,10 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
     const area = getArena();
     const margin = 8 + (sniper._size ?? 28);
     const clampedPos = k.vec2(
-      Math.max(area.x + margin, Math.min(area.x + area.w - margin, targetPos.x)),
+      Math.max(
+        area.x + margin,
+        Math.min(area.x + area.w - margin, targetPos.x)
+      ),
       Math.max(area.y + margin, Math.min(area.y + area.h - margin, targetPos.y))
     );
 
@@ -129,7 +146,9 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
   });
 
   // Use shared projectile handler
-  sniper.onCollide("projectile", proj => handleProjectileCollision(k, sniper, proj));
+  sniper.onCollide("projectile", (proj) =>
+    handleProjectileCollision(k, sniper, proj)
+  );
 
   return sniper;
 }

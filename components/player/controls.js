@@ -168,7 +168,12 @@ export function updateInput(k) {
     }
 
     inputState.firing = aimActive;
-
+       try {
+      inputState.autoShoot = !!mobileController.getAutoShoot?.();
+    } catch (e) {
+      inputState.autoShoot = false;
+    }
+    
     const dashNow = mobileController.getDash?.();
     if (dashNow && !dashHeld) {
       inputState.dashTriggered = true;

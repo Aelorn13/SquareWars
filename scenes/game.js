@@ -15,7 +15,7 @@ import {
 } from "../components/ui/index.js";
 import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
-import { keysPressed } from "../components/player/controls.js";
+import { inputState, keysPressed } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 import {
   summonMinions,
@@ -103,7 +103,6 @@ export function defineGameScene(k, scoreRef) {
     scoreRef.value = () => currentScore;
     setupPlayerShooting(k, player, gameState);
 
-
     const gameContext = {
       sharedState: gameState,
       player,
@@ -127,7 +126,7 @@ export function defineGameScene(k, scoreRef) {
     let isBossSpawned = false;
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
-    let wasRKeyPreviouslyPressed = false;
+    let wasAutoTogglePreviouslyPressed = false;
 
     const dpsHud = createDpsHud(k, player, gameState, {
       initialSpawnInterval: initialEnemySpawnInterval,
@@ -180,11 +179,15 @@ export function defineGameScene(k, scoreRef) {
       } else {
         wasPauseKeyPreviouslyPressed = false;
       }
-      if (keysPressed["KeyR"]) {
-        if (!wasRKeyPreviouslyPressed) toggleAutoShoot(player, { range: 9999 });
-        wasRKeyPreviouslyPressed = true;
-      } else wasRKeyPreviouslyPressed = false;
-
+      const autoToggleActive = !!inputState.autoShoot || !!keysPressed["KeyR"];
+      if (autoToggleActive) {
+        if (!wasAutoTogglePreviouslyPressed) {
+          toggleAutoShoot(player, { range: 9999 });
+        }
+        wasAutoTogglePreviouslyPressed = true;
+      } else {
+        wasAutoTogglePreviouslyPressed = false;
+      }
 
       dpsHud.update(
         k.dt(),

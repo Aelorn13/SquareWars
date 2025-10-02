@@ -62,33 +62,30 @@ export function setupPlayerShooting(k, player, gameState) {
     return proj;
   };
   
-  const fire = () => {
-    const target = aimWorldTarget(k, player.pos);
+   const fire = (forcedTarget) => {
+    // prefer explicit auto-aim world target when provided
+    const target = forcedTarget ?? (player._autoAimTarget ?? aimWorldTarget(k, player.pos));
     const baseAngle = Math.atan2(target.y - player.pos.y, target.x - player.pos.x);
-    
+
+    // rest of existing logic unchanged...
     // Calculate damage modifiers
     const hasBuff = Math.abs(getBuffMultiplier() - 1) > 0.0001;
     const isCrit = Math.random() < (player.critChance || 0);
     const critMult = isCrit ? (player.critMultiplier ?? 2) : 1;
-    
-    // Projectile count and spread
+
     const count = Math.max(1, Math.floor(player.projectiles || 1));
     const spread = count === 1 ? 0 : (player.bulletSpreadDeg ?? CONFIG.DEFAULT_SPREAD) * Math.sqrt(count);
-    
-    // Calculate angles
+
     const angles = count === 1 
       ? [0]
       : Array.from({ length: count }, (_, i) => -spread/2 + (spread/(count-1)) * i);
-    
-    // Damage and size
+
     const damagePerProj = player.damage * critMult * getDamageScale(count);
     const size = Math.max(2, CONFIG.BASE_SIZE * (player.damage / 1) * critMult);
-    
-    // Color based on state
+
     let color = hasBuff ? k.rgb(255, 0, 255) : k.rgb(255, 255, 0);
     if (isCrit) color = k.rgb(255, 0, 0);
-    
-    // Create projectiles
+
     const effects = player._projectileEffects ?? [];
     angles.forEach(offsetDeg => {
       createProjectile(
@@ -101,7 +98,7 @@ export function setupPlayerShooting(k, player, gameState) {
       );
     });
   };
-  
+
   const tryFire = () => {
     if (!canFire) return;
     fire();
@@ -109,7 +106,12 @@ export function setupPlayerShooting(k, player, gameState) {
     const rate = Math.max(CONFIG.MIN_FIRE_RATE, player.attackSpeed || 0.1);
     k.wait(rate, () => canFire = true);
   };
-  
+
+  // expose for auto-aim and provide helpers to manage the explicit target
+  player.tryFire = tryFire;
+  player.setAutoAimTarget = (vec) => { player._autoAimTarget = vec; };
+  player.clearAutoAimTarget = () => { player._autoAimTarget = null; };
+
   // Input handlers
   k.onMouseDown(() => player.isShooting = true);
   k.onMouseRelease(() => player.isShooting = false);

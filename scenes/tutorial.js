@@ -8,7 +8,8 @@ export function TutorialScene(k) {
     "Move: WASD /  Arrows",
     "Fire: Left Mouse Button",
     "Dash: SPACE",
-    "P: PAUSE",
+    "R:    Autoshoot",
+    "P:    PAUSE",
   ];
 
   k.scene("tutorial", () => {

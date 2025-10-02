@@ -28,30 +28,30 @@ import {
 } from "../components/player/controls.js";
 import { makeMobileController } from "../components/player/mobile/index.js";
 import { makeSecretToggle } from "../components/utils/secretToggle.js";
-
+import {
+  toggleAutoShoot,
+  autoShootTick,
+} from "../components/player/autoShoot.js";
 import { createDpsHud } from "../components/utils/dpsHud.js";
-
 
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
 
-
 export function defineGameScene(k, scoreRef) {
   function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
-  console.log(
-    `Spawning miniboss at ${spawnTime} with ability: ${ability.name}`
-  );
-  return spawnEnemy(k, gameContext.player, gameContext, {
-    forceType: "miniboss",
-    ability,
-    scaling,
-  });
-}
+    console.log(
+      `Spawning miniboss at ${spawnTime} with ability: ${ability.name}`
+    );
+    return spawnEnemy(k, gameContext.player, gameContext, {
+      forceType: "miniboss",
+      ability,
+      scaling,
+    });
+  }
   k.scene("game", () => {
     if (isMobileDevice()) {
       registerMobileController(() => makeMobileController(k));
     }
-
 
     // --- Game Arena Setup ---
     const ARENA_MARGIN = Math.floor(Math.min(k.width(), k.height()) * 0.05);
@@ -103,6 +103,7 @@ export function defineGameScene(k, scoreRef) {
     scoreRef.value = () => currentScore;
     setupPlayerShooting(k, player, gameState);
 
+
     const gameContext = {
       sharedState: gameState,
       player,
@@ -110,7 +111,7 @@ export function defineGameScene(k, scoreRef) {
       updateHealthBar: () => drawHealthBar(k, player.hp()),
     };
     setupEnemyPlayerCollisions(k, gameContext);
-    
+
     // --- UI Elements ---
     const scoreLabel = createScoreLabel(k);
     drawHealthBar(k, player.hp());
@@ -126,15 +127,16 @@ export function defineGameScene(k, scoreRef) {
     let isBossSpawned = false;
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
+    let wasRKeyPreviouslyPressed = false;
 
     const dpsHud = createDpsHud(k, player, gameState, {
-  initialSpawnInterval: initialEnemySpawnInterval,
-  minimalSpawnInterval: MINIMAL_SPAWN_INTERVAL,
-  labelPos: { x: 200, y: 14 },
-  fontSize: 12,
-  updateInterval: 2,
-  safetyFactor: 1.2,
-});
+      initialSpawnInterval: initialEnemySpawnInterval,
+      minimalSpawnInterval: MINIMAL_SPAWN_INTERVAL,
+      labelPos: { x: 200, y: 14 },
+      fontSize: 12,
+      updateInterval: 2,
+      safetyFactor: 1.2,
+    });
     //debug things
     const checkSecretToggle = makeSecretToggle(k, "debug", keysPressed);
 
@@ -152,7 +154,6 @@ export function defineGameScene(k, scoreRef) {
 
     let minibossesSpawned = 0;
     let usedAbilities = [];
-
 
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
@@ -179,7 +180,18 @@ export function defineGameScene(k, scoreRef) {
       } else {
         wasPauseKeyPreviouslyPressed = false;
       }
-     dpsHud.update(k.dt(), keysPressed, gameState.isPaused || gameState.isUpgradePanelOpen);
+      if (keysPressed["KeyR"]) {
+        if (!wasRKeyPreviouslyPressed) toggleAutoShoot(player, { range: 9999 });
+        wasRKeyPreviouslyPressed = true;
+      } else wasRKeyPreviouslyPressed = false;
+
+
+      dpsHud.update(
+        k.dt(),
+        keysPressed,
+        gameState.isPaused || gameState.isUpgradePanelOpen
+      );
+      autoShootTick(k, player, gameState);
 
       k.paused = gameState.isPaused || gameState.isUpgradePanelOpen;
 

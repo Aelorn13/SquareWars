@@ -246,19 +246,7 @@ export function handleProjectileCollision(k, enemy, projectile) {
     source: projectile.source,
     sourceId: projectile.sourceId,
   });
-  console.log("PROJECTILE SNAPSHOT",
-  {
-    id: projectile.id,
-    effects: projectile.effects,
-    _ricochetMax: projectile._ricochetMax,
-    _hasRicochet: projectile._hasRicochet,
-    _bouncesLeft: projectile._bouncesLeft,
-    _wasRicochetThisHit: projectile._wasRicochetThisHit,
-    _piercesLeft: projectile._piercesLeft,
-    _hitTargetsSize: projectile._hitTargets ? projectile._hitTargets.size : 0,
-    _shouldDestroyAfterHit: projectile._shouldDestroyAfterHit
-  }
-);
+
   applyDamage(enemy, projectile.damage, {
     source: projectile.source,
     isCrit: projectile.isCritical,
@@ -277,7 +265,6 @@ export function handleProjectileCollision(k, enemy, projectile) {
   } else {
     enemy.die();
   }
-console.log("DESTROY CHECK -> shouldDestroyAfterHit:", projectile._shouldDestroyAfterHit);
   if (projectile._shouldDestroyAfterHit !== false) {
     try { k.destroy(projectile); } catch (e) {}
   }

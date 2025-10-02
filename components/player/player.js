@@ -188,7 +188,7 @@ export function createPlayer(k, sharedState) {
   player.onUpdate(() => {
     if (sharedState.isPaused) return;
 
-    updateInput(k, player.pos);
+    updateInput(k);
     dash.update(k.dt());
 
     if (consumeDash()) dash.trigger(player);

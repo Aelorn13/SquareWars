@@ -153,12 +153,12 @@ function applyMobilePortraitLayout() {
     applyCanvasBaseStyleForContainer(k.canvas);
     try { window.scrollTo(0, 0); } catch {}
   }
-
+  //commented out as causes some bugs on PC sometimes
   // small top offset to make room for UI above canvas on portrait phones
-  if (gameContainer) {
-    const topOffset = Math.max(window.innerHeight * 0.06, 36);
-    gameContainer.style.paddingTop = `${topOffset}px`;
-  }
+  // if (gameContainer) {
+  //   const topOffset = Math.max(window.innerHeight * 0.06, 36);
+  //   gameContainer.style.paddingTop = `${topOffset}px`;
+  // }
 
   registerMobileController(() => makeMobileController(k));
   notifyCanvasResize();

@@ -25,7 +25,7 @@ import {
 import {
   isMobileDevice,
   registerMobileController,
-  unregisterMobileController
+  unregisterMobileController,
 } from "../components/player/controls.js";
 import { makeMobileController } from "../components/player/mobile/index.js";
 import { makeSecretToggle } from "../components/utils/secretToggle.js";
@@ -34,23 +34,33 @@ import {
   autoShootTick,
 } from "../components/player/autoShoot.js";
 import { createDpsHud } from "../components/utils/dpsHud.js";
+import { setupEnemyMerging } from "../components/enemy/enemyMerger.js";
 
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
 
 export function defineGameScene(k, scoreRef) {
-  function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
-    console.log(
-      `Spawning miniboss at ${spawnTime} with ability: ${ability.name}`
-    );
-    return spawnEnemy(k, gameContext.player, gameContext, {
-      forceType: "miniboss",
-      ability,
-      scaling,
+function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
+  const maybePromise = spawnEnemy(k, gameContext.player, gameContext, {
+    forceType: "miniboss",
+    ability,
+    scaling,
+  });
+
+  if (maybePromise && typeof maybePromise.then === "function") {
+    maybePromise.then(miniboss => {
+      console.log("[game.js] Miniboss promise resolved. entity:", miniboss);
+    }).catch(err => {
+      console.error("[game.js] Miniboss spawn promise rejected:", err);
     });
+  } else if (maybePromise) {
+    console.log("[game.js] Miniboss spawned immediately:", maybePromise);
   }
+
+  return maybePromise;
+}
   k.scene("game", () => {
-        let mobileControllerIsRegistered = false;
+    let mobileControllerIsRegistered = false;
     if (isMobileDevice()) {
       registerMobileController(() => makeMobileController(k));
       mobileControllerIsRegistered = true;
@@ -113,7 +123,7 @@ export function defineGameScene(k, scoreRef) {
       updateHealthBar: () => drawHealthBar(k, player.hp()),
     };
     setupEnemyPlayerCollisions(k, gameContext);
-
+    setupEnemyMerging(k, gameContext);
     // --- UI Elements ---
     const scoreLabel = createScoreLabel(k);
     drawHealthBar(k, player.hp());
@@ -130,7 +140,6 @@ export function defineGameScene(k, scoreRef) {
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
     let wasAutoTogglePreviouslyPressed = false;
-
 
     const dpsHud = createDpsHud(k, player, gameState, {
       initialSpawnInterval: initialEnemySpawnInterval,
@@ -160,10 +169,10 @@ export function defineGameScene(k, scoreRef) {
 
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
-      
       checkSecretToggle();
-            if (isMobileDevice()) {
-        const shouldBeRegistered = !gameState.isPaused && !gameState.upgradeOpen;
+      if (isMobileDevice()) {
+        const shouldBeRegistered =
+          !gameState.isPaused && !gameState.upgradeOpen;
 
         if (shouldBeRegistered && !mobileControllerIsRegistered) {
           // Game is running, but controller is missing -> Register it
@@ -213,8 +222,8 @@ export function defineGameScene(k, scoreRef) {
         gameState.isPaused || gameState.upgradeOpen
       );
       autoShootTick(k, player, gameState);
-        if (gameState.isPaused || gameState.upgradeOpen) {
-          return;
+      if (gameState.isPaused || gameState.upgradeOpen) {
+        return;
       }
 
       gameState.elapsedTime += k.dt();
@@ -253,7 +262,6 @@ export function defineGameScene(k, scoreRef) {
         if (timeUntilNextSpawn <= 0) {
           if (gameState.elapsedTime >= BOSS_SPAWN_TIME) {
             isBossSpawned = true;
-
             const bossSpawnPromise = spawnEnemy(k, player, gameContext, {
               forceType: "boss",
               progress: 1.0,
@@ -264,13 +272,21 @@ export function defineGameScene(k, scoreRef) {
               typeof bossSpawnPromise.then === "function"
             ) {
               bossSpawnPromise
-                .then((bossEntity) => {
+                .then((bossEntity) => { console.log( "[game.js] Boss promise resolved. bossEntity is:", bossEntity  );
                   currentBoss = bossEntity;
-                  if (currentBoss) {
+                  if (currentBoss && currentBoss.exists()) {
                     createBossHealthBar(k, currentBoss);
+                  } else {console.error( "[game.js] Boss entity is NULL or was destroyed before the health bar could be created!" );
                   }
                 })
-                .catch(console.error);
+                .catch((err) => {
+                  console.error( "[game.js] The boss spawn promise was REJECTED. Error:",err
+                  );
+                });
+            } else {
+              console.error(
+                "[game.js] spawnEnemy did NOT return a promise for the boss!"
+              );
             }
           } else {
             // Calculate progress based on the elapsed time

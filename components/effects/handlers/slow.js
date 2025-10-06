@@ -19,14 +19,9 @@ export const slow = (kaboom, params = {}) => {
       const mgr = attachBuffManager(k, target, { pauseCheck });
       if (!mgr) return false;
 
-      // The enemy's base speed is now set on creation. No need to do it here.
-      // The recomputeStat logic is now centralized in enemyBehavior.js.
-      
       const slowFactor = isBoss(target) ? baseFactor / 3 : baseFactor;
       const speedMultiplier = 1 - slowFactor;
       
-      // Apply a buff with our static ID. The buffManager will create it
-      // or refresh its duration if it already exists.
       mgr.applyBuff({
         id: BUFF_ID,
         type: "slow", // The enemy's recomputeStat function looks for this type
@@ -56,8 +51,6 @@ export const slow = (kaboom, params = {}) => {
         },
         
         onRemove(buff) {
-          // All we do is clean up the VFX. The enemy's onUpdate loop
-          // will automatically fix its speed next frame.
           if (buff._vfx) {
             destroyTintVfx(k, buff._vfx);
           }

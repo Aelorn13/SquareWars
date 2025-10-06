@@ -226,7 +226,7 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
         // Set the final speed, ensuring a minimum value.
         this.speed = Math.max(1, finalSpeed);
       },
-
+      
       
       die() {
         if (this.dead) return;
@@ -254,6 +254,7 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
   }
 
   const enemy = k.add(components);
+
   const mgr = attachBuffManager(k, enemy);
   if (mgr.baseStats.speed === undefined) {
     mgr.baseStats.speed = config.speed;
@@ -320,7 +321,9 @@ function enemyDeathAnimation(k, enemy) {
   // Shrink and fade out
   k.tween(enemy.scale, k.vec2(0.1), 0.4, s => enemy.scale = s, k.easings.easeInQuad);
   k.tween(enemy.opacity, 0, 0.4, o => enemy.opacity = o, k.easings.linear)
-    .then(() => k.destroy(enemy));
+        .then(() => {
+       k.destroy(enemy);
+    });
 }
 
 export function showCritEffect(k, pos, text, color) {

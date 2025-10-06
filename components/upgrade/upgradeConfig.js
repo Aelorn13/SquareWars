@@ -2,11 +2,11 @@
 // Centralized upgrade + rarity configuration + UI formatter
 
 export const RARITY_CONFIG = [
-  { name: "Common",    color: [255, 255, 255], tier: 1, multiplier: 0.15, weight: 40 },
-  { name: "Uncommon",  color: [0, 255, 0],     tier: 2, multiplier: 0.2, weight: 30 },
-  { name: "Rare",      color: [0, 0, 255],     tier: 3, multiplier: 0.25, weight: 15 },
-  { name: "Epic",      color: [128, 0, 128],   tier: 4, multiplier: 0.3, weight: 6  },
-  { name: "Legendary", color: [255, 165, 0],   tier: 5, multiplier: 0.4, weight: 1  },
+  { name: "Common",    color: [255, 255, 255], tier: 1, multiplier: 0.15, weight: 100 },
+  { name: "Uncommon",  color: [0, 255, 0],     tier: 2, multiplier: 0.2, weight: 50 },
+  { name: "Rare",      color: [0, 0, 255],     tier: 3, multiplier: 0.25, weight: 25 },
+  { name: "Epic",      color: [128, 0, 128],   tier: 4, multiplier: 0.3, weight: 12  },
+  { name: "Legendary", color: [255, 165, 0],   tier: 5, multiplier: 0.4, weight: 5  },
 ];
 
 export const UPGRADE_CONFIG = {

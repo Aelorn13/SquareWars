@@ -8,8 +8,7 @@ export function attachMinibossBrain(k, miniboss, player, gameContext, ability, s
     miniboss.heal(miniboss.maxHp);
   }
   if (scaling.speedMultiplier) {
-    miniboss.baseSpeed *= scaling.speedMultiplier;
-    miniboss.speed = miniboss.baseSpeed;
+    miniboss.speed *= scaling.speedMultiplier;
   }
 
   miniboss.isBusy = false;

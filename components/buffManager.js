@@ -2,41 +2,30 @@
  * components/buffManager.js
  */
 export function attachBuffManager(k, entity, opts = {}) {
-  // --- FIX STARTS HERE ---
-  if (entity._buffManager) {
-    // If a manager already exists, update its options.
-    // This ensures the LATEST pauseCheck function is always used.
-    if (opts.pauseCheck) {
-      entity._buffManager.pauseCheck = opts.pauseCheck;
-    }
-    return entity._buffManager;
-  }
-  // --- FIX ENDS HERE ---
+  if (entity._buffManager) return entity._buffManager;
 
-  // Note: The original early return is now gone.
-
+  const pauseCheck = opts.pauseCheck;
   const debug = !!opts.debug;
 
   const manager = {
     buffs: [],
     baseStats: {},
     
-    // Make pauseCheck a property of the manager object itself.
-    pauseCheck: opts.pauseCheck,
-
     // Core buff operations
     findBuff(id) {
       return this.buffs.find(b => b.id === id);
     },
 
     applyBuff(buff) {
-      // ... (no changes in this function)
       if (!buff?.id) {
         if (debug) console.warn("[buffManager] Invalid buff", buff);
         return null;
       }
+
       const existing = this.findBuff(buff.id);
+      
       if (existing) {
+        // Merge buff properties
         Object.assign(existing, buff, {
           duration: Number.isFinite(buff.duration) ? buff.duration : existing.duration,
           elapsed: 0,
@@ -45,24 +34,39 @@ export function attachBuffManager(k, entity, opts = {}) {
         if (debug) console.log("[buffManager] Merged buff", buff.id);
         return existing;
       }
+
+      // Create new buff
       const newBuff = {
         ...buff,
         elapsed: 0,
         elapsedTick: 0,
         duration: Number.isFinite(buff.duration) ? buff.duration : undefined
       };
+      
       this.buffs.push(newBuff);
-      try { newBuff.onApply?.(newBuff); } catch (e) { console.error("[buffManager] onApply error:", e); }
+      
+      try { 
+        newBuff.onApply?.(newBuff); 
+      } catch (e) { 
+        console.error("[buffManager] onApply error:", e); 
+      }
+      
       if (debug) console.log("[buffManager] Applied buff", newBuff.id);
       return newBuff;
     },
 
     removeBuff(id) {
-      // ... (no changes in this function)
       const index = this.buffs.findIndex(b => b.id === id);
       if (index < 0) return;
+      
       const [buff] = this.buffs.splice(index, 1);
-      try { buff.onRemove?.(buff); } catch (e) { console.error("[buffManager] onRemove error:", e); }
+      
+      try { 
+        buff.onRemove?.(buff); 
+      } catch (e) { 
+        console.error("[buffManager] onRemove error:", e); 
+      }
+      
       if (debug) console.log("[buffManager] Removed buff", id);
     },
 
@@ -77,41 +81,50 @@ export function attachBuffManager(k, entity, opts = {}) {
     },
 
     update(dt) {
-      // Use 'this.pauseCheck' now to reference the manager's property.
-      if (!Number.isFinite(dt) || (this.pauseCheck && this.pauseCheck())) {
-        return;
-      }
+      if (!Number.isFinite(dt) || (pauseCheck && pauseCheck())) return;
 
       for (let i = this.buffs.length - 1; i >= 0; i--) {
         const buff = this.buffs[i];
         
-        // Individual buff pause check remains the same
+        // Skip paused buffs
         if (buff.pauseCheck && buff.pauseCheck()) continue;
         
         buff.elapsed += dt;
 
+        // Handle tick intervals
         if (Number.isFinite(buff.tickInterval) && buff.tickInterval > 0) {
           buff.elapsedTick += dt;
           if (buff.elapsedTick >= buff.tickInterval) {
             buff.elapsedTick -= buff.tickInterval;
-            try { buff.onTick?.(buff); } catch (e) { console.error("[buffManager] onTick error:", e); }
+            try { 
+              buff.onTick?.(buff); 
+            } catch (e) { 
+              console.error("[buffManager] onTick error:", e); 
+            }
           }
         }
 
+        // Handle expiration
         if (Number.isFinite(buff.duration) && buff.elapsed >= buff.duration) {
           const [expired] = this.buffs.splice(i, 1);
-          try { expired.onRemove?.(expired); } catch (e) { console.error("[buffManager] onRemove error:", e); }
+          try { 
+            expired.onRemove?.(expired); 
+          } catch (e) { 
+            console.error("[buffManager] onRemove error:", e); 
+          }
           if (debug) console.log("[buffManager] Expired buff", expired.id);
         }
       }
     },
 
     destroy() {
-      // ... (no changes in this function)
+      // Clean up all buffs
       while (this.buffs.length > 0) {
         this.removeBuff(this.buffs[0].id);
       }
       this.baseStats = {};
+      
+      // Remove from global managers
       if (k._globalBuffManagers) {
         const idx = k._globalBuffManagers.indexOf(this);
         if (idx >= 0) k._globalBuffManagers.splice(idx, 1);
@@ -121,7 +134,7 @@ export function attachBuffManager(k, entity, opts = {}) {
 
   entity._buffManager = manager;
 
-  // ... (no changes to the rest of the file)
+  // Hook into update cycle
   if (entity.onUpdate) {
     entity.onUpdate(() => manager.update(k.dt()));
   } else {
@@ -129,6 +142,7 @@ export function attachBuffManager(k, entity, opts = {}) {
     if (!k._globalBuffManagers.includes(manager)) {
       k._globalBuffManagers.push(manager);
     }
+    
     if (!k._globalBuffManagersInitialized) {
       k._globalBuffManagersInitialized = true;
       k.onUpdate(() => {
@@ -139,6 +153,8 @@ export function attachBuffManager(k, entity, opts = {}) {
       });
     }
   }
+
+  // Hook into destroy
   if (entity.onDestroy) {
     entity.onDestroy(() => manager.destroy());
   }

@@ -34,11 +34,11 @@ export function attachProjectileDamageHandler(k, entity, player, gameContext) {
   entity.onCollide("projectile", (projectile) => {
     if (entity.dead) return;
 
-    attachBuffManager(k, entity);
 
     applyProjectileEffects(k, projectile, entity, {
       source: projectile.source,
       sourceId: projectile.sourceId,
+       gameContext: entity.gameContext,
     });
 
     let damage = projectile.damage ?? 1;

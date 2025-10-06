@@ -29,6 +29,7 @@ import {
   createBossSpawner,    
 } from "../components/ui/debug/index.js";
 import { createManualUpgradeButton } from "../components/ui/debug/manualUpgradeButton.js";
+import { setupEnemyMerging } from "../components/enemy/enemyMerger.js"; 
 
 /**
  * Defines the debug game scene for testing game mechanics.
@@ -108,7 +109,7 @@ export function defineDebugScene(k) {
     };
 
     setupEnemyPlayerCollisions(k, gameContext);
-
+    setupEnemyMerging(k, gameContext); 
     const checkSecretToggle = makeSecretToggle(k, "game", keysPressed);
 
     // --- UI Elements ---

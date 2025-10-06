@@ -162,7 +162,7 @@ export const chargeAttack = {
 
       // Phase 1: moving
       if (moveRemaining > 0) {
-        const moveVec = chargeDirection.scale(entity.baseSpeed * CHARGE_SPEED_MULTIPLIER);
+        const moveVec = chargeDirection.scale(entity.speed * CHARGE_SPEED_MULTIPLIER);
         entity.pos = entity.pos.add(moveVec.scale(dt));
         moveRemaining -= dt;
 

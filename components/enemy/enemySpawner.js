@@ -13,6 +13,10 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
   const { forceType, spawnPos: posOverride, progress = 0, ability, scaling = {} } = options;
 
   const enemyConfig = forceType ? ENEMY_CONFIGS[forceType] : chooseEnemyType(progress);
+   if (!enemyConfig) {
+      console.error(`Failed to find enemy config for type: "${forceType}"`);
+      return null;
+  }
   const spawnPos = posOverride ?? pickEdgeSpawnPosFarFromPlayer(k, gameContext.sharedState, player);
 
   const createEnemy = () => {
@@ -27,36 +31,51 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
     // Standard enemy creation
     const enemy = createEnemyGameObject(k, player, enemyConfig, spawnPos, gameContext);
     
+
     // Attach appropriate AI
-    if (enemy.type === "boss") {
-      attachBossBrain(k, enemy, player, gameContext);
-    } else if (enemy.type === "miniboss") {
-      if (!ability) {
-        console.error("Miniboss spawned without an ability!");
-        return;  
+ if (enemy.type === "boss") {
+      if (typeof attachBossBrain === "function") {
+        attachBossBrain(k, enemy, player, gameContext);
+      } else {
+        console.error("attachBossBrain function not found! Boss will have no AI.");
+        // Attach default behavior as a fallback
+        attachEnemyBehaviors(k, enemy, player);
       }
-      attachMinibossBrain(k, enemy, player, gameContext, ability, scaling);
+    } else if (enemy.type === "miniboss") {
+      if (!ability || typeof ability.name !== 'string') {
+        console.error("Miniboss spawned with invalid or missing ability! Attaching default behavior.", ability);
+        attachEnemyBehaviors(k, enemy, player);
+      } else if (typeof attachMinibossBrain !== "function") {
+        console.error("attachMinibossBrain function not found! Miniboss will have no AI.");
+        attachEnemyBehaviors(k, enemy, player);
+      }
+      else {
+         attachMinibossBrain(k, enemy, player, gameContext, ability, scaling);
+      }
     } else {
       attachEnemyBehaviors(k, enemy, player);
     }
-    
     return enemy;
   };
 
   // Immediate spawn if position override
-  if (posOverride) {
-    return createEnemy();
+if (posOverride) {
+  const enemy = createEnemy();
+  if (enemyConfig.name === "boss" || enemyConfig.name === "miniboss") {
+    return Promise.resolve(enemy);
   }
+  return enemy;
+}
 
   // Show telegraph before spawning
   showSpawnTelegraph(k, spawnPos, gameContext.sharedState, TELEGRAPH_DURATION);
 
   // Boss spawns return a promise
-  if (enemyConfig.name === "boss") {
-    return new Promise(resolve => {
-      k.wait(TELEGRAPH_DURATION, () => resolve(createEnemy()));
-    });
-  }
+if (enemyConfig.name === "boss" || enemyConfig.name === "miniboss") {
+  return new Promise(resolve => {
+    k.wait(TELEGRAPH_DURATION, () => resolve(createEnemy()));
+  });
+}
 
   // Regular enemies spawn after telegraph
   k.wait(TELEGRAPH_DURATION, createEnemy);
@@ -95,18 +114,32 @@ function chooseEnemyType(progress) {
   return types[0];
 }
 
+function sanitizeBounds(sharedState, k) {
+  const a = sharedState?.area;
+  const x = Number.isFinite(a?.x) ? a.x : 0;
+  const y = Number.isFinite(a?.y) ? a.y : 0;
+  const w = Number.isFinite(a?.w) ? a.w : k.width();
+  const h = Number.isFinite(a?.h) ? a.h : k.height();
+  return { x, y, w, h };
+}
+
 function pickEdgeSpawnPos(k, sharedState, offset = 24) {
-  const bounds = sharedState?.area ?? { x: 0, y: 0, w: k.width(), h: k.height() };
-  
-  // Random position on one of four edges
+  const bounds = sanitizeBounds(sharedState, k);
+
   const edges = [
     () => k.vec2(k.rand(bounds.x, bounds.x + bounds.w), bounds.y - offset), // Top
     () => k.vec2(k.rand(bounds.x, bounds.x + bounds.w), bounds.y + bounds.h + offset), // Bottom
     () => k.vec2(bounds.x - offset, k.rand(bounds.y, bounds.y + bounds.h)), // Left
     () => k.vec2(bounds.x + bounds.w + offset, k.rand(bounds.y, bounds.y + bounds.h)), // Right
   ];
-  
-  return k.choose(edges)();
+
+  const pos = k.choose(edges)();
+
+  if (!Number.isFinite(pos.x) || !Number.isFinite(pos.y)) {
+    console.error("[spawner.js] pickEdgeSpawnPos returned NaN. bounds:", bounds, "sharedState:", sharedState);
+  }
+
+  return pos;
 }
 
 /**
@@ -114,14 +147,17 @@ function pickEdgeSpawnPos(k, sharedState, offset = 24) {
  */
 function pickEdgeSpawnPosFarFromPlayer(k, sharedState, player, minDist = 120, maxTries = 8) {
   let best = null;
-  
+
   for (let i = 0; i < maxTries; i++) {
     const pos = pickEdgeSpawnPos(k, sharedState, 48);
-    if (pos.dist(player.pos) >= minDist) return pos;
-    if (!best) best = pos;
+    if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y) && pos.dist(player.pos) >= minDist) {
+      return pos;
+    }
+    if (!best && pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) best = pos;
   }
-  
-  return best;
+
+  return best || k.vec2(sanitizeBounds(sharedState, k).x + sanitizeBounds(sharedState, k).w / 2,
+                        sanitizeBounds(sharedState, k).y + sanitizeBounds(sharedState, k).h / 2);
 }
 
 /**

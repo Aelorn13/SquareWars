@@ -1,52 +1,74 @@
-//components/effects/handlers/slow.js
-import {
-  getKaboom as getK,
-  isBoss,
-  genBuffId,
-  applyVfxViaBuff,
-} from "../utils.js";
-import { createSlowVfx, destroySlowVfx } from "../vfx/index.js";
+// components/effects/handlers/slow.js
+import { attachBuffManager } from "../../buffManager.js";
+import { getKaboom, isBoss } from "../utils.js";
+import { createTintVfx, destroyTintVfx } from "../vfx/tintManager.js";
 
 export const slow = (kaboom, params = {}) => {
-  const k = getK(kaboom);
-  let factor = Math.max(0, Math.min(0.99, params.slowFactor ?? 0.3));
+  const k = getKaboom(kaboom);
+  const baseFactor = Math.max(0.01, Math.min(0.99, params.slowFactor ?? 0.3));
   const duration = params.duration ?? 2.0;
+  const visualSize = params.visualSize ?? 16;
+  const BUFF_ID = "slow_debuff";
 
   return {
     name: "slow",
     install(target, ctx = {}) {
-      if (!target?._buffManager) return;
-      if (isBoss(target)) factor = factor / 3;
+      if (!target) return false;
+      
+      const pauseCheck = () => ctx.gameContext?.sharedState?.isPaused;
+      const mgr = attachBuffManager(k, target, { pauseCheck });
+      if (!mgr) return false;
 
-      target._buffManager.applyBuff({
-        id: genBuffId("slow", ctx),
-        type: "slow",
+      // The enemy's base speed is now set on creation. No need to do it here.
+      // The recomputeStat logic is now centralized in enemyBehavior.js.
+      
+      const slowFactor = isBoss(target) ? baseFactor / 3 : baseFactor;
+      const speedMultiplier = 1 - slowFactor;
+      
+      // Apply a buff with our static ID. The buffManager will create it
+      // or refresh its duration if it already exists.
+      mgr.applyBuff({
+        id: BUFF_ID,
+        type: "slow", // The enemy's recomputeStat function looks for this type
         duration,
-        data: { factor },
-        onApply(buff) {
-          target._slowMultipliers ??= [];
-          target._slowMultipliers.push(buff.data.factor);
-          target.recomputeStat?.("moveSpeed");
+        pauseCheck,
+        data: { 
+          factor: speedMultiplier
         },
+        
+        onApply(buff) {
+          // This only runs the first time the buff is applied.
+          if (!isBoss(target) || params.forceVfx) {
+            try {
+              const vfx = createTintVfx(k, target, {
+                type: "slow",
+                color: [0, 180, 255],
+                alpha: 0.36,
+                pulse: { freq: 6, amp: 0.6, baseline: 0.6 },
+                size: visualSize,
+                buffId: buff.id,
+              });
+              buff._vfx = vfx; // Link VFX to the buff for cleanup
+            } catch (e) {
+              console.error("Failed to create slow VFX:", e);
+            }
+          }
+        },
+        
         onRemove(buff) {
-          if (!Array.isArray(target._slowMultipliers)) return;
-          const i = target._slowMultipliers.indexOf(buff.data.factor);
-          if (i > -1) target._slowMultipliers.splice(i, 1);
-          target.recomputeStat?.("moveSpeed");
+          // All we do is clean up the VFX. The enemy's onUpdate loop
+          // will automatically fix its speed next frame.
+          if (buff._vfx) {
+            destroyTintVfx(k, buff._vfx);
+          }
         },
       });
+      
+      return true;
+    },
 
-      if (isBoss(target)) return;
-
-      applyVfxViaBuff(
-        k,
-        target,
-        target._buffManager,
-        genBuffId("slow_vfx", ctx),
-        duration,
-        () => createSlowVfx(k, target, { size: params.visualSize ?? 16 }),
-        destroySlowVfx
-      );
+    apply(target, ctx = {}) {
+      return this.install(target, ctx);
     },
   };
 };

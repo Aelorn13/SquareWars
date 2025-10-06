@@ -1,7 +1,7 @@
-// components/effects/handlers/burn.js
-import { getKaboom, isBoss, genBuffId } from "../utils.js";
+// components/effects/handlers/burn.js - Complete version
+import { attachBuffManager } from "../../buffManager.js";
+import { getKaboom, isBoss } from "../utils.js";
 import { createOverlay, destroyOverlay } from "../vfx/overlayManager.js";
-import { createBurnVfx, destroyBurnVfx } from "../vfx/index.js";
 import { _randomLocalOffset } from "../vfx/utils.js";
 
 export const burn = (kaboom, params = {}) => {
@@ -9,133 +9,175 @@ export const burn = (kaboom, params = {}) => {
   const dmg = params.damagePerTick ?? 1;
   const duration = params.duration ?? 2;
   const interval = params.tickInterval ?? 0.5;
+  const visualSize = params.visualSize ?? 18;
+  const icon = params.icon ?? "🔥";
   const allowBossVfx = params.visualOnBoss !== false || params.forceVfx === true;
-  const size = params.visualSize ?? 18;
-  const requestedMaxStacks = Number.isFinite(params.maxStacks) ? params.maxStacks : 3;
+  
+  // Calculate max stacks based on tick budget
+  const tickBudget = params.tickBudgetPerTarget ?? 6;
+  const ticksPerSecond = 1 / Math.max(0.0001, interval);
+  const computedMaxStacks = Math.max(1, Math.floor(tickBudget / ticksPerSecond));
+  const requestedMaxStacks = Number.isFinite(params.maxStacks) ? params.maxStacks : null;
+  
+  function getMaxStacks(target) {
+    if (requestedMaxStacks !== null) return requestedMaxStacks;
+    return isBoss(target) ? computedMaxStacks * 2 : computedMaxStacks;
+  }
 
   return {
     name: "burn",
 
-    /**
-     * Attempts to install or refresh a burn buff on the target.
-     * Returns true if a buff was applied or refreshed, false otherwise.
-     */
     install(target, ctx = {}) {
-      if (!target?._buffManager) return false;
-
-      // Prevent rapid duplicate installs on the same target (same tick)
+      if (!target) return false;
+      
+      // Prevent rapid duplicate installs in same frame
       if (target._pendingBurnInstall) return false;
       target._pendingBurnInstall = true;
-      k.wait?.(0, () => { if (target) target._pendingBurnInstall = false; });
-
-      const tickBudget = params.tickBudgetPerTarget ?? 6;
-      const perStackTPS = 1 / Math.max(0.0001, interval);
-      const computedCap = Math.max(1, Math.floor(tickBudget / perStackTPS));
-      const defaultCap = isBoss(target) ? Math.max(1, computedCap * 2) : computedCap;
-      const maxStacks = requestedMaxStacks ?? defaultCap;
-
-      // If stacks are at the limit, refresh existing burn buffs instead of adding a new one.
-      const currentStacks = (target._buffManager.buffs || []).filter(b => b.type === "burn").length;
-      if (currentStacks >= maxStacks) {
-        for (const buff of target._buffManager.buffs) {
-          if (buff.type === "burn") {
-            buff.duration = duration; // Refresh the duration
-          }
+      k.wait?.(0, () => {
+        if (target && target.exists?.()) {
+          target._pendingBurnInstall = false;
         }
-        // Return true to signify the effect was handled (refreshed),
-        // preventing the fallback apply() method from being called.
+      });
+      
+      // Get or create buff manager with pause support
+      const pauseCheck = () => ctx.gameContext?.sharedState?.isPaused;
+      const mgr = attachBuffManager(k, target, { pauseCheck });
+      if (!mgr) return false;
+      
+      // Check current burn stacks
+      const currentBurns = mgr.getBuffsByType("burn");
+      const maxStacks = getMaxStacks(target);
+      
+      // If at max stacks, refresh all burn durations
+      if (currentBurns.length >= maxStacks) {
+        currentBurns.forEach(buff => {
+          buff.duration = duration;
+          buff.elapsed = 0;
+        });
+        if (mgr.debug) {
+          console.log(`[burn] Refreshed ${currentBurns.length} stacks on ${target.id || "entity"}`);
+        }
         return true;
       }
       
-      const baseId = genBuffId("burn", ctx) ?? `burn:${ctx.sourceId ?? "anon"}`;
-      const uid = `${baseId}:${Date.now()}:${Math.floor(Math.random() * 1e9)}`;
-      const showVfx = !(isBoss(target) && !allowBossVfx) && size > 0;
-
-      // Apply the buff; onApply will create a persistent VFX and store it on the buff
-      target._buffManager.applyBuff({
-        id: uid,
+      // Create unique burn buff ID
+      const sourceId = ctx.sourceId ?? "anon";
+      const buffId = `burn_${sourceId}_${Date.now()}_${Math.random()}`;
+      const shouldShowVfx = !(isBoss(target) && !allowBossVfx) && visualSize > 0;
+      
+      // Apply the burn buff
+      mgr.applyBuff({
+        id: buffId,
         type: "burn",
         duration,
         tickInterval: interval,
-        data: { damage: dmg, source: ctx.source, sourceId: ctx.sourceId },
-
+        pauseCheck, // Individual buff pause check
+        data: { 
+          damage: dmg,
+          source: ctx.source,
+          sourceId: sourceId
+        },
+        
         onApply(buff) {
-          target._burnStackCount = (target._burnStackCount || 0) + 1;
-
-          if (showVfx) {
+          // Create VFX if appropriate
+          if (shouldShowVfx) {
             try {
               const offset = _randomLocalOffset(k, target, 0.45);
-              const created = createBurnVfx(k, target, {
-                stackCount: 1, // We are creating visuals for this one new stack.
+              const vfxNode = createOverlay(k, target, {
+                type: "burn_icon",
+                icon,
+                size: Math.max(12, visualSize - 4),
                 offset,
-                size: Math.max(12, size - 4),
-                forceNew: true, // This forces the overlay manager to create a new object.
-                allowMultiple: true, // This allows multiple burn icons on the same target.
-                instanceId: uid, // Links this VFX to this specific buff.
-                icon: params.icon ?? "🔥",
+                instanceId: buffId, // Link VFX to this specific buff
+                forceNew: true,
+                allowMultiple: true,
+                respectsPause: true, // VFX animation pauses
+                animated: true, // Enable wobble animation
               });
-
-              // Normalize to an array and store on the buff for later cleanup
-              const nodes = Array.isArray(created) ? created : (created ? [created] : []);
-              buff._vfxNodes = nodes;
               
-              for (const node of nodes) {
-                if (node) node._instanceId = buff.id;
+              buff._vfxNode = vfxNode;
+              
+              if (mgr.debug) {
+                console.log(`[burn] Created VFX for ${buffId}`);
               }
             } catch (e) {
-                buff._vfxNodes = null;
+              console.error("[burn] Failed to create VFX:", e);
             }
-          } else {
-              buff._vfxNodes = null;
+          }
+          
+          if (mgr.debug) {
+            const stacks = mgr.countBuffsByType("burn");
+            console.log(`[burn] Applied to ${target.id || "entity"}: ${dmg} damage/tick, ${stacks} total stacks`);
           }
         },
-
+        
         onTick(buff) {
+          // Check if target still exists
+          if (!target || !target.exists?.()) {
+            mgr.removeBuff(buff.id);
+            return;
+          }
+          
           const damage = buff.data?.damage ?? 0;
-          if (!target || !target.exists()) return;
+          if (damage <= 0) return;
+          
+          // Apply damage with source info
           try {
             if (typeof target.takeDamage === "function") {
-              target.takeDamage(damage, { source: buff.data?.source, type: "burn" });
+              target.takeDamage(damage, { 
+                source: buff.data?.source, 
+                type: "burn",
+                sourceId: buff.data?.sourceId
+              });
             } else if (typeof target.hurt === "function") {
               target.hurt(damage);
+            } else if (typeof target.health === "number") {
+              target.health -= damage;
+              if (target.health <= 0 && typeof target.die === "function") {
+                target.die();
+              }
             }
           } catch (e) {
-            console.error("burn onTick error", e);
+            console.error("[burn] onTick damage error:", e);
           }
         },
-
+        
         onRemove(buff) {
-          if (buff._vfxNodes) {
-            destroyBurnVfx(k, buff._vfxNodes);
+          // Clean up VFX
+          if (buff._vfxNode) {
+            destroyOverlay(k, buff._vfxNode);
           }
-          target._burnStackCount = Math.max(0, (target._burnStackCount || 1) - 1);
+          
+          if (mgr.debug) {
+            const remaining = mgr.countBuffsByType("burn");
+            console.log(`[burn] Removed from ${target.id || "entity"}, ${remaining} stacks remaining`);
+          }
         },
       });
-
+      
       return true;
     },
 
-    /**
-     * apply() shows a short "pop" visual ONLY if the buff could not be installed.
-     */
+    // Fallback for instant visual feedback if buff can't be applied
     apply(target, ctx = {}) {
-      if (!target || (isBoss(target) && !allowBossVfx)) return;
-
-      // If install successfully applies or refreshes a buff, do nothing here.
-      if (this.install(target, ctx)) {
-        return;
-      }
-
-      // Only create a pop visual if install() returned false (e.g., target has no buff manager).
+      if (!target) return;
+      
+      // Try to install persistent buff first
+      if (this.install(target, ctx)) return;
+      
+      // Only show pop effect if install failed (no buff manager)
+      if (isBoss(target) && !allowBossVfx) return;
+      
       const offset = _randomLocalOffset(k, target, 0.45);
       const node = createOverlay(k, target, {
         type: "burn_icon_pop",
-        icon: params.icon ?? "🔥",
-        size: Math.max(12, size - 4),
-        instanceId: `burn_pop:${Math.random()}`,
+        icon,
+        size: Math.max(12, visualSize - 4),
         offset,
+        instanceId: `burn_pop_${Math.random()}`,
+        animated: false, // No wobble for pop effect
       });
-
+      
       if (node) {
         k.wait(0.45, () => destroyOverlay(k, node));
       }

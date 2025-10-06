@@ -64,7 +64,7 @@ export const UPGRADE_CONFIG = {
     bonuses: {
       3: { slowFactor: 0.25, duration: 3 },
       4: { slowFactor: 0.50, duration: 4 },
-      5: { slowFactor: 0.75, duration: 5 },
+      5: { slowFactor: 0.75, duration: 5 }, //change back later
     },
   },
 

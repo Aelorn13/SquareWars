@@ -168,7 +168,6 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
       speed: config.speed,
       maxHp: config.maxHp,
       originalColor: config.color,
-      baseSpeed: config.speed,
       dead: false,
       gameContext: gameContext,
       _size: config.size, // Store for overlap checks
@@ -186,23 +185,49 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
       },
 
       recomputeStat(statName) {
-        if (statName === "moveSpeed" || statName === "speed") {
-          // Combine all speed modifiers
-          let multiplier = 1;
-          
-          // Apply slow effects
-          const slows = Array.isArray(this._slowMultipliers) ? this._slowMultipliers : [];
-          slows.forEach(slow => multiplier *= Math.max(0, 1 - (slow ?? 0)));
-          
-          // Apply buff multiplier
-          if (typeof this._buffedMoveMultiplier === "number") {
-            multiplier *= this._buffedMoveMultiplier;
-          }
-          
-          this.speed = Math.max(0.01, this.baseSpeed * multiplier);
+        if (statName !== "speed" || !this._buffManager) return;
+
+        // Start with the pristine base speed stored in the manager.
+        let finalSpeed = this._buffManager.baseStats.speed;
+        
+        // --- RAGE TANK LOGIC INTEGRATION ---
+        if (this.type === "rageTank") {
+          const hpRatio = Math.max(0.01, getCurrentHp(this) / this.maxHp);
+          const rageMultiplier = (2 + (1 - hpRatio)); 
+          finalSpeed *= rageMultiplier;
         }
+
+        // Find all buffs that modify stats.
+        const statBuffs = this._buffManager.getBuffsByType("stat");
+        const slowBuffs = this._buffManager.getBuffsByType("slow");
+
+        // Apply slow multipliers first
+        for (const buff of slowBuffs) {
+          if (buff.data?.factor) {
+            finalSpeed *= buff.data.factor;
+          }
+        }
+
+        // Apply generic stat buffs (for future use, like haste or other effects?)
+        for (const buff of statBuffs) {
+          if (buff.data?.stat === "speed") {
+            const { mode, value } = buff.data;
+            if (mode === "multiplicative") {
+              finalSpeed *= value;
+            } else if (mode === "additive") {
+              finalSpeed += value;
+            } else if (mode === "absolute") {
+              finalSpeed = value;
+              break; // Absolute overrides everything
+            }
+          }
+        }
+        
+        // Set the final speed, ensuring a minimum value.
+        this.speed = Math.max(1, finalSpeed);
       },
 
+      
       die() {
         if (this.dead) return;
         this.dead = true;
@@ -229,8 +254,10 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
   }
 
   const enemy = k.add(components);
-  attachBuffManager(k, enemy);
-  enemy.recomputeStat?.("moveSpeed");
+  const mgr = attachBuffManager(k, enemy);
+  if (mgr.baseStats.speed === undefined) {
+    mgr.baseStats.speed = config.speed;
+  }
   
   return enemy;
 }
@@ -241,10 +268,10 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
 export function handleProjectileCollision(k, enemy, projectile) {
   if (enemy.dead) return;
 
-  attachBuffManager(k, enemy);
   applyProjectileEffects(k, projectile, enemy, {
     source: projectile.source,
     sourceId: projectile.sourceId,
+     gameContext: enemy.gameContext,
   });
 
   applyDamage(enemy, projectile.damage, {
@@ -257,11 +284,6 @@ export function handleProjectileCollision(k, enemy, projectile) {
     // Update color based on health
     const hpRatio = Math.max(0.01, hp / enemy.maxHp);
     enemy.color = k.rgb(...interpolateColor(enemy.originalColor, DAMAGE_COLOR, hpRatio));
-    
-    // Rage tank speeds up when damaged
-    if (enemy.type === "rageTank") {
-      enemy.speed = enemy.baseSpeed * (2 + (1 - hpRatio));
-    }
   } else {
     enemy.die();
   }
@@ -273,7 +295,9 @@ export function handleProjectileCollision(k, enemy, projectile) {
 export function attachEnemyBehaviors(k, enemy, player) {
   enemy.onUpdate(() => {
     if (enemy.gameContext.sharedState.isPaused || enemy.dead || enemy._isStunned) return;
-    
+    //kind of dumb way for buffs and debuffs to work
+    enemy.recomputeStat("speed");
+
     // Smooth rotation toward player
     const dir = player.pos.sub(enemy.pos);
     const targetAngle = dir.angle() + 90;

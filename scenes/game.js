@@ -213,10 +213,6 @@ export function defineGameScene(k, scoreRef) {
         gameState.isPaused || gameState.upgradeOpen
       );
       autoShootTick(k, player, gameState);
-        //==========================================================================================================================================
-      // k.paused = gameState.isPaused || gameState.upgradeOpen;
-      // if (k.paused) return;
-
         if (gameState.isPaused || gameState.upgradeOpen) {
           return;
       }

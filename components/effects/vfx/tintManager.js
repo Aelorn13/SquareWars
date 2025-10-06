@@ -34,7 +34,6 @@ function startTintUpdater(k) {
           intensity = baseline + amp * Math.sin(time * freq + (fx._phase ?? 0));
         }
         const alpha = Math.max(0, Math.min(1, (fx._params.alpha ?? 0.4) * intensity));
-        // This is the line that was crashing
         overlayColor[0] += fx._params.color[0] * alpha;
         overlayColor[1] += fx._params.color[1] * alpha;
         overlayColor[2] += fx._params.color[2] * alpha;
@@ -91,8 +90,21 @@ export function createTintVfx(k, target, opts = {}) {
   return [fx];
 }
 
-export function destroyTintVfx(k, fx) {
-  if (fx && typeof fx._restore === "function") {
-    try { fx._restore(k); } catch {}
+export function destroyTintVfx(k, fxOrFxArray) {
+  if (!fxOrFxArray) return;
+
+  // Check if the input is an array.
+  if (Array.isArray(fxOrFxArray)) {
+    // If it's an array, loop through each effect inside it.
+    for (const fx of fxOrFxArray) {
+      if (fx && typeof fx._restore === "function") {
+        try { fx._restore(k); } catch {}
+      }
+    }
+  } else {
+    // Otherwise, treat it as a single object (the original behavior).
+    if (typeof fxOrFxArray._restore === "function") {
+      try { fxOrFxArray._restore(k); } catch {}
+    }
   }
 }

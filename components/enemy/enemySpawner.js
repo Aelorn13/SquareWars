@@ -8,7 +8,7 @@ import { attachBossBrain } from "./boss/bossAI.js";
 import { attachMinibossBrain } from "./boss/minibossAI.js";
 import { createSpawnerEnemy } from "./spawnerEnemy.js";
 import { createSniperEnemy } from "./sniperEnemy.js";
-
+import {clamp01,easeInOutSine, lerp} from "../utils/mathUtils.js"
 const TELEGRAPH_DURATION = 0.6;
 
 export function spawnEnemy(k, player, gameContext, options = {}) {
@@ -37,13 +37,21 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
 
   const finalHp = difficulty.scaleStat(baseEnemyConfig.maxHp, progress);
   const finalSpeed = difficulty.scaleStat(baseEnemyConfig.speed, progress);
-  // const finalDamage = difficulty.scaleStat(baseEnemyConfig.damage, progress);
+  let finalScore = baseEnemyConfig.score;
 
+  if (difficulty.config.scoreStatMultiplier) {
+    const scoreMultiplier = lerp(
+      difficulty.config.scoreStatMultiplier.start,
+      difficulty.config.scoreStatMultiplier.end,
+      easeInOutSine(clamp01(progress)) 
+    );
+    finalScore = baseEnemyConfig.score * scoreMultiplier;
+  }
   const finalEnemyConfig = {
     ...baseEnemyConfig,
     maxHp: finalHp,
     speed: finalSpeed,
-    // damage: finalDamage,
+    score: Math.round(finalScore), 
   };
 
   const spawnPos =

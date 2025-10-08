@@ -31,6 +31,8 @@ export const summonMinions = {
         spawnEnemy(k, player, gameContext, {
           forceType: params.minionType,
           spawnPos,
+                progress: gameContext.sharedState.spawnProgress,
+      difficulty: gameContext.difficulty,
         });
       }
     };

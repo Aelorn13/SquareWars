@@ -1,6 +1,6 @@
 // layoutManager.js
-import { isMobileDevice, registerMobileController, unregisterMobileController } from "./components/player/controls.js";
-import { makeMobileController } from "./components/player/mobile/index.js";
+import { isMobileDevice, registerMobileController, unregisterMobileController } from "../components/player/controls.js";
+import { makeMobileController } from "../components/player/mobile/index.js";
 
 /* Module state */
 let k = null;

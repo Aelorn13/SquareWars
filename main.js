@@ -5,8 +5,8 @@ import { TutorialScene } from "./scenes/tutorial.js";
 import { initControls } from "./components/player/controls.js";
 import { defineVictoryScene } from "./scenes/victory.js";
 import { defineDebugScene } from "./scenes/debug.js";
-import { initLayoutManager } from "./layoutManager.js"; 
-
+import { initLayoutManager } from "./mainUtils/layoutManager.js"; 
+import {initMouseCoordProvider} from "./mainUtils/mouseFix.js"
 // --- 1. Initialize Kaplay ---
 const k = kaplay({
   width: 1024,
@@ -18,6 +18,10 @@ const k = kaplay({
   touchToMouse: true,
   debugKey: "f4",
 });
+
+
+initMouseCoordProvider(k);
+
 // Reference holder for dynamic score access
 const scoreRef = { value: () => 0 };
 

@@ -1,13 +1,11 @@
-
-// ===== components/enemy/spawnerEnemy.js =====
 import { ENEMY_CONFIGS } from "./enemyConfig.js";
 import { createEnemyGameObject, attachEnemyBehaviors } from "./enemyBehavior.js";
+import { spawnEnemy } from "./enemySpawner.js";
 
 const SPAWN_COUNT = 3;
 const SPAWN_SPACING = 0.06;  // seconds between spawns
-const OFFSET_MIN = 8;         // min spawn distance
-const OFFSET_MAX = 18;        // max spawn distance  
-const SPAWN_GRACE = 0.12;     // collision immunity duration
+const OFFSET_MIN = 8;        // min spawn distance
+const OFFSET_MAX = 18;       // max spawn distance
 
 export function createSpawnerEnemy(k, player, gameContext, spawnPos) {
   const spawner = createEnemyGameObject(k, player, ENEMY_CONFIGS.spawner, spawnPos, gameContext);
@@ -18,7 +16,6 @@ export function createSpawnerEnemy(k, player, gameContext, spawnPos) {
   spawner.die = function (...args) {
     if (this.dead) return;
 
-    // Capture death position immediately
     const deathPos = k.vec2(this.pos.x, this.pos.y);
 
     const spawnSmall = () => {
@@ -27,19 +24,17 @@ export function createSpawnerEnemy(k, player, gameContext, spawnPos) {
       const offset = dir.scale(k.rand(OFFSET_MIN, OFFSET_MAX));
       const smallPos = deathPos.add(offset);
 
-      const small = createEnemyGameObject(k, player, ENEMY_CONFIGS.small, smallPos, this.gameContext);
-      attachEnemyBehaviors(k, small, player);
-
-      small.canDropPowerup = false;
-      small._slowMultipliers = [];
-      small._buffedMoveMultiplier = undefined;
-      if (small.recomputeStat) small.recomputeStat("moveSpeed");
-
-      // Brief immunity to avoid instant collision
-      small._spawnGrace = true;
-      k.wait(SPAWN_GRACE, () => { 
-        if (small.exists()) small._spawnGrace = false; 
-      });
+  const small = spawnEnemy(k, player, gameContext, { 
+      forceType: "small",
+      spawnPos: smallPos,
+      progress: gameContext.sharedState.spawnProgress, 
+      difficulty: gameContext.difficulty, 
+  });
+      
+      // The spawnEnemy function returns the new enemy when spawnPos is used.
+      if (small && small.exists()) {
+        small.canDropPowerup = false;
+      }
     };
 
     const spawnAll = () => {
@@ -50,18 +45,13 @@ export function createSpawnerEnemy(k, player, gameContext, spawnPos) {
       }
     };
 
-    // Wait for unpause if needed
     if (!gameContext?.sharedState?.isPaused) {
       spawnAll();
     } else {
       const waiter = this.onUpdate(() => {
-        if (!this.exists()) {
+        if (!this.exists() || !gameContext.sharedState.isPaused) {
           waiter.cancel();
-          return;
-        }
-        if (!gameContext.sharedState.isPaused) {
-          waiter.cancel();
-          spawnAll();
+          if (this.exists()) spawnAll();
         }
       });
     }

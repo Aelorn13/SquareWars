@@ -1,34 +1,25 @@
 // ===== components/enemy/enemyMerger.js =====
-import { ENEMY_CONFIGS } from "./enemyConfig.js";
-import { createEnemyGameObject, attachEnemyBehaviors } from "./enemyBehavior.js";
 
-/**
- * Configuration for enemy merging.
- * Key: The 'name' of the enemy from ENEMY_CONFIGS that can merge.
- * Properties:
- *   - mergeTime: Time in seconds enemies must be in contact to merge.
- *   - statMultiplier: The factor by which HP/damage stats are increased per merge level.
- *   - sizeMultiplier: The factor by which size increases per merge level (additive).
- */
+// 1. IMPORT the main spawnEnemy function
+import { spawnEnemy } from "./enemySpawner.js";
+import { ENEMY_CONFIGS } from "./enemyConfig.js";
+import { attachEnemyBehaviors } from "./enemyBehavior.js";
+
 const MERGE_CONFIG = {
   tank: {
     mergeTime: 3,
     statMultiplier: 3,
-    sizeMultiplier: 0.75, // Merged tank will be 1.75x, then 2.5x, etc.
+    sizeMultiplier: 0.75,
   },
-    normal: {
+  normal: {
     mergeTime: 3,
     statMultiplier: 3,
-    sizeMultiplier: 0.75, // Merged tank will be 1.75x, then 2.5x, etc.
+    sizeMultiplier: 0.75, 
   },
 };
 
-// Tracks ongoing collisions between mergeable enemies.
 const ongoingCollisions = new Map();
 
-/**
- * Creates a unique, order-independent ID for a pair of enemies.
- */
 function getPairId(e1, e2) {
   return e1.id < e2.id ? `${e1.id}-${e2.id}` : `${e2.id}-${e1.id}`;
 }
@@ -39,50 +30,47 @@ function getPairId(e1, e2) {
 function performMerge(k, gameContext, enemy1, enemy2, config) {
   if (enemy1.dead || enemy2.dead) return;
 
-  const baseConfig = ENEMY_CONFIGS[enemy1.type];
-  if (!baseConfig) {
-    console.error(`Base config for type "${enemy1.type}" not found!`);
-    return;
-  }
-  
   const newMergeLevel = (enemy1.mergeLevel || 1) + 1;
-
-  // 1. Calculate the spawn position for the new enemy.
   const midpoint = enemy1.pos.add(enemy2.pos).scale(0.5);
+  const baseConfig = ENEMY_CONFIGS[enemy1.type];
 
-  // 2. Dynamically create the configuration for the merged enemy based on its new level.
-  // The score value is increased here, so the player gets a larger reward later.
-  const mergedConfig = {
-    ...baseConfig,
-    maxHp: Math.round(baseConfig.maxHp * Math.pow(config.statMultiplier, newMergeLevel - 1)),
-    damage: Math.round(baseConfig.damage * Math.pow(config.statMultiplier, newMergeLevel - 1)),
-    size: baseConfig.size * (1 + (newMergeLevel - 1) * config.sizeMultiplier),
-    score: Math.round(baseConfig.score * Math.pow(config.statMultiplier, newMergeLevel - 1) * newMergeLevel),
-    color: [
-      Math.max(0, baseConfig.color[0] - 20 * (newMergeLevel - 1)),
-      Math.max(0, baseConfig.color[1] - 20 * (newMergeLevel - 1)),
-      Math.max(0, baseConfig.color[2] - 20 * (newMergeLevel - 1))
-    ],
-  };
-  
-  // --- THIS LINE WAS REMOVED ---
-  // gameContext.increaseScore?.(enemy1.score + enemy2.score); 
-  // -----------------------------
-
-  // 3. Destroy the original enemies.
+  // 2. DESTROY the old enemies first.
   if (enemy1.exists()) k.destroy(enemy1);
   if (enemy2.exists()) k.destroy(enemy2);
 
-  // 4. Create the new, powerful enemy.
-  const mergedEnemy = createEnemyGameObject(k, gameContext.player, mergedConfig, midpoint, gameContext);
-  
+  // 3. CREATE a new enemy using the main spawner.
+  // This ensures it gets the correct base stats scaled by the DifficultyController.
+  const mergedEnemy = spawnEnemy(k, gameContext.player, gameContext, {
+      forceType: enemy1.type,
+      spawnPos: midpoint, // This makes it spawn instantly
+      progress: gameContext.sharedState.spawnProgress,
+      difficulty: gameContext.difficulty, // This is the critical part
+  });
+
+  // If the enemy couldn't be created for some reason, stop here.
+  if (!mergedEnemy || !mergedEnemy.exists()) return;
+
+  // 4. APPLY the merge-specific bonuses ON TOP of the difficulty-scaled stats.
   mergedEnemy.mergeLevel = newMergeLevel;
   
-  attachEnemyBehaviors(k, mergedEnemy, gameContext.player);
+  // Apply stat and score multipliers
+  const multiplier = Math.pow(config.statMultiplier, newMergeLevel - 1);
+  mergedEnemy.hp = Math.round(mergedEnemy.hp * multiplier);
+  mergedEnemy.damage = Math.round(mergedEnemy.damage * multiplier);
+  mergedEnemy.scoreValue = Math.round(mergedEnemy.scoreValue * multiplier * newMergeLevel);
 
-  // 5. Add a visual effect for the merge.
+  // Apply size and color changes
+  const newSize = baseConfig.size * (1 + (newMergeLevel - 1) * config.sizeMultiplier);
+  mergedEnemy.scale = k.vec2(newSize / baseConfig.size);
+  mergedEnemy.color = k.rgb(
+    Math.max(0, baseConfig.color[0] - 20 * (newMergeLevel - 1)),
+    Math.max(0, baseConfig.color[1] - 20 * (newMergeLevel - 1)),
+    Math.max(0, baseConfig.color[2] - 20 * (newMergeLevel - 1))
+  );
+
+  // 5. ADD a visual effect for the merge.
   k.add([
-    k.circle(mergedConfig.size * 0.7),
+    k.circle(newSize * 0.7),
     k.pos(midpoint),
     k.anchor('center'),
     k.scale(1),
@@ -91,17 +79,16 @@ function performMerge(k, gameContext, enemy1, enemy2, config) {
     k.lifespan(0.4, { fade: 0.4 })
   ]);
 
-  k.tween(mergedEnemy.scale, k.vec2(1.2), 0.1, (s) => mergedEnemy.scale = s, k.easings.easeOutQuad).then(() => {
-    k.tween(mergedEnemy.scale, k.vec2(1), 0.1, (s) => mergedEnemy.scale = s, k.easings.easeInQuad);
+  k.tween(mergedEnemy.scale, mergedEnemy.scale.scale(1.2), 0.1, (s) => mergedEnemy.scale = s, k.easings.easeOutQuad).then(() => {
+    k.tween(mergedEnemy.scale, mergedEnemy.scale.scale(1/1.2), 0.1, (s) => mergedEnemy.scale = s, k.easings.easeInQuad);
   });
 }
 
 /**
  * Sets up all the necessary listeners for the enemy merging mechanic.
- * @param {KaboomCtx} k The Kaboom context.
- * @param {object} gameContext The global game context, including sharedState.
  */
 export function setupEnemyMerging(k, gameContext) {
+  // The rest of this file remains exactly the same.
   k.onAdd("enemy", (enemy) => {
     if (MERGE_CONFIG[enemy.type]) {
       enemy.use("mergeable");

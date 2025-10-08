@@ -1,20 +1,28 @@
 import { createPlayerStatsSnapshotUI } from "../components/ui/playerStatsUI.js";
+import { getSelectedDifficultyConfig } from "../components/utils/difficultyManager.js";
 
 export function defineVictoryScene(k, getScore) {
   k.scene("victory", (args = {}) => {
-    k.add([k.text("VICTORY!!!"), k.anchor("center"), k.pos(k.width() / 2, k.height() / 2 - 100)]);
-    k.add([k.text(`Final score: ${getScore()}`), k.anchor("center"), k.pos(k.width() / 2, k.height() / 2 - 50)]);
+    const difficultyConfig = getSelectedDifficultyConfig();
+    const difficultyName = difficultyConfig.name.toUpperCase(); 
+    
+    const centerY = k.height() / 2;
 
-    // Show static final player stats (centered under score) if provided
+    k.add([k.text("VICTORY!!!"), k.anchor("center"), k.pos(k.width() / 2, centerY - 120)]);
+    k.add([k.text(`DIFFICULTY - ${difficultyName}`), k.anchor("center"), k.pos(k.width() / 2, centerY - 70)]);
+    k.add([k.text(`Final score: ${getScore()}`), k.anchor("center"), k.pos(k.width() / 2, centerY - 30)]);
+
+
+
+    // Show static final player stats if provided
     if (args.statsSnapshot) {
       const x = k.width() / 2 - 180;
-      const y = k.height() / 2 - 10;
+      const y = centerY + 10; // Adjusted y-pos
       
-      // Use the function imported at the top of the file directly
       createPlayerStatsSnapshotUI(k, args.statsSnapshot, { x, y, width: 360, size: 16 });
     }
 
-    k.add([k.text("Click to play again", { size: 24 }), k.anchor("center"), k.pos(k.width() / 2, k.height() / 2 + 110)]); // Adjusted y-pos to match gameover scene
+    k.add([k.text("Click to play again", { size: 24 }), k.anchor("center"), k.pos(k.width() / 2, centerY + 130)]); // Adjusted y-pos
     let canClick = false;
     k.wait(1, () => { canClick = true; });
     k.onClick(() => { if (canClick) k.go("game"); });

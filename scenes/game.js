@@ -35,30 +35,36 @@ import {
 } from "../components/player/autoShoot.js";
 import { createDpsHud } from "../components/utils/dpsHud.js";
 import { setupEnemyMerging } from "../components/enemy/enemyMerger.js";
+import { getSelectedDifficultyConfig } from "../components/utils/difficultyManager.js";
+import { DifficultyController } from "../components/utils/difficultyController.js";
 
 const MINIMAL_SPAWN_INTERVAL = 0.2;
 const BOSS_SPAWN_TIME = 100;
 
 export function defineGameScene(k, scoreRef) {
-function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
-  const maybePromise = spawnEnemy(k, gameContext.player, gameContext, {
-    forceType: "miniboss",
-    ability,
-    scaling,
-  });
-
-  if (maybePromise && typeof maybePromise.then === "function") {
-    maybePromise.then(miniboss => {
-      console.log("[game.js] Miniboss promise resolved. entity:", miniboss);
-    }).catch(err => {
-      console.error("[game.js] Miniboss spawn promise rejected:", err);
+  function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
+    const maybePromise = spawnEnemy(k, gameContext.player, gameContext, {
+      forceType: "miniboss",
+      ability,
+      scaling,
+      progress: gameContext.sharedState.spawnProgress,
+      difficulty: gameContext.difficulty,
     });
-  } else if (maybePromise) {
-    console.log("[game.js] Miniboss spawned immediately:", maybePromise);
-  }
 
-  return maybePromise;
-}
+    if (maybePromise && typeof maybePromise.then === "function") {
+      maybePromise
+        .then((miniboss) => {
+          console.log("[game.js] Miniboss promise resolved. entity:", miniboss);
+        })
+        .catch((err) => {
+          console.error("[game.js] Miniboss spawn promise rejected:", err);
+        });
+    } else if (maybePromise) {
+      console.log("[game.js] Miniboss spawned immediately:", maybePromise);
+    }
+
+    return maybePromise;
+  }
   k.scene("game", () => {
     let mobileControllerIsRegistered = false;
     if (isMobileDevice()) {
@@ -66,6 +72,10 @@ function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
       mobileControllerIsRegistered = true;
     }
 
+    // --- Difficulty Setup ---
+    const difficultyConfig = getSelectedDifficultyConfig();
+    const difficulty = new DifficultyController(difficultyConfig);
+    const BOSS_SPAWN_TIME = difficulty.getBossSpawnTime();
     // --- Game Arena Setup ---
     const ARENA_MARGIN = Math.floor(Math.min(k.width(), k.height()) * 0.05);
     const ARENA = {
@@ -121,6 +131,7 @@ function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
       player,
       increaseScore: addScore,
       updateHealthBar: () => drawHealthBar(k, player.hp()),
+      difficulty: difficulty, 
     };
     setupEnemyPlayerCollisions(k, gameContext);
     setupEnemyMerging(k, gameContext);
@@ -133,17 +144,15 @@ function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
     let statsUI = null;
 
     // --- Game Loop Variables ---
-    const initialEnemySpawnInterval = 2;
-    let enemySpawnInterval = initialEnemySpawnInterval;
-    let timeUntilNextSpawn = enemySpawnInterval;
+    let timeUntilNextSpawn = difficulty.getSpawnInterval(0);
     let isBossSpawned = false;
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
     let wasAutoTogglePreviouslyPressed = false;
 
     const dpsHud = createDpsHud(k, player, gameState, {
-      initialSpawnInterval: initialEnemySpawnInterval,
-      minimalSpawnInterval: MINIMAL_SPAWN_INTERVAL,
+      initialSpawnInterval: difficulty.config.spawnInterval.start,
+      minimalSpawnInterval: difficulty.config.spawnInterval.end,
       labelPos: { x: 200, y: 14 },
       fontSize: 12,
       updateInterval: 2,
@@ -265,6 +274,7 @@ function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
             const bossSpawnPromise = spawnEnemy(k, player, gameContext, {
               forceType: "boss",
               progress: 1.0,
+              difficulty: difficulty,
             });
 
             if (
@@ -272,15 +282,24 @@ function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
               typeof bossSpawnPromise.then === "function"
             ) {
               bossSpawnPromise
-                .then((bossEntity) => { console.log( "[game.js] Boss promise resolved. bossEntity is:", bossEntity  );
+                .then((bossEntity) => {
+                  console.log(
+                    "[game.js] Boss promise resolved. bossEntity is:",
+                    bossEntity
+                  );
                   currentBoss = bossEntity;
                   if (currentBoss && currentBoss.exists()) {
                     createBossHealthBar(k, currentBoss);
-                  } else {console.error( "[game.js] Boss entity is NULL or was destroyed before the health bar could be created!" );
+                  } else {
+                    console.error(
+                      "[game.js] Boss entity is NULL or was destroyed before the health bar could be created!"
+                    );
                   }
                 })
                 .catch((err) => {
-                  console.error( "[game.js] The boss spawn promise was REJECTED. Error:",err
+                  console.error(
+                    "[game.js] The boss spawn promise was REJECTED. Error:",
+                    err
                   );
                 });
             } else {
@@ -289,24 +308,21 @@ function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
               );
             }
           } else {
-            // Calculate progress based on the elapsed time
-            const timeProgress = Math.min(
+            // 1. Calculate linear progress. The controller will handle the easing.
+            const progress = Math.min(
               gameState.elapsedTime / BOSS_SPAWN_TIME,
               1.0
             );
-            const easedProgress = timeProgress * timeProgress;
-            gameState.spawnProgress = easedProgress;
+            gameState.spawnProgress = progress; // Store for other systems if needed
 
-            const spawnIntervalRange =
-              initialEnemySpawnInterval - MINIMAL_SPAWN_INTERVAL;
-            enemySpawnInterval =
-              initialEnemySpawnInterval - spawnIntervalRange * easedProgress;
-
+            // 2. Call spawnEnemy, passing the correct progress variable and the controller.
             spawnEnemy(k, player, gameContext, {
-              progress: gameState.spawnProgress,
+              progress: progress,
+              difficulty: difficulty,
             });
 
-            timeUntilNextSpawn = enemySpawnInterval;
+            // 3. Get the next spawn interval directly from the controller.
+            timeUntilNextSpawn = difficulty.getSpawnInterval(progress);
           }
         }
       }

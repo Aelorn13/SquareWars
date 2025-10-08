@@ -1,6 +1,10 @@
 // components/upgrade/applyUpgrade.js
 import { showUpgradeUI, cleanupUpgradeUI } from "../ui/upgradeUI.js";
-import { UPGRADE_CONFIG, rollRarityForStat, formatUpgradeForUI } from "./upgradeConfig.js";
+import {
+  UPGRADE_CONFIG,
+  rollRarityForStat,
+  formatUpgradeForUI,
+} from "./upgradeConfig.js";
 import { getPermanentBaseStat, applyPermanentUpgrade } from "./statManager.js";
 import { attachBuffManager } from "../buffManager.js";
 
@@ -37,7 +41,9 @@ export function applyUpgrade(...args) {
     rarity = rollRarityForStat(statName);
   } else if (chosenUpgrade && typeof chosenUpgrade === "object") {
     statName = chosenUpgrade.stat ?? chosenUpgrade.name ?? null;
-    rarity = chosenUpgrade.rarity ?? (statName ? rollRarityForStat(statName) : undefined);
+    rarity =
+      chosenUpgrade.rarity ??
+      (statName ? rollRarityForStat(statName) : undefined);
   } else {
     console.warn("applyUpgrade: invalid chosenUpgrade", chosenUpgrade);
     return;
@@ -53,7 +59,11 @@ export function applyUpgrade(...args) {
   attachBuffManager(k, player);
 
   // generate stable-ish source id for effects
-  const sourceId = player.id ?? player._id ?? player.name ?? `p_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+  const sourceId =
+    player.id ??
+    player._id ??
+    player.name ??
+    `p_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
   // Special: Ghost (unique, non-projectile effect)
   if (statName === "ghost") {
     if (!player) return;
@@ -71,9 +81,12 @@ export function applyUpgrade(...args) {
 
     // Double dashDuration: prefer permanent base if present, fallback to runtime value, then persist.
     const curBase = getPermanentBaseStat(player, "dashDuration");
-    const currentBase = typeof curBase === "number"
-      ? curBase
-      : (typeof player.dashDuration === "number" ? player.dashDuration : 0.2);
+    const currentBase =
+      typeof curBase === "number"
+        ? curBase
+        : typeof player.dashDuration === "number"
+        ? player.dashDuration
+        : 0.2;
     const newDash = Math.max(0.01, currentBase * 2);
 
     // Persist using your stat manager and apply immediately to the player object.
@@ -82,25 +95,31 @@ export function applyUpgrade(...args) {
 
     return;
   }
-    // Special: Improve Dash (affects both dashDuration and dashCooldown)
+  // Special: Improve Dash (affects both dashDuration and dashCooldown)
   if (statName === "improveDash") {
     const scaleVal = statConfig?.scale ?? 0.5;
     const strength = (rarity?.multiplier ?? 0) * scaleVal;
 
     // read persistent base if present, else use runtime value, else fallback defaults
-    const baseDur = typeof getPermanentBaseStat(player, "dashDuration") === "number"
-      ? getPermanentBaseStat(player, "dashDuration")
-      : (typeof player.dashDuration === "number" ? player.dashDuration : 0.2);
-    const baseCd = typeof getPermanentBaseStat(player, "dashCooldown") === "number"
-      ? getPermanentBaseStat(player, "dashCooldown")
-      : (typeof player.dashCooldown === "number" ? player.dashCooldown : 2.5);
+    const baseDur =
+      typeof getPermanentBaseStat(player, "dashDuration") === "number"
+        ? getPermanentBaseStat(player, "dashDuration")
+        : typeof player.dashDuration === "number"
+        ? player.dashDuration
+        : 0.2;
+    const baseCd =
+      typeof getPermanentBaseStat(player, "dashCooldown") === "number"
+        ? getPermanentBaseStat(player, "dashCooldown")
+        : typeof player.dashCooldown === "number"
+        ? player.dashCooldown
+        : 2.5;
 
     // compute new values
     const MAX_DUR = 5.0;
     const MIN_CD = 0.2;
 
     const newDur = Math.min(MAX_DUR, Math.max(0.01, baseDur * (1 + strength))); // increase duration
-    const newCd = Math.max(MIN_CD, baseCd * Math.max(0.01, (1 - strength))); // reduce cooldown
+    const newCd = Math.max(MIN_CD, baseCd * Math.max(0.01, 1 - strength)); // reduce cooldown
 
     // persist and apply immediately
     applyPermanentUpgrade(player, "dashDuration", newDur);
@@ -160,7 +179,9 @@ export function applyUpgrade(...args) {
     };
 
     if (statConfig.isUnique) {
-      const idx = player._projectileEffects.findIndex((e) => e.type === statConfig.effectType);
+      const idx = player._projectileEffects.findIndex(
+        (e) => e.type === statConfig.effectType
+      );
       if (idx >= 0) player._projectileEffects[idx] = newEffect;
       else player._projectileEffects.push(newEffect);
     } else {
@@ -178,11 +199,15 @@ export function applyUpgrade(...args) {
     newBaseValue = currentBase + delta;
   } else {
     const delta = currentBase * (rarity?.multiplier ?? 0) * statConfig.scale;
-    newBaseValue = statConfig.isInverse ? currentBase - delta : currentBase + delta;
+    newBaseValue = statConfig.isInverse
+      ? currentBase - delta
+      : currentBase + delta;
   }
 
   if (statConfig.cap !== undefined) {
-    newBaseValue = statConfig.isInverse ? Math.max(statConfig.cap, newBaseValue) : Math.min(statConfig.cap, newBaseValue);
+    newBaseValue = statConfig.isInverse
+      ? Math.max(statConfig.cap, newBaseValue)
+      : Math.min(statConfig.cap, newBaseValue);
   }
 
   applyPermanentUpgrade(player, statName, newBaseValue);
@@ -196,7 +221,15 @@ export function applyUpgrade(...args) {
  * maybeShowUpgrade - builds 3 offers but excludes unique effects the player already owns.
  * no signature changes here (k, player, sharedState, currentScore, nextThresholdRef, addScore)
  */
-export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThresholdRef, addScore) {
+export function maybeShowUpgrade(
+  k,
+  player,
+  sharedState,
+  currentScore,
+  nextThresholdRef,
+  addScore
+) {
+  if (player.hp() <= 0)  return; 
   if (sharedState.upgradeOpen || currentScore < nextThresholdRef.value) return;
 
   // open upgrade screen and pause game
@@ -211,7 +244,9 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
     sharedState.upgradeInteractionLocked = false;
   }, CLICK_LOCK_MS);
 
-  const ownedEffects = new Set((player._projectileEffects ?? []).map(e => e.type));
+  const ownedEffects = new Set(
+    (player._projectileEffects ?? []).map((e) => e.type)
+  );
   const available = Object.keys(UPGRADE_CONFIG).filter((stat) => {
     const cfg = UPGRADE_CONFIG[stat];
     if (!cfg) return false;
@@ -219,7 +254,8 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
     // If upgrade is unique, exclude if already owned
     if (cfg.isUnique) {
       // projectile-typed unique effects stored in player._projectileEffects
-      if (cfg.isEffect && cfg.effectType && ownedEffects.has(cfg.effectType)) return false;
+      if (cfg.isEffect && cfg.effectType && ownedEffects.has(cfg.effectType))
+        return false;
 
       // non-projectile unique upgrades (e.g. ghost) stored as flags on player
       if (stat === "ghost" && player.hasGhost) return false;
@@ -238,17 +274,14 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
 
   // Wrap the callback so early clicks are ignored.
   showUpgradeUI(k, offered, (picked) => {
-
     if (sharedState.upgradeInteractionLocked) {
       // ignore accidental clicks during the lock period
       return;
     }
 
-    // normal handling
-       if (picked === "skip") {
+    if (picked === "skip") {
       addScore(10);
-    }
-    else if (picked && picked.stat) {
+    } else if (picked && picked.stat) {
       applyUpgrade(player, picked);
     }
 

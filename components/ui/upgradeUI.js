@@ -76,7 +76,6 @@ export function showUpgradeUI(k, chosenUpgrades = [], onPick = () => {}) {
   const cardY = centerY;
   const cardXs = [centerX - cardSpacing, centerX, centerX + cardSpacing];
 
-  // helper: safe vec2
   const mkVec = (x, y) => (typeof k.vec2 === "function" ? k.vec2(x, y) : { x, y });
 
   // helper: robust point-in-item test
@@ -131,7 +130,6 @@ export function showUpgradeUI(k, chosenUpgrades = [], onPick = () => {}) {
     k.add([k.text(upgradeChoice.bonusText ?? "", { size: 16, align: "center" }), k.pos(x, y - 6), k.anchor("center"), k.color(...colorArr), k.fixed(), k.z(501), "upgradeUI"]);
     k.add([k.text(upgradeChoice.description ?? "", { size: 12, align: "center", width: 200 }), k.pos(x, y + 34), k.anchor("center"), k.color(200, 200, 200), k.fixed(), k.z(501), "upgradeUI"]);
 
-    // Prefer per-entity onClick if available (works on many Kaboom builds)
     try {
       if (typeof cardBox.onClick === "function") {
         cardBox.onClick(() => {

@@ -23,6 +23,6 @@ export function defineGameOverScene(k, getScore) {
     k.add([k.text("Click to play again", { size: 24 }), k.anchor("center"), k.pos(k.width() / 2, centerY + 130)]); // Adjusted y-pos
     let canClick = false;
     k.wait(1, () => (canClick = true));
-    k.onClick(() => { if (canClick) k.go("game"); });
+    k.onClick(() => { if (canClick) k.go("tutorial"); });
   });
 }

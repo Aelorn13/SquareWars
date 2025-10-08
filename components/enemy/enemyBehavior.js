@@ -5,10 +5,22 @@ import { spawnPowerUp } from "../powerup/spawnPowerup.js";
 import { getPlayerStatsSnapshot } from "../ui/playerStatsUI.js";
 import { applyProjectileEffects } from "../effects/applyProjectileEffects.js";
 import { attachBuffManager } from "../buffManager.js";
-
+import { unregisterMobileController } from "../player/controls.js";
+import { cleanupUpgradeUI } from "../ui/upgradeUI.js";
 const KNOCKBACK_DISTANCE = 120;
 const KNOCKBACK_DURATION = 0.1;
 const DAMAGE_COLOR = [240, 240, 240]; // Color when damaged
+
+function goToGameOverScene(k, gameContext, snapshot) {
+  k.paused = false;
+  if (gameContext.sharedState) {
+    gameContext.sharedState.isPaused = false;
+    gameContext.sharedState.upgradeOpen= false
+  }
+  cleanupUpgradeUI(k); 
+  unregisterMobileController();
+  k.go("gameover", { statsSnapshot: snapshot });
+}
 
 export function lerpAngle(start, end, t) {
   let diff = end - start;
@@ -76,7 +88,7 @@ function handleEnemyPlayerCollision(k, enemy, player, gameContext) {
 
   if (getCurrentHp(player) <= 0) {
     const snapshot = getPlayerStatsSnapshot(gameContext.player);
-    k.go("gameover", { statsSnapshot: snapshot });
+     goToGameOverScene(k, gameContext, snapshot);
   }
 
   return true;
@@ -144,7 +156,7 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
 
     if (getCurrentHp(player) <= 0) {
       const snapshot = getPlayerStatsSnapshot(gameContext.player);
-      k.go("gameover", { statsSnapshot: snapshot });
+       goToGameOverScene(k, gameContext, snapshot);
     }
   });
 }

@@ -1,7 +1,7 @@
 import { createPlayerStatsSnapshotUI } from "../components/ui/playerStatsUI.js";
 import { getSelectedDifficultyConfig } from "../components/utils/difficultyManager.js";
 
-export function defineGameOverScene(k, getScore) {
+export function defineVictoryScene(k, getScore) {
   k.scene("victory", (args = {}) => {
     const difficultyConfig = getSelectedDifficultyConfig();
     const difficultyName = difficultyConfig.name.toUpperCase(); 

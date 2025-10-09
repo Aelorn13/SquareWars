@@ -25,17 +25,24 @@ import { makeSecretToggle } from "../components/utils/secretToggle.js";
 import {
   createDebugToggleButton,
   spawnAllDebugPowerUps,
-  createEnemySpawner,   
-  createBossSpawner,    
+  createEnemySpawner,
+  createBossSpawner,
 } from "../components/ui/debug/index.js";
 import { createManualUpgradeButton } from "../components/ui/debug/manualUpgradeButton.js";
-import { setupEnemyMerging } from "../components/enemy/enemyMerger.js"; 
+import { setupEnemyMerging } from "../components/enemy/enemyMerger.js";
+import { getSelectedDifficultyConfig, setCurrentDifficulty } from "../components/utils/difficultyManager.js";
+import { DifficultyController } from "../components/utils/difficultyController.js";
 
 /**
  * Defines the debug game scene for testing game mechanics.
  */
 export function defineDebugScene(k) {
   const BOSS_SPAWN_TIME = 100;
+
+  setCurrentDifficulty("normal");
+
+  const difficultyConfig = getSelectedDifficultyConfig();
+  const difficulty = new DifficultyController(difficultyConfig);
 
   k.scene("debug", () => {
     // mobile controller
@@ -64,7 +71,7 @@ export function defineDebugScene(k) {
     // --- Game State & Context ---
     const gameState = {
       isPaused: false,
-      isUpgradePanelOpen: false,
+      upgradeOpen: false, // <-- UPDATED: Renamed from isUpgradePanelOpen
       area: ARENA,
       spawnProgress: 1,
       elapsedTime: 0,
@@ -85,14 +92,7 @@ export function defineDebugScene(k) {
       gameContext.nextUpgradeScoreThreshold = nextUpgradeScoreThresholdRef.value;
 
       updateScoreLabel(scoreLabel, currentScore, nextUpgradeScoreThresholdRef.value);
-      maybeShowUpgrade(
-        k,
-        player,
-        gameState,
-        currentScore,
-        nextUpgradeScoreThresholdRef,
-        addScore
-      );
+      maybeShowUpgrade(k, player, gameState, currentScore, nextUpgradeScoreThresholdRef, addScore);
     };
 
     setupPlayerShooting(k, player, gameState);
@@ -103,13 +103,14 @@ export function defineDebugScene(k) {
       player,
       increaseScore: addScore,
       updateHealthBar: () => drawHealthBar(k, player.hp()),
+      difficulty: difficulty, // <-- UPDATED: Added difficulty controller
       // legacy debug UI parity fields (kept in-sync by addScore)
       _currentScore: currentScore,
       nextUpgradeScoreThreshold: nextUpgradeScoreThresholdRef.value,
     };
 
     setupEnemyPlayerCollisions(k, gameContext);
-    setupEnemyMerging(k, gameContext); 
+    setupEnemyMerging(k, gameContext);
     const checkSecretToggle = makeSecretToggle(k, "game", keysPressed);
 
     // --- UI Elements ---
@@ -125,7 +126,6 @@ export function defineDebugScene(k) {
     const debugPanelX = k.width() - debugPanelWidth - debugPanelMargin;
     let currentPanelY = debugPanelMargin;
     let isDebugUIVisible = true;
-
 
     const debugUIBase = k.add([
       k.rect(debugPanelWidth + 20, k.height() - debugPanelMargin * 2),
@@ -149,21 +149,21 @@ export function defineDebugScene(k) {
     });
     currentPanelY += 40;
 
-        createManualUpgradeButton(k, {
-  y: currentPanelY,
-  player,
-  gameState,
-  isDebugUIVisible: () => isDebugUIVisible,
-});
+    createManualUpgradeButton(k, {
+      y: currentPanelY,
+      player,
+      gameState,
+      isDebugUIVisible: () => isDebugUIVisible,
+    });
     // --- Power-up Spawner (moved into debug UI bundle) ---
     spawnAllDebugPowerUps(k, ARENA, gameState);
 
     // --- Enemy Spawner UI (from debug bundle) ---
     const enemyUIResult = createEnemySpawner(k, debugPanelX, currentPanelY, {
       ENEMY_CONFIGS,
-      spawnEnemy,
+      spawnEnemy, // Note: The function itself is passed; the call is updated internally
       player,
-      gameContext,
+      gameContext, // Note: gameContext now contains the difficulty controller
       gameState,
       isDebugUIVisible: () => isDebugUIVisible,
       debugPanelWidth,
@@ -172,9 +172,9 @@ export function defineDebugScene(k) {
 
     // --- Boss & Miniboss Spawner UI (from debug bundle) ---
     const bossUIResult = createBossSpawner(k, currentPanelY ? debugPanelX : debugPanelX, currentPanelY, {
-      spawnEnemy,
+      spawnEnemy, // Note: The function itself is passed; the call is updated internally
       player,
-      gameContext,
+      gameContext, // Note: gameContext now contains the difficulty controller
       summonMinions,
       spreadShot,
       chargeAttack,
@@ -212,13 +212,12 @@ export function defineDebugScene(k) {
         wasPauseKeyPreviouslyPressed = false;
       }
 
-      k.paused = gameState.isPaused || gameState.isUpgradePanelOpen;
-      if (k.paused) return;
+      if (gameState.isPaused || gameState.upgradeOpen) {
+        return;
+      }
 
-      // keep tracking elapsed time (useful if you extend debug to timed events)
       gameState.elapsedTime += k.dt();
 
-      // Update UI elements (dash cooldown + timer)
       if (dashCooldownBar && typeof dashCooldownBar.fullWidth === "number") {
         dashCooldownBar.width = dashCooldownBar.fullWidth * player.getDashCooldownProgress();
       }

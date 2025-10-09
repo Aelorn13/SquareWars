@@ -1,4 +1,4 @@
-// components/ui/dubug/enemySpawnerUI.js
+// components/ui/debug/enemySpawnerUI.js
 /**
  * Builds the enemy-spawn section of the debug panel:
  * - "ENEMY SPAWN" title
@@ -7,15 +7,20 @@
  *
  * Returns { currentPanelY } so caller can continue placing UI below it.
  */
-export function createEnemySpawner(k, debugPanelX, currentPanelY, {
-  ENEMY_CONFIGS,
-  spawnEnemy,
-  player,
-  gameContext,
-  gameState,
-  isDebugUIVisible = () => true,
-  debugPanelWidth = 240,
-} = {}) {
+export function createEnemySpawner(
+  k,
+  debugPanelX,
+  currentPanelY,
+  {
+    ENEMY_CONFIGS,
+    spawnEnemy,
+    player,
+    gameContext,
+    gameState,
+    isDebugUIVisible = () => true,
+    debugPanelWidth = 240,
+  } = {}
+) {
   k.add([k.text("ENEMY SPAWN", { size: 16 }), k.pos(debugPanelX, currentPanelY), k.fixed(), k.z(101), "debugUI"]);
   currentPanelY += 25;
 
@@ -56,10 +61,19 @@ export function createEnemySpawner(k, debugPanelX, currentPanelY, {
     k.z(101),
     "debugUI",
   ]);
-  spawnEnemyButton.add([k.text("SPAWN ENEMY", { size: 14, font: "sans-serif" }), k.anchor("center"), k.pos(spawnEnemyButton.width / 2, spawnEnemyButton.height / 2), k.z(102)]);
+  spawnEnemyButton.add([
+    k.text("SPAWN ENEMY", { size: 14, font: "sans-serif" }),
+    k.anchor("center"),
+    k.pos(spawnEnemyButton.width / 2, spawnEnemyButton.height / 2),
+    k.z(102),
+  ]);
   spawnEnemyButton.onClick(() => {
     if (gameState.isPaused || !isDebugUIVisible()) return;
-    spawnEnemy(k, player, gameContext, { forceType: selectedEnemyType });
+    // UPDATED: Pass the difficulty controller from the gameContext into the options.
+    spawnEnemy(k, player, gameContext, {
+      forceType: selectedEnemyType,
+      difficulty: gameContext.difficulty,
+    });
   });
   currentPanelY += 50;
 

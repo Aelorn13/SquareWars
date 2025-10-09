@@ -12,7 +12,7 @@ export const difficultySettings = {
     bossSpawnTime: 100,
   },
   hard: {
-    name: 'Hard',
+    name: 'Nightmare',
     spawnInterval: { start: 1.5, end: 0.1 },
     enemyStatMultiplier: { start: 1.2, end: 2.7 },
     scoreStatMultiplier: { start: 1.5, end: 3.0 }, 

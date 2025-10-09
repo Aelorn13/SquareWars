@@ -10,8 +10,10 @@ export function defineGameOverScene(k, getScore) {
 
     k.add([k.text("GAME OVER"), k.anchor("center"), k.pos(k.width() / 2, centerY - 120)]);
     k.add([k.text(`DIFFICULTY - ${difficultyName}`), k.anchor("center"), k.pos(k.width() / 2, centerY - 70)]);
-    k.add([k.text(`Final score: ${getScore()}`), k.anchor("center"), k.pos(k.width() / 2, centerY - 30)]);
 
+    const scoreText = `Final score: ${getScore()}`;
+    const infinityModeText = args.isEndless ? " (Infinity Mode)" : "";
+    k.add([k.text(scoreText + infinityModeText), k.anchor("center"), k.pos(k.width() / 2, centerY - 30)]);
     if (args.statsSnapshot) {
       const x = k.width() / 2 - 180;
       const y = centerY + 10;

@@ -253,10 +253,10 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
         
         enemyDeathAnimation(k, this);
         
-        if (this.type === "boss") {
-          const snapshot = getPlayerStatsSnapshot(gameContext.player);
-          k.wait(0.5, () => k.go("victory", { statsSnapshot: snapshot }));
-        }
+        // if (this.type === "boss") {
+        //   const snapshot = getPlayerStatsSnapshot(gameContext.player);
+        //   k.wait(0.5, () => k.go("victory", { statsSnapshot: snapshot }));
+        // }
       },
     },
   ];

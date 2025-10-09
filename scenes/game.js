@@ -1,4 +1,4 @@
-//game.js
+// game.js
 import { createPlayer } from "../components/player/player.js";
 import { spawnEnemy } from "../components/enemy/enemySpawner.js";
 import { setupEnemyPlayerCollisions } from "../components/enemy/enemyBehavior.js";
@@ -12,34 +12,24 @@ import {
   updateTimerLabel,
   createPauseLabel,
   createBossHealthBar,
+  showVictoryPrompt,
+  getPlayerStatsSnapshot,
 } from "../components/ui/index.js";
 import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
 import { inputState, keysPressed } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
-import {
-  summonMinions,
-  spreadShot,
-  chargeAttack,
-} from "../components/enemy/boss/bossAbilities.js";
-import {
-  isMobileDevice,
-  registerMobileController,
-  unregisterMobileController,
-} from "../components/player/controls.js";
+import { summonMinions, spreadShot, chargeAttack } from "../components/enemy/boss/bossAbilities.js";
+import { isMobileDevice, registerMobileController, unregisterMobileController } from "../components/player/controls.js";
 import { makeMobileController } from "../components/player/mobile/index.js";
 import { makeSecretToggle } from "../components/utils/secretToggle.js";
-import {
-  toggleAutoShoot,
-  autoShootTick,
-} from "../components/player/autoShoot.js";
+import { toggleAutoShoot, autoShootTick } from "../components/player/autoShoot.js";
 import { createDpsHud } from "../components/utils/dpsHud.js";
 import { setupEnemyMerging } from "../components/enemy/enemyMerger.js";
 import { getSelectedDifficultyConfig } from "../components/utils/difficultyManager.js";
 import { DifficultyController } from "../components/utils/difficultyController.js";
 
 const MINIMAL_SPAWN_INTERVAL = 0.2;
-const BOSS_SPAWN_TIME = 100;
 
 export function defineGameScene(k, scoreRef) {
   function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
@@ -65,6 +55,7 @@ export function defineGameScene(k, scoreRef) {
 
     return maybePromise;
   }
+
   k.scene("game", () => {
     let mobileControllerIsRegistered = false;
     if (isMobileDevice()) {
@@ -72,10 +63,18 @@ export function defineGameScene(k, scoreRef) {
       mobileControllerIsRegistered = true;
     }
 
+    const GameState = {
+      PRE_BOSS: "PRE_BOSS",
+      BOSS_FIGHT: "BOSS_FIGHT",
+      VICTORY_PROMPT: "VICTORY_PROMPT",
+      ENDLESS: "ENDLESS",
+    };
+
     // --- Difficulty Setup ---
     const difficultyConfig = getSelectedDifficultyConfig();
     const difficulty = new DifficultyController(difficultyConfig);
     const BOSS_SPAWN_TIME = difficulty.getBossSpawnTime();
+
     // --- Game Arena Setup ---
     const ARENA_MARGIN = Math.floor(Math.min(k.width(), k.height()) * 0.05);
     const ARENA = {
@@ -108,19 +107,8 @@ export function defineGameScene(k, scoreRef) {
 
     const addScore = (amount) => {
       currentScore += amount;
-      updateScoreLabel(
-        scoreLabel,
-        currentScore,
-        nextUpgradeScoreThresholdRef.value
-      );
-      maybeShowUpgrade(
-        k,
-        player,
-        gameState,
-        currentScore,
-        nextUpgradeScoreThresholdRef,
-        addScore
-      );
+      updateScoreLabel(scoreLabel, currentScore, nextUpgradeScoreThresholdRef.value);
+      maybeShowUpgrade(k, player, gameState, currentScore, nextUpgradeScoreThresholdRef, addScore);
     };
 
     scoreRef.value = () => currentScore;
@@ -131,10 +119,11 @@ export function defineGameScene(k, scoreRef) {
       player,
       increaseScore: addScore,
       updateHealthBar: () => drawHealthBar(k, player.hp()),
-      difficulty: difficulty, 
+      difficulty: difficulty,
     };
     setupEnemyPlayerCollisions(k, gameContext);
     setupEnemyMerging(k, gameContext);
+
     // --- UI Elements ---
     const scoreLabel = createScoreLabel(k);
     drawHealthBar(k, player.hp());
@@ -149,6 +138,8 @@ export function defineGameScene(k, scoreRef) {
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
     let wasAutoTogglePreviouslyPressed = false;
+    let currentGameState = GameState.PRE_BOSS;
+    let endlessStartTime = 0;
 
     const dpsHud = createDpsHud(k, player, gameState, {
       initialSpawnInterval: difficulty.config.spawnInterval.start,
@@ -158,37 +149,117 @@ export function defineGameScene(k, scoreRef) {
       updateInterval: 2,
       safetyFactor: 1.2,
     });
-    //debug things
+
+    // Debug things
     const checkSecretToggle = makeSecretToggle(k, "debug", keysPressed);
 
-    //miniboss things
+    // Miniboss things
     const minibossSchedule = [
       {
         time: BOSS_SPAWN_TIME / 2,
         scaling: { hpMultiplier: 1, speedMultiplier: 1 },
       },
-      // {
-      //   time: (BOSS_SPAWN_TIME * 3) / 4,
-      //   scaling: { hpMultiplier: 1.5, speedMultiplier: 1.1 },
-      // },
     ];
 
     let minibossesSpawned = 0;
     let usedAbilities = [];
 
+    // --- Helper functions for each game state ---
+    function handleEnemySpawning(progress) {
+      timeUntilNextSpawn -= k.dt();
+      if (timeUntilNextSpawn <= 0) {
+        gameState.spawnProgress = progress;
+        spawnEnemy(k, player, gameContext, { progress, difficulty });
+        timeUntilNextSpawn = difficulty.getSpawnInterval(progress);
+      }
+    }
+
+    function runPreBossLogic() {
+      const progress = Math.min(gameState.elapsedTime / BOSS_SPAWN_TIME, 1.0);
+      handleEnemySpawning(progress);
+
+      // Check for transition to the boss fight
+      if (gameState.elapsedTime >= BOSS_SPAWN_TIME) {
+        currentGameState = GameState.BOSS_FIGHT;
+        spawnTheBoss();
+      }
+    }
+
+        function runBossFightLogic() {
+      // While in this state, we simply wait for the boss to be destroyed
+      if (currentBoss && !currentBoss.exists()) {
+        currentGameState = GameState.VICTORY_PROMPT;
+        gameState.isPaused = true;
+        
+        const snapshot = getPlayerStatsSnapshot(player);
+
+        showVictoryPrompt(k, {
+          onContinue: startEndlessMode,
+          onEnd: () => k.go("victory", { statsSnapshot: snapshot }),
+        });
+      }
+    }
+
+    function runEndlessLogic() {
+      const timeSinceEndless = gameState.elapsedTime - endlessStartTime;
+      const progress = 1.0 + timeSinceEndless / BOSS_SPAWN_TIME;
+      handleEnemySpawning(progress);
+    }
+
+    function startEndlessMode() {
+      console.log("Player chose to continue! Starting Endless Mode.");
+      endlessStartTime = gameState.elapsedTime;
+      currentGameState = GameState.ENDLESS;
+      gameState.isPaused = false;
+
+      // Give the player a reward
+      player.heal(3); 
+      gameContext.updateHealthBar();
+    }
+
+    function spawnTheBoss() {
+      isBossSpawned = true;
+      timerLabel.destroy(); 
+      const bossSpawnPromise = spawnEnemy(k, player, gameContext, {
+        forceType: "boss",
+        progress: 1.0,
+        difficulty: difficulty,
+      });
+
+      if (bossSpawnPromise && typeof bossSpawnPromise.then === "function") {
+        bossSpawnPromise
+          .then((bossEntity) => {
+            console.log("[game.js] Boss promise resolved. bossEntity is:", bossEntity);
+            currentBoss = bossEntity;
+            if (currentBoss && currentBoss.exists()) {
+              createBossHealthBar(k, currentBoss);
+
+              // Listen for boss death
+              currentBoss.onDestroy(() => {
+                console.log("[game.js] Boss destroyed!");
+              });
+            } else {
+              console.error("[game.js] Boss entity is NULL or was destroyed before the health bar could be created!");
+            }
+          })
+          .catch((err) => {
+            console.error("[game.js] The boss spawn promise was REJECTED. Error:", err);
+          });
+      } else {
+        console.error("[game.js] spawnEnemy did NOT return a promise for the boss!");
+      }
+    }
+
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
       checkSecretToggle();
       if (isMobileDevice()) {
-        const shouldBeRegistered =
-          !gameState.isPaused && !gameState.upgradeOpen;
+        const shouldBeRegistered = !gameState.isPaused && !gameState.upgradeOpen;
 
         if (shouldBeRegistered && !mobileControllerIsRegistered) {
-          // Game is running, but controller is missing -> Register it
           registerMobileController(() => makeMobileController(k));
           mobileControllerIsRegistered = true;
         } else if (!shouldBeRegistered && mobileControllerIsRegistered) {
-          // Game is paused, but controller is active -> Unregister it
           unregisterMobileController();
           mobileControllerIsRegistered = false;
         }
@@ -215,6 +286,7 @@ export function defineGameScene(k, scoreRef) {
       } else {
         wasPauseKeyPreviouslyPressed = false;
       }
+
       const autoToggleActive = !!inputState.autoShoot || !!keysPressed["KeyR"];
       if (autoToggleActive) {
         if (!wasAutoTogglePreviouslyPressed) {
@@ -225,104 +297,51 @@ export function defineGameScene(k, scoreRef) {
         wasAutoTogglePreviouslyPressed = false;
       }
 
-      dpsHud.update(
-        k.dt(),
-        keysPressed,
-        gameState.isPaused || gameState.upgradeOpen
-      );
+      dpsHud.update(k.dt(), keysPressed, gameState.isPaused || gameState.upgradeOpen);
       autoShootTick(k, player, gameState);
+
       if (gameState.isPaused || gameState.upgradeOpen) {
         return;
       }
 
       gameState.elapsedTime += k.dt();
+
       // --- UI Updates ---
-      dashCooldownBar.width =
-        dashCooldownBar.fullWidth * player.getDashCooldownProgress();
+      dashCooldownBar.width = dashCooldownBar.fullWidth * player.getDashCooldownProgress();
       updateTimerLabel(timerLabel, k.dt());
 
-      if (minibossesSpawned < minibossSchedule.length) {
-        const schedule = minibossSchedule[minibossesSpawned];
-        if (gameState.elapsedTime >= schedule.time) {
-          const availableAbilities = [
-            summonMinions,
-            spreadShot,
-            chargeAttack,
-          ].filter((a) => !usedAbilities.includes(a.name));
-
-          const ability = k.choose(
-            availableAbilities.length
-              ? availableAbilities
-              : [summonMinions, spreadShot, chargeAttack]
-          );
-          usedAbilities.push(ability.name);
-
-          spawnMiniboss(gameContext, ability, schedule.scaling, schedule.time);
-          minibossesSpawned++;
-        }
+      // --- State Machine ---
+      switch (currentGameState) {
+        case GameState.PRE_BOSS:
+          runPreBossLogic();
+          break;
+        case GameState.BOSS_FIGHT:
+          runBossFightLogic();
+          break;
+        case GameState.VICTORY_PROMPT:
+          // Game is effectively paused by the prompt UI
+          break;
+        case GameState.ENDLESS:
+          runEndlessLogic();
+          break;
       }
 
-      if (!isBossSpawned) {
-        // This calculation was removed as it's not needed for the new time-based logic
-        // and was causing confusion. spawnProgress is now calculated inside the spawn block.
-
-        // --- Enemy Spawning Countdown ---
-        timeUntilNextSpawn -= k.dt();
-        if (timeUntilNextSpawn <= 0) {
-          if (gameState.elapsedTime >= BOSS_SPAWN_TIME) {
-            isBossSpawned = true;
-            const bossSpawnPromise = spawnEnemy(k, player, gameContext, {
-              forceType: "boss",
-              progress: 1.0,
-              difficulty: difficulty,
-            });
-
-            if (
-              bossSpawnPromise &&
-              typeof bossSpawnPromise.then === "function"
-            ) {
-              bossSpawnPromise
-                .then((bossEntity) => {
-                  console.log(
-                    "[game.js] Boss promise resolved. bossEntity is:",
-                    bossEntity
-                  );
-                  currentBoss = bossEntity;
-                  if (currentBoss && currentBoss.exists()) {
-                    createBossHealthBar(k, currentBoss);
-                  } else {
-                    console.error(
-                      "[game.js] Boss entity is NULL or was destroyed before the health bar could be created!"
-                    );
-                  }
-                })
-                .catch((err) => {
-                  console.error(
-                    "[game.js] The boss spawn promise was REJECTED. Error:",
-                    err
-                  );
-                });
-            } else {
-              console.error(
-                "[game.js] spawnEnemy did NOT return a promise for the boss!"
-              );
-            }
-          } else {
-            // 1. Calculate linear progress. The controller will handle the easing.
-            const progress = Math.min(
-              gameState.elapsedTime / BOSS_SPAWN_TIME,
-              1.0
+      // Miniboss spawning (independent of main state for now)
+      if (currentGameState !== GameState.BOSS_FIGHT && currentGameState !== GameState.VICTORY_PROMPT) {
+        if (minibossesSpawned < minibossSchedule.length) {
+          const schedule = minibossSchedule[minibossesSpawned];
+          if (gameState.elapsedTime >= schedule.time) {
+            const availableAbilities = [summonMinions, spreadShot, chargeAttack].filter(
+              (a) => !usedAbilities.includes(a.name)
             );
-            gameState.spawnProgress = progress; // Store for other systems if needed
 
-            // 2. Call spawnEnemy, passing the correct progress variable and the controller.
-            spawnEnemy(k, player, gameContext, {
-              progress: progress,
-              difficulty: difficulty,
-            });
+            const ability = k.choose(
+              availableAbilities.length ? availableAbilities : [summonMinions, spreadShot, chargeAttack]
+            );
+            usedAbilities.push(ability.name);
 
-            // 3. Get the next spawn interval directly from the controller.
-            timeUntilNextSpawn = difficulty.getSpawnInterval(progress);
+            spawnMiniboss(gameContext, ability, schedule.scaling, schedule.time);
+            minibossesSpawned++;
           }
         }
       }
@@ -330,9 +349,7 @@ export function defineGameScene(k, scoreRef) {
 
     // --- Event Handlers ---
     player.onCollide("powerup", (powerUp) => {
-      applyPowerUp(k, player, powerUp.type, gameContext, () =>
-        drawHealthBar(k, player.hp())
-      );
+      applyPowerUp(k, player, powerUp.type, gameContext, () => drawHealthBar(k, player.hp()));
       k.destroy(powerUp);
     });
   });

@@ -1,4 +1,3 @@
- `components/utils/DifficultyController.js`
 import { lerp, easeInOutSine, clamp01 } from './mathUtils.js';
 
 export class DifficultyController {
@@ -13,33 +12,48 @@ export class DifficultyController {
   }
 
   /**
-   * Scales a base stat value based on the game's progress.
+   * Scales a base stat value based on the game's progress, now supporting endless scaling.
    * @param {number} baseValue The initial value of the stat (e.g., enemy HP).
-   * @param {number} progress The game's current progress (a value from 0 to 1).
+   * @param {number} progress The game's current progress. Can be > 1 for endless mode.
    * @returns {number} The calculated final stat value.
    */
   scaleStat(baseValue, progress) {
-    const easedProgress = easeInOutSine(clamp01(progress));
+    let t;
+    if (progress <= 1.0) {
+      t = easeInOutSine(clamp01(progress));
+    } else {
+      t = progress;
+    }
+
     const multiplier = lerp(
       this.config.enemyStatMultiplier.start,
       this.config.enemyStatMultiplier.end,
-      easedProgress
+      t
     );
     return baseValue * multiplier;
   }
 
   /**
-   * Calculates the current enemy spawn interval based on game progress.
-   * @param {number} progress The game's current progress (a value from 0 to 1).
+   * Calculates the current enemy spawn interval based on game progress, now supporting endless scaling.
+   * @param {number} progress The game's current progress. Can be > 1 for endless mode.
    * @returns {number} The calculated spawn interval in seconds.
    */
   getSpawnInterval(progress) {
-    const easedProgress = easeInOutSine(clamp01(progress));
-    return lerp(
+    let t;
+    if (progress <= 1.0) {
+      t = easeInOutSine(clamp01(progress));
+    } else {
+      t = progress;
+    }
+    
+    const interval = lerp(
       this.config.spawnInterval.start,
       this.config.spawnInterval.end,
-      easedProgress
+      t
     );
+
+    const MINIMAL_SPAWN_INTERVAL = 0.05; 
+    return Math.max(interval, MINIMAL_SPAWN_INTERVAL);
   }
 
   /**

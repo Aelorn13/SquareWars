@@ -7,3 +7,4 @@ export * from "./dash.js";
 export * from "./upgradeUI.js";
 export * from "./bossHealthBar.js"
 export * from "./playerStatsUI.js"
+export * from "./victoryPrompt.js"

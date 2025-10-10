@@ -127,8 +127,8 @@ export function showUpgradeUI(k, chosenUpgrades = [], onPick = () => {}) {
 
     // texts
     k.add([k.text(`${upgradeChoice.icon ?? ""} ${upgradeChoice.name ?? "Upgrade"}`, { size: 18, align: "center" }), k.pos(x, y - 30), k.anchor("center"), k.fixed(), k.z(501), "upgradeUI"]);
-    k.add([k.text(upgradeChoice.bonusText ?? "", { size: 16, align: "center" }), k.pos(x, y - 6), k.anchor("center"), k.color(...colorArr), k.fixed(), k.z(501), "upgradeUI"]);
-    k.add([k.text(upgradeChoice.description ?? "", { size: 12, align: "center", width: 200 }), k.pos(x, y + 34), k.anchor("center"), k.color(200, 200, 200), k.fixed(), k.z(501), "upgradeUI"]);
+    k.add([k.text(upgradeChoice.bonusText ?? "", { size: 18, align: "center" }), k.pos(x, y - 6), k.anchor("center"), k.color(...colorArr), k.fixed(), k.z(501), "upgradeUI"]);
+    k.add([k.text(upgradeChoice.description ?? "", { size: 14, align: "center", width: 200 }), k.pos(x, y + 34), k.anchor("center"), k.color(200, 200, 200), k.fixed(), k.z(501), "upgradeUI"]);
 
     try {
       if (typeof cardBox.onClick === "function") {

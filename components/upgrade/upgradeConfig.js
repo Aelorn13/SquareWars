@@ -10,13 +10,13 @@ export const RARITY_CONFIG = [
 ];
 
 export const UPGRADE_CONFIG = {
-  damage:         { name: "Damage Boost",    icon: "🔫", scale: 1.0 },
-  speed:          { name: "Move Speed",      icon: "🏃", scale: 0.8 },
-  luck:           { name: "Luck",            icon: "🍀", scale: 0.5, isAdditive: true, cap: 1.0 },
-  bulletSpeed:    { name: "Bullet Speed",    icon: "💨", scale: 3.0, cap: 900 },
-  attackSpeed:    { name: "Attack Interval", icon: "⚡", scale: 0.5, isInverse: true, cap: 0.05 },
-  critChance:     { name: "Critical Chance", icon: "🎯", scale: 0.5, isAdditive: true, cap: 1.0 },
-  critMultiplier: { name: "Critical Damage", icon: "💥", scale: 2.0 },
+  damage:         { name: "Damage Boost",    icon: "🔫", scale: 1.0,                             description: "Increases damage of projectiles." },
+  speed:          { name: "Move Speed",      icon: "🏃", scale: 0.8,                             description: "Increases player movement speed." },
+  luck:           { name: "Luck",            icon: "🍀", scale: 0.5, isAdditive: true, cap: 1.0, description: "Increases chance of dropping a power-up." },
+  bulletSpeed:    { name: "Bullet Speed",    icon: "💨", scale: 3.0, cap: 900,                   description: "Increases projectile speed." },
+  attackSpeed:    { name: "Attack Interval", icon: "⚡", scale: 0.5, isInverse: true, cap: 0.05, description: "Reduces the interval between attacks." },
+  critChance:     { name: "Critical Chance", icon: "🎯", scale: 0.5, isAdditive: true, cap: 1.0, description: "Increases chance of a critical strike." },
+  critMultiplier: { name: "Critical Damage", icon: "💥", scale: 2.0,                             description: "Increases damage of critical strikes." },
 
   projectiles: {
     name: "Multi-Shot",
@@ -254,7 +254,7 @@ export function formatUpgradeForUI(statName, rolledRarity) {
   }
 
   // default numeric stat formatting
-  if (cfg.scale !== undefined) {
+  if (cfg.scale !== undefined && cfg.description == undefined) {
     const rawChange = rarityMult * (cfg.scale ?? 0);
     if (cfg.isAdditive) {
       const pct = Math.round(rawChange * 100);
@@ -265,6 +265,20 @@ export function formatUpgradeForUI(statName, rolledRarity) {
       const pct = Math.round(signed * 100);
       out.bonusText = `${pct > 0 ? "+" : ""}${pct}%`;
       out.description = `${cfg.name}: ${pct > 0 ? "+" : ""}${pct}%`;
+    }
+    return out;
+  }
+  if (cfg.description) {
+     const rawChange = rarityMult * (cfg.scale ?? 0);
+    if (cfg.isAdditive) {
+      const pct = Math.round(rawChange * 100);
+      out.bonusText = `+${pct}%`;
+      out.description = cfg.description;
+    } else {
+      const signed = cfg.isInverse ? -rawChange : rawChange;
+      const pct = Math.round(signed * 100);
+      out.bonusText = `${pct > 0 ? "+" : ""}${pct}%`;
+      out.description = cfg.description;
     }
     return out;
   }

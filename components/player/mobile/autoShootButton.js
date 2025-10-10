@@ -37,7 +37,7 @@ export function createAutoShootButton({
   marginY = 20,
   align = "right",
   sticky = true,
-  labelText = "AUTOSHOOT",
+  labelText = "AUTOSHOOT TOGGLE",
 } = {}) {
   if (container !== document.body) {
     const cs = getComputedStyle(container);

@@ -1,13 +1,33 @@
-A fast-paced, arena shooter built with the Kaplay. Survive escalating waves of enemies, collect powerful upgrades, and defeat the final multi-phase boss.
+<h1 align="center">🟩 SquareWars</h1>
+<p align="center">
+  <a href="https://aelorn13.github.io/SquareWars/" target="_blank"><b>▶️ Play in Browser</b></a>
+</p>
 
-Key Features
-Face an ever-increasing horde of varied enemies where the spawn rate and difficulty ramp up over time.
-Challenge a formidable boss that changes its tactics and abilities across three distinct phases.
-Reach score thresholds to choose from a selection of  upgrades to customize your build.
-Grab temporary boosts on the battlefield that drops from enemies to gain an edge in combat.
+<p align="center">
+   A fast-paced 2D arena shooter built with <b>Kaplay</b>.  
+  Playable on desktop and mobile.  
+  Survive escalating waves, collect upgrades, and defeat the final boss.
+</p>
 
-Controls
-Movement: WASD
-Fire: Left Mouse Button
-Dash: Space
-Pause: P
+---
+
+### 🧩 Key Features
+- Increasingly difficult enemy waves with unique attack patterns.  
+- Multi-phase boss with different abilities.  
+- Score-based upgrade choices for custom builds.  
+- Temporary power-ups dropped by enemies.  
+
+---
+
+### 🎮 Controls
+(Also shown in-game)
+- **WASD** – Move  
+- **Left Mouse Button** – Fire  
+- **Space** – Dash  
+- **P** – Pause  
+- **R** – Toggle Auto-shoot  
+
+---
+
+### 💡 Tech Stack
+Built with **Kaplay (JavaScript)** and deployed via **GitHub Pages**.

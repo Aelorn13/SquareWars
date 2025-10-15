@@ -1,9 +1,8 @@
+// utils/difficultyController.js
+
 import { lerp, easeInOutSine, clamp01 } from './mathUtils.js';
 
 export class DifficultyController {
-  /**
-   * @param {object} config A specific difficulty configuration object from difficultyManager.js
-   */
   constructor(config) {
     if (!config) {
       throw new Error("DifficultyController requires a configuration object.");
@@ -11,55 +10,64 @@ export class DifficultyController {
     this.config = config;
   }
 
-  /**
-   * Scales a base stat value based on the game's progress, now supporting endless scaling.
-   * @param {number} baseValue The initial value of the stat (e.g., enemy HP).
-   * @param {number} progress The game's current progress. Can be > 1 for endless mode.
-   * @returns {number} The calculated final stat value.
-   */
   scaleStat(baseValue, progress) {
-    let t;
+    let multiplier;
     if (progress <= 1.0) {
-      t = easeInOutSine(clamp01(progress));
+      // --- Pre-Boss Scaling ---
+      // Linearly interpolates the multiplier from start to end over the course of the pre-boss phase.
+      const t = easeInOutSine(clamp01(progress));
+      multiplier = lerp(
+        this.config.enemyStatMultiplier.start,
+        this.config.enemyStatMultiplier.end,
+        t
+      );
     } else {
-      t = progress;
+      // --- Endless Mode Scaling ---
+      // 'endlessProgress' tracks time *since* endless mode began (starts at 0).
+      const endlessProgress = progress - 1.0;
+      
+      // Uses the *final* multiplier from the pre-boss phase as our starting point.
+      // This ensures a seamless, continuous transition with no difficulty drop.
+      const baseMultiplier = this.config.enemyStatMultiplier.end;
+      const rate = this.config.endlessScaling.statMultiplierRate;
+      
+      // The exponential growth is applied *on top of* the final pre-boss multiplier.
+      multiplier = baseMultiplier * Math.pow(1 + endlessProgress, rate);
     }
-
-    const multiplier = lerp(
-      this.config.enemyStatMultiplier.start,
-      this.config.enemyStatMultiplier.end,
-      t
-    );
     return baseValue * multiplier;
   }
 
-  /**
-   * Calculates the current enemy spawn interval based on game progress, now supporting endless scaling.
-   * @param {number} progress The game's current progress. Can be > 1 for endless mode.
-   * @returns {number} The calculated spawn interval in seconds.
-   */
   getSpawnInterval(progress) {
-    let t;
+    let interval;
+    const MINIMAL_SPAWN_INTERVAL = 0.1; 
+
     if (progress <= 1.0) {
-      t = easeInOutSine(clamp01(progress));
+      // --- Pre-Boss Scaling ---
+      // Linearly interpolates the interval from its starting value down to its end value.
+      const t = easeInOutSine(clamp01(progress));
+      interval = lerp(
+        this.config.spawnInterval.start,
+        this.config.spawnInterval.end,
+        t
+      );
     } else {
-      t = progress;
+      // --- Endless Mode Scaling ---
+      const endlessProgress = progress - 1.0;
+      
+      // Uses the *final* spawn interval from the pre-boss phase as our starting point for the decay.
+      // This ensures a seamless transition where the spawn rate doesn't suddenly reset or jump.
+      const baseInterval = this.config.spawnInterval.end;
+      const decay = this.config.endlessScaling.spawnIntervalDecay;
+
+      // The interval decays exponentially from the 'baseInterval' towards the absolute minimum.
+      const range = baseInterval - MINIMAL_SPAWN_INTERVAL;
+      interval = MINIMAL_SPAWN_INTERVAL + range * Math.exp(-decay * endlessProgress);
     }
     
-    const interval = lerp(
-      this.config.spawnInterval.start,
-      this.config.spawnInterval.end,
-      t
-    );
-
-    const MINIMAL_SPAWN_INTERVAL = 0.05; 
+    // Enforce the hard cap at all times.
     return Math.max(interval, MINIMAL_SPAWN_INTERVAL);
   }
 
-  /**
-   * Returns the time at which the boss should spawn for this difficulty.
-   * @returns {number} The boss spawn time in seconds.
-   */
   getBossSpawnTime() {
     return this.config.bossSpawnTime;
   }

@@ -4,19 +4,30 @@ export const difficultySettings = {
     spawnInterval: { start: 3, end: 0.8 },
     enemyStatMultiplier: { start: 0.75, end: 1.25 },
     bossSpawnTime: 120,
+    endlessScaling: {
+      statMultiplierRate: 0.25,
+      spawnIntervalDecay: 0.05,
+    }
   },
   normal: {
     name: 'Normal',
     spawnInterval: { start: 2, end: 0.2 },
     enemyStatMultiplier: { start: 1.0, end: 2.0 },
     bossSpawnTime: 100,
+    endlessScaling: {
+      statMultiplierRate: 0.4,
+      spawnIntervalDecay: 0.02,
+    }
   },
   hard: {
     name: 'Nightmare',
-    spawnInterval: { start: 1.5, end: 0.1 },
-    enemyStatMultiplier: { start: 1.2, end: 2.7 },
+    spawnInterval: { start: 1.6, end: 0.1 },
+    enemyStatMultiplier: { start: 1.0, end: 2.7 },
     scoreStatMultiplier: { start: 1.5, end: 3.0 }, 
     bossSpawnTime: 90,
+    endlessScaling: {
+      statMultiplierRate: 0.6,
+    }
   }
 };
 

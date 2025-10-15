@@ -248,15 +248,9 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
         this.gameContext.increaseScore?.(this.score);
         
         if (this.canDropPowerup !== false) {
-          dropPowerUp(k, player, this.pos, this.gameContext.sharedState);
+          dropPowerUp(k, player, this.pos, this.gameContext);
         }
-        
         enemyDeathAnimation(k, this);
-        
-        // if (this.type === "boss") {
-        //   const snapshot = getPlayerStatsSnapshot(gameContext.player);
-        //   k.wait(0.5, () => k.go("victory", { statsSnapshot: snapshot }));
-        // }
       },
     },
   ];
@@ -322,10 +316,13 @@ export function attachEnemyBehaviors(k, enemy, player) {
   enemy.onCollide("projectile", proj => handleProjectileCollision(k, enemy, proj));
 }
 
-function dropPowerUp(k, player, position, sharedState) {
+function dropPowerUp(k, player, position, gameContext) {
   if ((player.luck ?? 0) > Math.random()) {
     const type = k.choose(Object.values(POWERUP_TYPES));
-    spawnPowerUp(k, position, type, sharedState);
+    if (gameContext.getCurrentGamePhase() === "ENDLESS" && type === POWERUP_TYPES.INVINCIBILITY) {
+      return;
+    }
+    spawnPowerUp(k, position, type, gameContext.sharedState);
   }
 }
 

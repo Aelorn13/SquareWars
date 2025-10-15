@@ -120,6 +120,7 @@ export function defineGameScene(k, scoreRef) {
       increaseScore: addScore,
       updateHealthBar: () => drawHealthBar(k, player.hp()),
       difficulty: difficulty,
+      getCurrentGameState: () => currentGameState, 
     };
     setupEnemyPlayerCollisions(k, gameContext);
     setupEnemyMerging(k, gameContext);

@@ -11,6 +11,10 @@ import { spawnShockwave } from "./powerupEffects/shockwaveEffect.js";
  * Applies a power-up effect to the player based on its type from the configuration.
  */
 export function applyPowerUp(k, player, powerUpType, gameContext, onHeal) {
+  
+   if (gameContext.getCurrentGameState() === 'ENDLESS' && powerUpType === 'INVINCIBILITY') {
+    return; 
+  }
   const config = POWERUP_CONFIG[powerUpType];
 
   if (!config || !config.effects) {

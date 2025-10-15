@@ -29,8 +29,6 @@ import { setupEnemyMerging } from "../components/enemy/enemyMerger.js";
 import { getSelectedDifficultyConfig } from "../components/utils/difficultyManager.js";
 import { DifficultyController } from "../components/utils/difficultyController.js";
 
-const MINIMAL_SPAWN_INTERVAL = 0.2;
-
 export function defineGameScene(k, scoreRef) {
   function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
     const maybePromise = spawnEnemy(k, gameContext.player, gameContext, {
@@ -63,7 +61,7 @@ export function defineGameScene(k, scoreRef) {
       mobileControllerIsRegistered = true;
     }
 
-    const GameState = {
+    const GamePhase = {
       PRE_BOSS: "PRE_BOSS",
       BOSS_FIGHT: "BOSS_FIGHT",
       VICTORY_PROMPT: "VICTORY_PROMPT",
@@ -120,7 +118,7 @@ export function defineGameScene(k, scoreRef) {
       increaseScore: addScore,
       updateHealthBar: () => drawHealthBar(k, player.hp()),
       difficulty: difficulty,
-      getCurrentGameState: () => currentGameState, 
+      getCurrentGamePhase: () => currentGamePhase, 
     };
     setupEnemyPlayerCollisions(k, gameContext);
     setupEnemyMerging(k, gameContext);
@@ -139,7 +137,7 @@ export function defineGameScene(k, scoreRef) {
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
     let wasAutoTogglePreviouslyPressed = false;
-    let currentGameState = GameState.PRE_BOSS;
+    let currentGamePhase = GamePhase.PRE_BOSS;
     let endlessStartTime = 0;
 
     const dpsHud = createDpsHud(k, player, gameState, {
@@ -181,7 +179,7 @@ export function defineGameScene(k, scoreRef) {
 
       // Check for transition to the boss fight
       if (gameState.elapsedTime >= BOSS_SPAWN_TIME) {
-        currentGameState = GameState.BOSS_FIGHT;
+        currentGamePhase = GamePhase.BOSS_FIGHT;
         spawnTheBoss();
       }
     }
@@ -189,7 +187,7 @@ export function defineGameScene(k, scoreRef) {
         function runBossFightLogic() {
       // While in this state, we simply wait for the boss to be destroyed
       if (currentBoss && !currentBoss.exists()) {
-        currentGameState = GameState.VICTORY_PROMPT;
+        currentGamePhase = GamePhase.VICTORY_PROMPT;
         gameState.isPaused = true;
         
         const snapshot = getPlayerStatsSnapshot(player);
@@ -210,7 +208,7 @@ export function defineGameScene(k, scoreRef) {
     function startEndlessMode() {
       console.log("Player chose to continue! Starting Endless Mode.");
       endlessStartTime = gameState.elapsedTime;
-      currentGameState = GameState.ENDLESS;
+      currentGamePhase = GamePhase.ENDLESS;
       gameState.isPaused = false;
 
       // Give the player a reward
@@ -312,23 +310,23 @@ export function defineGameScene(k, scoreRef) {
       updateTimerLabel(timerLabel, k.dt());
 
       // --- State Machine ---
-      switch (currentGameState) {
-        case GameState.PRE_BOSS:
+      switch (currentGamePhase) {
+        case GamePhase.PRE_BOSS:
           runPreBossLogic();
           break;
-        case GameState.BOSS_FIGHT:
+        case GamePhase.BOSS_FIGHT:
           runBossFightLogic();
           break;
-        case GameState.VICTORY_PROMPT:
+        case GamePhase.VICTORY_PROMPT:
           // Game is effectively paused by the prompt UI
           break;
-        case GameState.ENDLESS:
+        case GamePhase.ENDLESS:
           runEndlessLogic();
           break;
       }
 
       // Miniboss spawning (independent of main state for now)
-      if (currentGameState !== GameState.BOSS_FIGHT && currentGameState !== GameState.VICTORY_PROMPT) {
+      if (currentGamePhase !== GamePhase.BOSS_FIGHT && currentGamePhase !== GamePhase.VICTORY_PROMPT) {
         if (minibossesSpawned < minibossSchedule.length) {
           const schedule = minibossSchedule[minibossesSpawned];
           if (gameState.elapsedTime >= schedule.time) {

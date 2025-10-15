@@ -5,7 +5,7 @@ export const difficultySettings = {
     enemyStatMultiplier: { start: 0.75, end: 1.25 },
     bossSpawnTime: 120,
     endlessScaling: {
-      statMultiplierRate: 0.25,
+      statMultiplierRate: 0.5,
       spawnIntervalDecay: 0.05,
     }
   },
@@ -15,7 +15,7 @@ export const difficultySettings = {
     enemyStatMultiplier: { start: 1.0, end: 2.0 },
     bossSpawnTime: 100,
     endlessScaling: {
-      statMultiplierRate: 0.4,
+      statMultiplierRate: 0.8,
       spawnIntervalDecay: 0.02,
     }
   },
@@ -26,7 +26,8 @@ export const difficultySettings = {
     scoreStatMultiplier: { start: 1.5, end: 3.0 }, 
     bossSpawnTime: 90,
     endlessScaling: {
-      statMultiplierRate: 0.6,
+      statMultiplierRate: 1.2,
+      spawnIntervalDecay: 0.02,
     }
   }
 };

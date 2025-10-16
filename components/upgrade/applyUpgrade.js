@@ -227,7 +227,8 @@ export function maybeShowUpgrade(
   sharedState,
   currentScore,
   nextThresholdRef,
-  addScore
+  addScore,
+  isMobileDevice
 ) {
   if (player.hp() <= 0)  return; 
   if (sharedState.upgradeOpen || currentScore < nextThresholdRef.value) return;
@@ -291,7 +292,7 @@ export function maybeShowUpgrade(
     sharedState.isPaused = false;
     sharedState.upgradeOpen = false;
     sharedState.upgradeInteractionLocked = false;
-  });
+  },isMobileDevice());
 
   nextThresholdRef.value = Math.floor(nextThresholdRef.value * 1.3) + 10;
 }

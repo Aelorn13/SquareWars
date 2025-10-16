@@ -109,7 +109,7 @@ export function defineGameScene(k, scoreRef) {
     const addScore = (amount) => {
       currentScore += amount;
       updateScoreLabel(scoreLabel, currentScore, nextUpgradeScoreThresholdRef.value);
-      maybeShowUpgrade(k, player, gameState, currentScore, nextUpgradeScoreThresholdRef, addScore);
+      maybeShowUpgrade(k, player, gameState, currentScore, nextUpgradeScoreThresholdRef, addScore, isMobileDevice);
     };
 
     scoreRef.value = () => currentScore;

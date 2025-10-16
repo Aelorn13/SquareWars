@@ -92,7 +92,7 @@ export function defineDebugScene(k) {
       gameContext.nextUpgradeScoreThreshold = nextUpgradeScoreThresholdRef.value;
 
       updateScoreLabel(scoreLabel, currentScore, nextUpgradeScoreThresholdRef.value);
-      maybeShowUpgrade(k, player, gameState, currentScore, nextUpgradeScoreThresholdRef, addScore);
+      maybeShowUpgrade(k, player, gameState, currentScore, nextUpgradeScoreThresholdRef, addScore, isMobileDevice);
     };
 
     setupPlayerShooting(k, player, gameState);

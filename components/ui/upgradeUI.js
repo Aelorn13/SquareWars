@@ -6,289 +6,280 @@ let _pointerHandler = null;
 let _canvasEl = null;
 
 /**
+ * Creates a dark overlay.
+ * @param {object} k - The Kaboom context.
+ */
+function createOverlay(k) {
+    try {
+        k.add([
+            k.rect(k.width(), k.height()),
+            k.color(0, 0, 0),
+            k.opacity(0.6),
+            k.pos(0, 0),
+            k.fixed(),
+            k.z(499),
+            "upgradeUI",
+        ]);
+    } catch (e) {
+        // Fallback for older Kaboom versions or different environments
+        try {
+            k.add([k.rect(800, 600), k.color(0, 0, 0), k.opacity(0.6), k.pos(0, 0), k.fixed(), k.z(499), "upgradeUI"]);
+        } catch (err) {}
+    }
+}
+
+/**
+ * Creates the "Choose an upgrade" title.
+ * @param {object} k - The Kaboom context.
+ * @param {number} centerX - The horizontal center of the screen.
+ * @param {number} centerY - The vertical center of the screen.
+ */
+function createTitle(k, centerX, centerY) {
+    try {
+        const titleY = centerY - 220;
+        // Shadow
+        k.add([
+            k.text("Choose an upgrade", { size: 36, align: "center" }),
+            k.pos(centerX + 2, titleY + 2),
+            k.anchor("center"),
+            k.color(0, 0, 0),
+            k.fixed(),
+            k.z(504),
+            "upgradeUI",
+        ]);
+        // Main text
+        k.add([
+            k.text("Choose an upgrade", { size: 36, align: "center" }),
+            k.pos(centerX, titleY),
+            k.anchor("center"),
+            k.color(255, 255, 255),
+            k.fixed(),
+            k.z(505),
+            "upgradeUI",
+        ]);
+    } catch (e) {}
+}
+
+/**
+ * Creates a single upgrade card.
+ * @param {object} k - The Kaboom context.
+ * @param {number} x - The x-coordinate of the card.
+ * @param {number} y - The y-coordinate of the card.
+ * @param {object} upgradeChoice - The upgrade data.
+ * @param {function} onPick - The callback function when a card is picked.
+ */
+function createUpgradeCard(k, x, y, upgradeChoice, onPick) {
+    const colorArr = Array.isArray(upgradeChoice?.color) && upgradeChoice.color.length >= 3
+        ? upgradeChoice.color
+        : [200, 200, 200];
+
+    const outlineColor = (typeof k.rgb === "function") ? k.rgb(...colorArr) : k.color(...colorArr);
+
+    const cardBox = k.add([
+        k.rect(220, 140, { radius: 10 }),
+        k.color(40, 40, 40),
+        (typeof k.outline === "function") ? k.outline(4, outlineColor) : k.pos(0, 0),
+        k.pos(x, y),
+        k.anchor("center"),
+        k.area(),
+        k.fixed(),
+        k.z(500),
+        "upgradeUI",
+        "upgradeCard",
+    ]);
+
+    cardBox.upgradeChoice = upgradeChoice;
+
+    // Tier Name
+    k.add([
+        k.text(upgradeChoice.rarity?.name ?? "Unknown Tier", { size: 16, align: "center" }),
+        k.pos(x, y - 55),
+        k.anchor("center"),
+        k.color(...colorArr),
+        k.fixed(),
+        k.z(501),
+        "upgradeUI"
+    ]);
+
+    // Texts
+    k.add([k.text(`${upgradeChoice.icon ?? ""} ${upgradeChoice.name ?? "Upgrade"}`, { size: 18, align: "center" }), k.pos(x, y - 25), k.anchor("center"), k.fixed(), k.z(501), "upgradeUI"]);
+    k.add([k.text(upgradeChoice.bonusText ?? "", { size: 18, align: "center" }), k.pos(x, y), k.anchor("center"), k.color(...colorArr), k.fixed(), k.z(501), "upgradeUI"]);
+    k.add([k.text(upgradeChoice.description ?? "", { size: 14, align: "center", width: 200 }), k.pos(x, y + 40), k.anchor("center"), k.color(200, 200, 200), k.fixed(), k.z(501), "upgradeUI"]);
+
+    // Unique indicator
+    if (upgradeChoice.isUnique) {
+        const star = k.add([
+            k.text("⭐", { size: 24 }),
+            k.pos(x + 90, y - 55),
+            k.anchor("center"),
+            k.rotate(0),
+            k.fixed(),
+            k.z(502),
+            "upgradeUI",
+        ]);
+
+        star.onUpdate(() => {
+            star.angle += 60 * k.dt();
+        });
+
+        const tooltip = k.add([
+            k.rect(180, 40, { radius: 5 }),
+            k.color(0, 0, 0),
+            k.outline(2, k.rgb(255, 255, 255)),
+            k.pos(x + 90, y - 100),
+            k.anchor("center"),
+            k.opacity(0),
+            k.fixed(),
+            k.z(510),
+            "upgradeUI",
+        ]);
+
+        const tooltipText = k.add([
+            k.text("Once selected, this type of upgrade will no longer appear", { size: 12, width: 170, align: "center" }),
+            k.pos(x + 90, y - 100),
+            k.anchor("center"),
+            k.color(255, 255, 255),
+            k.opacity(0),
+            k.fixed(),
+            k.z(511),
+            "upgradeUI",
+        ]);
+
+        cardBox.onHover(() => {
+            tooltip.opacity = 1;
+            tooltipText.opacity = 1;
+        }, () => {
+            tooltip.opacity = 0;
+            tooltipText.opacity = 0;
+        });
+    }
+
+    if (typeof cardBox.onClick === "function") {
+        cardBox.onClick(() => onPick(cardBox.upgradeChoice));
+    }
+}
+
+/**
+ * Creates the skip button.
+ * @param {object} k - The Kaboom context.
+ * @param {number} centerX - The horizontal center of the screen.
+ * @param {number} centerY - The vertical center of the screen.
+ * @param {function} onPick - The callback function when the button is picked.
+ */
+function createSkipButton(k, centerX, centerY, onPick) {
+    const skipButtonX = centerX;
+    const skipButtonY = centerY + 200;
+    const skipButton = k.add([
+        k.rect(180, 40, { radius: 8 }),
+        k.color(90, 90, 90),
+        (typeof k.outline === "function") ? k.outline(2, k.rgb(220, 220, 220)) : k.pos(0, 0),
+        k.pos(skipButtonX, skipButtonY),
+        k.anchor("center"),
+        k.area(),
+        k.fixed(),
+        k.z(502),
+        "upgradeUI",
+        "skipButton",
+    ]);
+    k.add([k.text("Skip (+10 score)", { size: 16 }), k.pos(skipButtonX, skipButtonY), k.anchor("center"), k.color(255, 255, 255), k.fixed(), k.z(503), "upgradeUI"]);
+
+    if (typeof skipButton.onClick === "function") {
+        skipButton.onClick(() => onPick("skip"));
+    }
+}
+
+
+/**
  * showUpgradeUI(k, chosenUpgrades, onPick)
  * cleanupUpgradeUI(k)
  *
  * chosenUpgrades: array of objects (recommended length 3) with:
- *   { stat, name, icon, bonusText, description, color: [r,g,b], rarity, ... }
+ *   { stat, name, icon, bonusText, description, color: [r,g,b], rarity, isUnique, ... }
  *
  * onPick receives the chosen upgrade object or the string "skip".
  */
 export function showUpgradeUI(k, chosenUpgrades = [], onPick = () => {}) {
-  // normalize input
-  chosenUpgrades = Array.isArray(chosenUpgrades) ? chosenUpgrades.slice(0, 3) : [];
-  while (chosenUpgrades.length < 3) {
-    chosenUpgrades.push({
-      stat: "__empty__",
-      name: "No Upgrade",
-      icon: "–",
-      bonusText: "",
-      description: "",
-      color: [120, 120, 120],
-    });
-  }
-
-  const centerX = (typeof k.width === "function") ? k.width() / 2 : 400;
-  const centerY = (typeof k.height === "function") ? k.height() / 2 : 300;
-
-  // dark overlay
-  try {
-    k.add([
-      k.rect(k.width(), k.height()),
-      k.color(0, 0, 0),
-      k.opacity(0.6),
-      k.pos(0, 0),
-      k.fixed(),
-      k.z(499),
-      "upgradeUI",
-    ]);
-  } catch (e) {
-    try {
-      k.add([k.rect(800, 600), k.color(0, 0, 0), k.opacity(0.6), k.pos(0, 0), k.fixed(), k.z(499), "upgradeUI"]);
-    } catch (err) {}
-  }
-
-  // Title
-  try {
-    const titleY = centerY - 180;
-    // shadow
-    k.add([
-      k.text("Choose an upgrade", { size: 36, align: "center" }),
-      k.pos(centerX + 2, titleY + 2),
-      k.anchor("center"),
-      k.color(0, 0, 0),
-      k.fixed(),
-      k.z(504),
-      "upgradeUI",
-    ]);
-    k.add([
-      k.text("Choose an upgrade", { size: 36, align: "center" }),
-      k.pos(centerX, titleY),
-      k.anchor("center"),
-      k.color(255, 255, 255),
-      k.fixed(),
-      k.z(505),
-      "upgradeUI",
-    ]);
-  } catch (e) {}
-
-  const cardSpacing = 230;
-  const cardY = centerY;
-  const cardXs = [centerX - cardSpacing, centerX, centerX + cardSpacing];
-
-  const mkVec = (x, y) => (typeof k.vec2 === "function" ? k.vec2(x, y) : { x, y });
-
-  // helper: robust point-in-item test
-  const itemHasPoint = (item, point) => {
-    try {
-      if (!item) return false;
-      if (typeof item.hasPoint === "function") return item.hasPoint(point);
-      // fallback: try bounding box using pos + rect size if available
-      const pos = item.pos || (typeof item.getPos === "function" ? item.getPos() : null);
-      if (!pos) return false;
-      const w = (item.width ?? item._width ?? 0) || 0;
-      const h = (item.height ?? item._height ?? 0) || 0;
-      // If width/height are not present assume common card size 220x110 for rects.
-      const useW = w || 220;
-      const useH = h || 110;
-      const left = (pos.x ?? 0) - useW / 2;
-      const top = (pos.y ?? 0) - useH / 2;
-      const px = point.x ?? point[0] ?? 0;
-      const py = point.y ?? point[1] ?? 0;
-      return px >= left && px <= left + useW && py >= top && py <= top + useH;
-    } catch (e) {
-      return false;
-    }
-  };
-
-  const createUpgradeCard = (x, y, upgradeChoice) => {
-    const colorArr = Array.isArray(upgradeChoice?.color) && upgradeChoice.color.length >= 3
-      ? upgradeChoice.color
-      : [200, 200, 200];
-
-    // Use rgb if available, otherwise k.color fallback
-    const outlineColor = (typeof k.rgb === "function") ? k.rgb(...colorArr) : k.color(...colorArr);
-
-    const cardBox = k.add([
-      k.rect(220, 110, { radius: 10 }),
-      k.color(40, 40, 40),
-      (typeof k.outline === "function") ? k.outline(4, outlineColor) : k.pos(0, 0),
-      k.pos(x, y),
-      k.anchor("center"),
-      k.area(), // ensures hasPoint exists in many kaboom versions
-      k.fixed(),
-      k.z(500),
-      "upgradeUI",
-      "upgradeCard",
-    ]);
-
-    // attach data
-    try { cardBox.upgradeChoice = upgradeChoice; } catch (e) {}
-
-    // texts
-    k.add([k.text(`${upgradeChoice.icon ?? ""} ${upgradeChoice.name ?? "Upgrade"}`, { size: 18, align: "center" }), k.pos(x, y - 30), k.anchor("center"), k.fixed(), k.z(501), "upgradeUI"]);
-    k.add([k.text(upgradeChoice.bonusText ?? "", { size: 18, align: "center" }), k.pos(x, y - 6), k.anchor("center"), k.color(...colorArr), k.fixed(), k.z(501), "upgradeUI"]);
-    k.add([k.text(upgradeChoice.description ?? "", { size: 14, align: "center", width: 200 }), k.pos(x, y + 34), k.anchor("center"), k.color(200, 200, 200), k.fixed(), k.z(501), "upgradeUI"]);
-
-    try {
-      if (typeof cardBox.onClick === "function") {
-        cardBox.onClick(() => {
-          // remove global handler immediately if present
-          if (_pointerHandler && _canvasEl) {
-            _canvasEl.removeEventListener("pointerdown", _pointerHandler, { passive: false });
-            _canvasEl.removeEventListener("touchstart", _pointerHandler, { passive: false });
-            _pointerHandler = null;
-            _canvasEl = null;
-          }
-          onPick(cardBox.upgradeChoice);
+    // normalize input
+    chosenUpgrades = Array.isArray(chosenUpgrades) ? chosenUpgrades.slice(0, 3) : [];
+    while (chosenUpgrades.length < 3) {
+        chosenUpgrades.push({
+            stat: "__empty__",
+            name: "No Upgrade",
+            icon: "–",
+            bonusText: "",
+            description: "",
+            color: [120, 120, 120],
         });
-        return;
-      }
-    } catch (e) {}
-    // else global pointer fallback will handle clicks
-  };
-
-  createUpgradeCard(cardXs[0], cardY, chosenUpgrades[0]);
-  createUpgradeCard(cardXs[1], cardY, chosenUpgrades[1]);
-  createUpgradeCard(cardXs[2], cardY, chosenUpgrades[2]);
-
-  // Skip button
-  const skipButtonX = centerX + 320;
-  const skipButtonY = centerY - 140;
-  const skipButton = k.add([
-    k.rect(140, 36, { radius: 8 }),
-    k.color(90, 90, 90),
-    (typeof k.outline === "function") ? k.outline(2, (typeof k.rgb === "function" ? k.rgb(220,220,220) : k.color(220,220,220))) : k.pos(0,0),
-    k.pos(skipButtonX, skipButtonY),
-    k.anchor("center"),
-    k.area(),
-    k.fixed(),
-    k.z(502),
-    "upgradeUI",
-    "skipButton",
-  ]);
-  k.add([k.text("Skip (+10 score)", { size: 14 }), k.pos(skipButtonX, skipButtonY), k.anchor("center"), k.color(255, 255, 255), k.fixed(), k.z(503), "upgradeUI"]);
-
-  // per-entity click for skip if available
-  try {
-    if (typeof skipButton.onClick === "function") {
-      skipButton.onClick(() => {
-        if (_pointerHandler && _canvasEl) {
-          _canvasEl.removeEventListener("pointerdown", _pointerHandler, { passive: false });
-          _canvasEl.removeEventListener("touchstart", _pointerHandler, { passive: false });
-          _pointerHandler = null;
-          _canvasEl = null;
-        }
-        onPick("skip");
-      });
     }
-  } catch (e) {}
 
-  // If runtime already supplies reliable onClick handlers we are done.
-  // If not, install a robust pointerdown handler on the canvas that computes correct local coords.
-  // This handles mobile touch and desktop pointer events consistently.
-  if (!_pointerHandler) {
-    try {
-      // get canvas element reliably
-      _canvasEl = document.querySelector("canvas") || null;
-      if (!_canvasEl) {
-        // no canvas found, skip pointer fallback
-        return;
-      }
+    const centerX = k.width() / 2;
+    const centerY = k.height() / 2;
 
-      _pointerHandler = function (ev) {
-        // prevent default so touches don't generate synthetic mouse events
-        try { ev.preventDefault(); } catch (e) {}
+    createOverlay(k);
+    createTitle(k, centerX, centerY);
 
-        // compute canvas-local coordinates scaled to game resolution
-        const rect = _canvasEl.getBoundingClientRect();
-        const clientX = (ev.changedTouches && ev.changedTouches[0]) ? ev.changedTouches[0].clientX : ev.clientX;
-        const clientY = (ev.changedTouches && ev.changedTouches[0]) ? ev.changedTouches[0].clientY : ev.clientY;
+    const cardSpacing = 240;
+    const cardY = centerY;
+    const cardXs = [centerX - cardSpacing, centerX, centerX + cardSpacing];
 
-        const scaleX = (typeof k.width === "function" && rect.width) ? (k.width() / rect.width) : 1;
-        const scaleY = (typeof k.height === "function" && rect.height) ? (k.height() / rect.height) : 1;
+    chosenUpgrades.forEach((upgrade, index) => {
+        createUpgradeCard(k, cardXs[index], cardY, upgrade, onPick);
+    });
 
-        const x = (clientX - rect.left) * scaleX;
-        const y = (clientY - rect.top) * scaleY;
-        const pos = mkVec(x, y);
+    createSkipButton(k, centerX, centerY, onPick);
 
-        // collect clickable items
-        const cards = (typeof k.get === "function") ? (k.get("upgradeCard") || []) : [];
-        const skips = (typeof k.get === "function") ? (k.get("skipButton") || []) : [];
-        const clickable = [...cards, ...skips];
+    // Fallback pointer handler for environments without reliable onClick
+    if (typeof k.get("upgradeCard")[0]?.onClick !== 'function') {
+        _canvasEl = document.querySelector("canvas");
+        if (!_canvasEl) return;
 
-        // sort by z desc so top-most handles first
-        clickable.sort((a, b) => (b.z ?? 0) - (a.z ?? 0));
+        _pointerHandler = (ev) => {
+            ev.preventDefault();
 
-        for (const it of clickable) {
-          if (itemHasPoint(it, pos)) {
-            // remove handler immediately to avoid double picks
-            if (_canvasEl && _pointerHandler) {
-              _canvasEl.removeEventListener("pointerdown", _pointerHandler, { passive: false });
-              _canvasEl.removeEventListener("touchstart", _pointerHandler, { passive: false });
-              _pointerHandler = null;
-              _canvasEl = null;
-            }
-            try {
-              if (it.is && typeof it.is === "function") {
-                if (it.is("upgradeCard")) {
-                  onPick(it.upgradeChoice ?? it.upgradeChoice);
-                } else if (it.is("skipButton")) {
-                  onPick("skip");
-                } else {
-                  // fallback: if upgradeChoice attached
-                  if (it.upgradeChoice) onPick(it.upgradeChoice);
+            const rect = _canvasEl.getBoundingClientRect();
+            const clientX = (ev.changedTouches?.[0] ?? ev).clientX;
+            const clientY = (ev.changedTouches?.[0] ?? ev).clientY;
+
+            const scaleX = k.width() / rect.width;
+            const scaleY = k.height() / rect.height;
+
+            const pos = k.vec2((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY);
+
+            const cards = k.get("upgradeCard").sort((a, b) => (b.z ?? 0) - (a.z ?? 0));
+            const skipButtons = k.get("skipButton").sort((a, b) => (b.z ?? 0) - (a.z ?? 0));
+
+            for (const card of cards) {
+                if (card.hasPoint(pos)) {
+                    onPick(card.upgradeChoice);
+                    cleanupUpgradeUI(k);
+                    return;
                 }
-              } else {
-                // fallback: use tags
-                if ((it.tags || []).includes && (it.tags || []).includes("upgradeCard")) {
-                  onPick(it.upgradeChoice);
-                } else {
-                  onPick("skip");
-                }
-              }
-            } catch (e) {
-              // best-effort: attempt to call onPick with attached choice
-              try { onPick(it.upgradeChoice ?? "skip"); } catch (err) {}
             }
-            return;
-          }
-        }
-      };
 
-      // pointerdown covers mouse + touch on modern browsers. add touchstart for extra compatibility.
-      _canvasEl.addEventListener("pointerdown", _pointerHandler, { passive: false });
-      _canvasEl.addEventListener("touchstart", _pointerHandler, { passive: false });
-    } catch (e) {
-      // graceful failure, UI remains but interactions may not work
+            for (const btn of skipButtons) {
+                if (btn.hasPoint(pos)) {
+                    onPick("skip");
+                    cleanupUpgradeUI(k);
+                    return;
+                }
+            }
+        };
+
+        _canvasEl.addEventListener("pointerdown", _pointerHandler, { passive: false });
+        _canvasEl.addEventListener("touchstart", _pointerHandler, { passive: false });
     }
-  }
 }
 
 /**
  * Destroys all UI elements and cancels the global input listener.
  */
 export function cleanupUpgradeUI(k) {
-  try {
     if (_canvasEl && _pointerHandler) {
-      _canvasEl.removeEventListener("pointerdown", _pointerHandler, { passive: false });
-      _canvasEl.removeEventListener("touchstart", _pointerHandler, { passive: false });
+        _canvasEl.removeEventListener("pointerdown", _pointerHandler, { passive: false });
+        _canvasEl.removeEventListener("touchstart", _pointerHandler, { passive: false });
     }
-  } catch (e) {}
-  _pointerHandler = null;
-  _canvasEl = null;
+    _pointerHandler = null;
+    _canvasEl = null;
 
-  try {
-    if (typeof k.destroyAll === "function") {
-      k.destroyAll("upgradeUI");
-      return;
-    }
-  } catch (e) {}
-  // fallback: attempt to remove by tag
-  try {
-    const items = k.every ? k.every("upgradeUI") : [];
-    for (const it of items) {
-      try { k.destroy(it); } catch (err) {}
-    }
-  } catch (e) {}
+    k.destroyAll("upgradeUI");
 }

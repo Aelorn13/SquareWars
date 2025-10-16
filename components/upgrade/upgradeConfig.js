@@ -2,21 +2,47 @@
 // Centralized upgrade + rarity configuration + UI formatter
 
 export const RARITY_CONFIG = [
-  { name: "Common",    color: [255, 255, 255], tier: 1, multiplier: 0.15, weight: 100 },
-  { name: "Uncommon",  color: [0, 255, 0],     tier: 2, multiplier: 0.2, weight: 50 },
-  { name: "Rare",      color: [0, 0, 255],     tier: 3, multiplier: 0.25, weight: 25 },
-  { name: "Epic",      color: [128, 0, 128],   tier: 4, multiplier: 0.3, weight: 12  },
-  { name: "Legendary", color: [255, 165, 0],   tier: 5, multiplier: 0.4, weight: 5  },
+  { name: "Common", color: [255, 255, 255], tier: 1, multiplier: 0.15, weight: 100 },
+  { name: "Uncommon", color: [0, 255, 0], tier: 2, multiplier: 0.2, weight: 50 },
+  { name: "Rare", color: [0, 0, 255], tier: 3, multiplier: 0.25, weight: 25 },
+  { name: "Epic", color: [128, 0, 128], tier: 4, multiplier: 0.3, weight: 12 },
+  { name: "Legendary", color: [255, 165, 0], tier: 5, multiplier: 0.4, weight: 5 },
 ];
 
 export const UPGRADE_CONFIG = {
-  damage:         { name: "Damage Boost",    icon: "🔫", scale: 1.0,                             description: "Increases damage of projectiles." },
-  speed:          { name: "Move Speed",      icon: "🏃", scale: 0.8,                             description: "Increases player movement speed." },
-  luck:           { name: "Luck",            icon: "🍀", scale: 0.5, isAdditive: true, cap: 1.0, description: "Increases chance of dropping a power-up." },
-  bulletSpeed:    { name: "Bullet Speed",    icon: "💨", scale: 3.0, cap: 900,                   description: "Increases projectile speed." },
-  attackSpeed:    { name: "Attack Interval", icon: "⚡", scale: 0.5, isInverse: true, cap: 0.05, description: "Reduces the interval between attacks." },
-  critChance:     { name: "Critical Chance", icon: "🎯", scale: 0.5, isAdditive: true, cap: 1.0, description: "Increases chance of a critical strike." },
-  critMultiplier: { name: "Critical Damage", icon: "💥", scale: 2.0,                             description: "Increases damage of critical strikes." },
+  damage: { name: "Damage Boost", icon: "🔫", scale: 1.0, description: "Increases damage of projectiles." },
+  speed: { name: "Move Speed", icon: "🏃", scale: 0.8, description: "Increases player movement speed." },
+  luck: {
+    name: "Luck",
+    icon: "🍀",
+    scale: 0.5,
+    isAdditive: true,
+    cap: 1.0,
+    description: "Increases chance of dropping a power-up.",
+  },
+  bulletSpeed: { name: "Bullet Speed", icon: "💨", scale: 3.0, cap: 900, description: "Increases projectile speed." },
+  attackSpeed: {
+    name: "Attack Interval",
+    icon: "⚡",
+    scale: 0.5,
+    isInverse: true,
+    cap: 0.05,
+    description: "Reduces the interval between attacks.",
+  },
+  critChance: {
+    name: "Critical Chance",
+    icon: "🎯",
+    scale: 0.5,
+    isAdditive: true,
+    cap: 1.0,
+    description: "Increases chance of a critical strike.",
+  },
+  critMultiplier: {
+    name: "Critical Damage",
+    icon: "💥",
+    scale: 2.0,
+    description: "Increases damage of critical strikes.",
+  },
 
   projectiles: {
     name: "Multi-Shot",
@@ -35,8 +61,8 @@ export const UPGRADE_CONFIG = {
     allowedTiers: [3, 4, 5],
     bonuses: {
       3: { damagePerTick: 0.125, duration: 4, tickInterval: 0.5 },
-      4: { damagePerTick: 0.25,  duration: 4, tickInterval: 0.5 },
-      5: { damagePerTick: 0.5,  duration: 4, tickInterval: 0.5 },
+      4: { damagePerTick: 0.25, duration: 4, tickInterval: 0.5 },
+      5: { damagePerTick: 0.5, duration: 4, tickInterval: 0.5 },
     },
   },
 
@@ -50,7 +76,7 @@ export const UPGRADE_CONFIG = {
     bonuses: {
       3: { force: 300, duration: 0.12 },
       4: { force: 500, duration: 0.16 },
-      5: { force: 800, duration: 0.20 },
+      5: { force: 800, duration: 0.2 },
     },
   },
 
@@ -63,8 +89,8 @@ export const UPGRADE_CONFIG = {
     allowedTiers: [3, 4, 5],
     bonuses: {
       3: { slowFactor: 0.25, duration: 3 },
-      4: { slowFactor: 0.50, duration: 4 },
-      5: { slowFactor: 0.75, duration: 5 }, //change back later
+      4: { slowFactor: 0.5, duration: 4 },
+      5: { slowFactor: 0.75, duration: 5 }, 
     },
   },
 
@@ -82,20 +108,20 @@ export const UPGRADE_CONFIG = {
     },
   },
   pierce: {
-  name: "Piercing Rounds",
-  icon: "🗡️",
-  isEffect: true,
-  isUnique: true,
-  effectType: "pierce",
-  allowedTiers: [ 3, 4, 5],
-  bonuses: {
-    3: { pierces: 1 },
-    4: { pierces: 2 },
-    5: { pierces: 3 },
+    name: "Piercing Rounds",
+    icon: "🗡️",
+    isEffect: true,
+    isUnique: true,
+    effectType: "pierce",
+    allowedTiers: [3, 4, 5],
+    bonuses: {
+      3: { pierces: 1 },
+      4: { pierces: 2 },
+      5: { pierces: 3 },
+    },
   },
-},
 
-    ghost: {
+  ghost: {
     name: "Ghost",
     icon: "👻",
     isEffect: true,
@@ -104,17 +130,16 @@ export const UPGRADE_CONFIG = {
     allowedTiers: [4],
     // no numeric bonus needed; presence of the upgrade grants the behaviour
     bonuses: {
-      4: { /* semantic placeholder */ },
+      4: {
+        /* semantic placeholder */
+      },
     },
   },
-    improveDash: {
+  improveDash: {
     name: "Improve Dash",
     icon: "💨",
-    // scale controls magnitude. rarity.multiplier * scale = strength (fractional)
-    // e.g. scale 0.5 and Legendary (0.5) => strength = 0.25 = +25% duration / -25% cooldown
     scale: 1,
   },
-
 };
 
 /* ----------------- Rarity utilities (cached weights) ----------------- */
@@ -122,7 +147,7 @@ export const UPGRADE_CONFIG = {
 const _weightsCache = new WeakMap();
 
 function _buildCache(pool) {
-  const weights = pool.map(r => Math.max(0, r.weight ?? 1));
+  const weights = pool.map((r) => Math.max(0, r.weight ?? 1));
   const total = weights.reduce((s, v) => s + v, 0);
   const entry = { weights, total };
   _weightsCache.set(pool, entry);
@@ -149,7 +174,7 @@ export function rollRarityForStat(statName) {
   const cfg = UPGRADE_CONFIG[statName];
   const allowed = cfg?.allowedTiers;
   if (allowed) {
-    const pool = RARITY_CONFIG.filter(r => allowed.includes(r.tier));
+    const pool = RARITY_CONFIG.filter((r) => allowed.includes(r.tier));
     return rollWeightedRarity(pool);
   }
   return rollWeightedRarity();
@@ -173,6 +198,7 @@ export function formatUpgradeForUI(statName, rolledRarity) {
     icon: cfg?.icon ?? "",
     color: rolledRarity?.color ?? [255, 255, 255],
     rarity: rolledRarity,
+    isUnique: cfg?.isUnique ?? false,
     bonusText: "",
     description: "",
   };
@@ -200,7 +226,7 @@ export function formatUpgradeForUI(statName, rolledRarity) {
         const dur = Number(tierBon.duration ?? 0);
         const tick = Number(tierBon.tickInterval ?? 0);
         out.bonusText = `${cfg.name}`;
-        out.description = `Apply a stack of debuff that deals ${dur/tick*dps} damage over ${dur} per seconds`;
+        out.description = `Apply a stack of debuff that deals ${(dur / tick) * dps} damage over ${dur} per seconds`;
         return out;
       }
       case "knockback": {
@@ -224,12 +250,12 @@ export function formatUpgradeForUI(statName, rolledRarity) {
         out.description = `Ricochet: ${b} bounces, spread ${sp}°`;
         return out;
       }
-         case "ghost": {
+      case "ghost": {
         out.bonusText = `${cfg.name}`;
         out.description = `While dashing you become invincible and phase through enemies.`;
         return out;
       }
-          case "pierce": {
+      case "pierce": {
         const p = Number(tierBon.pierces ?? 0);
         out.bonusText = `${cfg.name}`;
         out.description = `Pierce: ${p} enemies`;
@@ -242,7 +268,7 @@ export function formatUpgradeForUI(statName, rolledRarity) {
       }
     }
   }
-    // Special combined dash upgrade
+  // Special combined dash upgrade
   if (statName === "improveDash") {
     const scaleVal = cfg?.scale ?? 0.5;
     const strength = (rarityMult ?? 0) * scaleVal;
@@ -269,7 +295,7 @@ export function formatUpgradeForUI(statName, rolledRarity) {
     return out;
   }
   if (cfg.description) {
-     const rawChange = rarityMult * (cfg.scale ?? 0);
+    const rawChange = rarityMult * (cfg.scale ?? 0);
     if (cfg.isAdditive) {
       const pct = Math.round(rawChange * 100);
       out.bonusText = `+${pct}%`;

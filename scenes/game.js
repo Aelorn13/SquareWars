@@ -102,7 +102,10 @@ export function defineGameScene(k, scoreRef) {
     const player = createPlayer(k, gameState);
     let currentScore = 0;
     const nextUpgradeScoreThresholdRef = { value: 10 };
-
+    //specific easy case
+    if (difficulty.config.name == "Easy") {
+      player.heal(3);
+    }
     const addScore = (amount) => {
       currentScore += amount;
       updateScoreLabel(scoreLabel, currentScore, nextUpgradeScoreThresholdRef.value);
@@ -118,7 +121,7 @@ export function defineGameScene(k, scoreRef) {
       increaseScore: addScore,
       updateHealthBar: () => drawHealthBar(k, player.hp()),
       difficulty: difficulty,
-      getCurrentGamePhase: () => currentGamePhase, 
+      getCurrentGamePhase: () => currentGamePhase,
     };
     setupEnemyPlayerCollisions(k, gameContext);
     setupEnemyMerging(k, gameContext);
@@ -184,12 +187,12 @@ export function defineGameScene(k, scoreRef) {
       }
     }
 
-        function runBossFightLogic() {
+    function runBossFightLogic() {
       // While in this state, we simply wait for the boss to be destroyed
       if (currentBoss && !currentBoss.exists()) {
         currentGamePhase = GamePhase.VICTORY_PROMPT;
         gameState.isPaused = true;
-        
+
         const snapshot = getPlayerStatsSnapshot(player);
 
         showVictoryPrompt(k, {
@@ -212,13 +215,13 @@ export function defineGameScene(k, scoreRef) {
       gameState.isPaused = false;
 
       // Give the player a reward
-      player.heal(3); 
+      player.heal(3);
       gameContext.updateHealthBar();
     }
 
     function spawnTheBoss() {
       isBossSpawned = true;
-      timerLabel.destroy(); 
+      timerLabel.destroy();
       const bossSpawnPromise = spawnEnemy(k, player, gameContext, {
         forceType: "boss",
         progress: 1.0,

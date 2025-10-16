@@ -268,7 +268,7 @@ export function defineGameScene(k, scoreRef) {
       }
 
       // --- Pause Handling ---
-      if (keysPressed["KeyP"]) {
+      if (keysPressed["KeyP"] && !gameState.upgradeOpen) {
         if (!wasPauseKeyPreviouslyPressed) {
           gameState.isPaused = !gameState.isPaused;
           pauseLabel.hidden = !gameState.isPaused;

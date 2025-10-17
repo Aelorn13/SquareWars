@@ -51,7 +51,7 @@ export const ENEMY_CONFIGS = {
   },
 
   spawner: {
-    name: "spawner",
+    name: "broodsquare",
     score: 4,
     spawnWeightStart: 7,
     spawnWeightEnd: 11,       

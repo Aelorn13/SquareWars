@@ -6,7 +6,7 @@ import {
 } from "./enemyBehavior.js";
 import { attachBossBrain } from "./boss/bossAI.js";
 import { attachMinibossBrain } from "./boss/minibossAI.js";
-import { createSpawnerEnemy } from "./spawnerEnemy.js";
+import { createbroodsquareEnemy } from "./broodsquareEnemy.js";
 import { createSniperEnemy } from "./sniperEnemy.js";
 import {clamp01,easeInOutSine, lerp} from "../utils/mathUtils.js"
 const TELEGRAPH_DURATION = 0.6;
@@ -60,8 +60,8 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
 
   const createEnemy = () => {
     // Special enemy types
-    if (finalEnemyConfig.name === "spawner") {
-      return createSpawnerEnemy(k, player, gameContext, spawnPos);
+    if (finalEnemyConfig.name === "broodsquare") {
+      return createbroodsquareEnemy(k, player, gameContext, spawnPos);
     }
     if (finalEnemyConfig.name === "sniper") {
       return createSniperEnemy(k, player, gameContext, spawnPos);

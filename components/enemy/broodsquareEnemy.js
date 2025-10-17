@@ -7,13 +7,13 @@ const SPAWN_SPACING = 0.06;  // seconds between spawns
 const OFFSET_MIN = 8;        // min spawn distance
 const OFFSET_MAX = 18;       // max spawn distance
 
-export function createSpawnerEnemy(k, player, gameContext, spawnPos) {
-  const spawner = createEnemyGameObject(k, player, ENEMY_CONFIGS.spawner, spawnPos, gameContext);
-  attachEnemyBehaviors(k, spawner, player);
+export function createbroodsquareEnemy(k, player, gameContext, spawnPos) {
+  const broodsquare = createEnemyGameObject(k, player, ENEMY_CONFIGS.spawner, spawnPos, gameContext);
+  attachEnemyBehaviors(k, broodsquare, player);
 
-  const originalDie = spawner.die.bind(spawner);
+  const originalDie = broodsquare.die.bind(broodsquare);
 
-  spawner.die = function (...args) {
+  broodsquare.die = function (...args) {
     if (this.dead) return;
 
     const deathPos = k.vec2(this.pos.x, this.pos.y);
@@ -59,5 +59,5 @@ export function createSpawnerEnemy(k, player, gameContext, spawnPos) {
     originalDie(...args);
   };
 
-  return spawner;
+  return broodsquare;
 }

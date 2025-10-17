@@ -98,13 +98,20 @@ export function defineDebugScene(k) {
     setupPlayerShooting(k, player, gameState);
 
     // include player reference in the context (consistent with game.js)
+        const GamePhase = {
+      PRE_BOSS: "PRE_BOSS",
+      BOSS_FIGHT: "BOSS_FIGHT",
+      VICTORY_PROMPT: "VICTORY_PROMPT",
+      ENDLESS: "ENDLESS",
+    };
+    let currentGamePhase = GamePhase.PRE_BOSS;
     const gameContext = {
       sharedState: gameState,
       player,
       increaseScore: addScore,
       updateHealthBar: () => drawHealthBar(k, player.hp()),
-      difficulty: difficulty, // <-- UPDATED: Added difficulty controller
-      // legacy debug UI parity fields (kept in-sync by addScore)
+      difficulty: difficulty, 
+      getCurrentGamePhase: () => currentGamePhase,
       _currentScore: currentScore,
       nextUpgradeScoreThreshold: nextUpgradeScoreThresholdRef.value,
     };

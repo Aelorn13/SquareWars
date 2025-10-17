@@ -318,7 +318,7 @@ export function attachEnemyBehaviors(k, enemy, player) {
 function dropPowerUp(k, player, position, gameContext) {
   if ((player.luck ?? 0) > Math.random()) {
     const type = k.choose(Object.values(POWERUP_TYPES));
-    if (gameContext.getCurrentGamePhase() === "ENDLESS" && type === POWERUP_TYPES.INVINCIBILITY) {
+    if (gameContext.getCurrentGamePhase() === "ENDLESS" && type === POWERUP_TYPES.INVINCIBILITY && type === POWERUP_TYPES.HEAL) {
       return;
     }
     spawnPowerUp(k, position, type, gameContext.sharedState);

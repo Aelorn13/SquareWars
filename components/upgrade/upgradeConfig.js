@@ -20,7 +20,6 @@ export const UPGRADE_CONFIG = {
     cap: 1.0,
     description: "Increases chance of dropping a power-up.",
   },
-  bulletSpeed: { name: "Bullet Speed", icon: "💨", scale: 3.0, cap: 900, description: "Increases projectile speed." },
   attackSpeed: {
     name: "Attack Interval",
     icon: "⚡",

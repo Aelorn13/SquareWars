@@ -1,3 +1,4 @@
+//difficultyManager.js
 export const difficultySettings = {
   easy: {
     name: 'Easy',
@@ -5,8 +6,8 @@ export const difficultySettings = {
     enemyStatMultiplier: { start: 0.75, end: 1.25 },
     bossSpawnTime: 120,
     endlessScaling: {
-      statMultiplierRate: 0.5,
-      spawnIntervalDecay: 0.05,
+      statMultiplierRate: 4,
+      spawnIntervalDecay: 6,
     }
   },
   normal: {
@@ -15,8 +16,8 @@ export const difficultySettings = {
     enemyStatMultiplier: { start: 1.0, end: 2.0 },
     bossSpawnTime: 100,
     endlessScaling: {
-      statMultiplierRate: 0.8,
-      spawnIntervalDecay: 0.02,
+      statMultiplierRate: 3.5,
+      spawnIntervalDecay: 10,
     }
   },
   hard: {
@@ -26,8 +27,8 @@ export const difficultySettings = {
     scoreStatMultiplier: { start: 1.5, end: 3.0 }, 
     bossSpawnTime: 90,
     endlessScaling: {
-      statMultiplierRate: 1.2,
-      spawnIntervalDecay: 0.02,
+      statMultiplierRate: 3,
+      spawnIntervalDecay: 9,
     }
   }
 };

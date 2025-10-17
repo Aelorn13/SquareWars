@@ -39,7 +39,7 @@ export class DifficultyController {
 
   getSpawnInterval(progress) {
     let interval;
-    const MINIMAL_SPAWN_INTERVAL = 0.1; 
+    const MINIMAL_SPAWN_INTERVAL = 0.05; 
 
     if (progress <= 1.0) {
       // --- Pre-Boss Scaling ---

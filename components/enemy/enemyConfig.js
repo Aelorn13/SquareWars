@@ -2,7 +2,7 @@
 export const ENEMY_CONFIGS = {
   normal: {
     name: "normal",
-    score: 2,
+    score: 1,
     spawnWeightStart: 80,      
     spawnWeightEnd: 30,        
     color: [245, 74, 74], 
@@ -14,7 +14,7 @@ export const ENEMY_CONFIGS = {
 
   fast: {
     name: "fast",
-    score: 3,
+    score: 2,
     spawnWeightStart: 15,
     spawnWeightEnd: 22,      
     color: [248, 175, 39], 
@@ -28,7 +28,7 @@ export const ENEMY_CONFIGS = {
 
   tank: {
     name: "tank",
-    score: 4,
+    score: 3,
     spawnWeightStart: 10,
     spawnWeightEnd: 20,        
     color: [100, 100, 255], 
@@ -40,7 +40,7 @@ export const ENEMY_CONFIGS = {
 
   rageTank: {
     name: "rageTank",
-    score: 6,
+    score: 5,
     spawnWeightStart: 3,
     spawnWeightEnd: 8,       
     color: [153, 36, 27], 
@@ -52,7 +52,7 @@ export const ENEMY_CONFIGS = {
 
   spawner: {
     name: "spawner",
-    score: 8,
+    score: 4,
     spawnWeightStart: 7,
     spawnWeightEnd: 11,       
     color: [200, 50, 150], 
@@ -78,7 +78,7 @@ export const ENEMY_CONFIGS = {
 
   sniper: {
     name: "sniper",
-    score: 6,
+    score: 4,
     spawnWeightStart: 4,
     spawnWeightEnd: 8,       
     color: [120, 40, 200], 
@@ -98,7 +98,7 @@ export const ENEMY_CONFIGS = {
     maxHp: 40, 
     speed: 75, 
     damage: 2,
-  },
+  }, 
 
   boss: {
     name: "boss",

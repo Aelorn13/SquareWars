@@ -16,7 +16,7 @@ export const POWERUP_CONFIG = {
     color: [255, 255, 0],
     icon: "⚡",
     effects: [
-      { type: 'statBuff', stat: 'attackSpeed', value: 0.4, mode: 'multiplicative' }
+      { type: 'statBuff', stat: 'attackSpeed', value: 0.5, mode: 'multiplicative' }
     ]
   },
   DAMAGE: {

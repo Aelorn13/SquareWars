@@ -1,13 +1,9 @@
 // components/upgrade/applyUpgrade.js
 import { showUpgradeUI, cleanupUpgradeUI } from "../ui/upgradeUI.js";
-import {
-  UPGRADE_CONFIG,
-  rollRarityForStat,
-  formatUpgradeForUI,
-} from "./upgradeConfig.js";
+import { UPGRADE_CONFIG, rollRarityForStat, formatUpgradeForUI } from "./upgradeConfig.js";
 import { getPermanentBaseStat, applyPermanentUpgrade } from "./statManager.js";
 import { attachBuffManager } from "../buffManager.js";
-
+import { spawnShockwave } from "../powerup/powerupEffects/shockwaveEffect.js";
 /**
  * Flexible signature:
  *  applyUpgrade(player, chosenUpgrade)
@@ -41,9 +37,7 @@ export function applyUpgrade(...args) {
     rarity = rollRarityForStat(statName);
   } else if (chosenUpgrade && typeof chosenUpgrade === "object") {
     statName = chosenUpgrade.stat ?? chosenUpgrade.name ?? null;
-    rarity =
-      chosenUpgrade.rarity ??
-      (statName ? rollRarityForStat(statName) : undefined);
+    rarity = chosenUpgrade.rarity ?? (statName ? rollRarityForStat(statName) : undefined);
   } else {
     console.warn("applyUpgrade: invalid chosenUpgrade", chosenUpgrade);
     return;
@@ -59,11 +53,7 @@ export function applyUpgrade(...args) {
   attachBuffManager(k, player);
 
   // generate stable-ish source id for effects
-  const sourceId =
-    player.id ??
-    player._id ??
-    player.name ??
-    `p_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+  const sourceId = player.id ?? player._id ?? player.name ?? `p_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
   // Special: Ghost (unique, non-projectile effect)
   if (statName === "ghost") {
     if (!player) return;
@@ -82,11 +72,7 @@ export function applyUpgrade(...args) {
     // Double dashDuration: prefer permanent base if present, fallback to runtime value, then persist.
     const curBase = getPermanentBaseStat(player, "dashDuration");
     const currentBase =
-      typeof curBase === "number"
-        ? curBase
-        : typeof player.dashDuration === "number"
-        ? player.dashDuration
-        : 0.2;
+      typeof curBase === "number" ? curBase : typeof player.dashDuration === "number" ? player.dashDuration : 0.2;
     const newDash = Math.max(0.01, currentBase * 2);
 
     // Persist using your stat manager and apply immediately to the player object.
@@ -142,6 +128,55 @@ export function applyUpgrade(...args) {
 
   // Effect upgrades
   if (statConfig?.isEffect) {
+    if (statConfig.effectType === "bomberman") {
+      if (player.hasBomberman) return;
+      player.hasBomberman = true;
+
+      const tier = rarity?.tier ?? 5;
+      const bonus = statConfig.bonuses?.[tier];
+      if (!bonus) {
+        console.warn("Bomberman upgrade applied without bonus config.");
+        return;
+      }
+
+      const { distanceTrigger, damageMultiplier, maxRadius } = bonus;
+
+      // Attach the distance tracking logic to the player
+      player.onUpdate(() => {
+        if (!player.exists() || !player._bombermanState) return;
+
+        const currentPos = player.pos;
+        const distanceMoved = currentPos.dist(player._bombermanState.lastPos);
+        player._bombermanState.distanceTraveled += distanceMoved;
+        player._bombermanState.lastPos = currentPos.clone();
+
+        if (player._bombermanState.distanceTraveled >= distanceTrigger) {
+          // Create ONE shared list for all shockwaves spawned in this frame.
+          const sharedHitEnemies = new Set();
+
+          while (player._bombermanState.distanceTraveled >= distanceTrigger) {
+            const shockwaveDamage = (player.damage ?? 10) * damageMultiplier;
+
+            spawnShockwave(k, player.pos, {
+              damage: shockwaveDamage,
+              maxRadius: maxRadius,
+              // Pass the shared list as an option.
+              sharedHitEnemies: sharedHitEnemies,
+            });
+
+            player._bombermanState.distanceTraveled -= distanceTrigger;
+          }
+        }
+      });
+
+      // Initialize state variables on the player object
+      player._bombermanState = {
+        distanceTraveled: 0,
+        lastPos: player.pos.clone(),
+      };
+
+      return; // End execution for this upgrade type
+    }
     player._projectileEffects ??= [];
 
     // Use explicit per-tier bonuses if present
@@ -179,9 +214,7 @@ export function applyUpgrade(...args) {
     };
 
     if (statConfig.isUnique) {
-      const idx = player._projectileEffects.findIndex(
-        (e) => e.type === statConfig.effectType
-      );
+      const idx = player._projectileEffects.findIndex((e) => e.type === statConfig.effectType);
       if (idx >= 0) player._projectileEffects[idx] = newEffect;
       else player._projectileEffects.push(newEffect);
     } else {
@@ -199,9 +232,7 @@ export function applyUpgrade(...args) {
     newBaseValue = currentBase + delta;
   } else {
     const delta = currentBase * (rarity?.multiplier ?? 0) * statConfig.scale;
-    newBaseValue = statConfig.isInverse
-      ? currentBase - delta
-      : currentBase + delta;
+    newBaseValue = statConfig.isInverse ? currentBase - delta : currentBase + delta;
   }
 
   if (statConfig.cap !== undefined) {
@@ -221,16 +252,8 @@ export function applyUpgrade(...args) {
  * maybeShowUpgrade - builds 3 offers but excludes unique effects the player already owns.
  * no signature changes here (k, player, sharedState, currentScore, nextThresholdRef, addScore)
  */
-export function maybeShowUpgrade(
-  k,
-  player,
-  sharedState,
-  currentScore,
-  nextThresholdRef,
-  addScore,
-  isMobileDevice
-) {
-  if (player.hp() <= 0)  return; 
+export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThresholdRef, addScore, isMobileDevice) {
+  if (player.hp() <= 0) return;
   if (sharedState.upgradeOpen || currentScore < nextThresholdRef.value) return;
 
   // open upgrade screen and pause game
@@ -245,9 +268,7 @@ export function maybeShowUpgrade(
     sharedState.upgradeInteractionLocked = false;
   }, CLICK_LOCK_MS);
 
-  const ownedEffects = new Set(
-    (player._projectileEffects ?? []).map((e) => e.type)
-  );
+  const ownedEffects = new Set((player._projectileEffects ?? []).map((e) => e.type));
   const available = Object.keys(UPGRADE_CONFIG).filter((stat) => {
     const cfg = UPGRADE_CONFIG[stat];
     if (!cfg) return false;
@@ -255,11 +276,11 @@ export function maybeShowUpgrade(
     // If upgrade is unique, exclude if already owned
     if (cfg.isUnique) {
       // projectile-typed unique effects stored in player._projectileEffects
-      if (cfg.isEffect && cfg.effectType && ownedEffects.has(cfg.effectType))
-        return false;
+      if (cfg.isEffect && cfg.effectType && ownedEffects.has(cfg.effectType)) return false;
 
       // non-projectile unique upgrades (e.g. ghost) stored as flags on player
       if (stat === "ghost" && player.hasGhost) return false;
+      if (stat === "bomberman" && player.hasBomberman) return false;
     }
 
     return true;
@@ -274,25 +295,30 @@ export function maybeShowUpgrade(
   }
 
   // Wrap the callback so early clicks are ignored.
-  showUpgradeUI(k, offered, (picked) => {
-    if (sharedState.upgradeInteractionLocked) {
-      // ignore accidental clicks during the lock period
-      return;
-    }
+  showUpgradeUI(
+    k,
+    offered,
+    (picked) => {
+      if (sharedState.upgradeInteractionLocked) {
+        // ignore accidental clicks during the lock period
+        return;
+      }
 
-    if (picked === "skip") {
-      addScore(10);
-    } else if (picked && picked.stat) {
-      applyUpgrade(player, picked);
-    }
+      if (picked === "skip") {
+        addScore(10);
+      } else if (picked && picked.stat) {
+        applyUpgrade(player, picked);
+      }
 
-    // cleanup and restore state
-    clearTimeout(unlockTimer);
-    cleanupUpgradeUI(k);
-    sharedState.isPaused = false;
-    sharedState.upgradeOpen = false;
-    sharedState.upgradeInteractionLocked = false;
-  },isMobileDevice());
+      // cleanup and restore state
+      clearTimeout(unlockTimer);
+      cleanupUpgradeUI(k);
+      sharedState.isPaused = false;
+      sharedState.upgradeOpen = false;
+      sharedState.upgradeInteractionLocked = false;
+    },
+    isMobileDevice()
+  );
 
   nextThresholdRef.value = Math.floor(nextThresholdRef.value * 1.3) + 10;
 }

@@ -186,7 +186,6 @@ export function createEnemyGameObject(k, player, config, spawnPos, gameContext) 
 
       takeDamage(amount, ctx = {}) {
           this.hurt(amount);
-
         if (ctx.isCrit) {
           showCritEffect(k, this.pos, "CRIT!", k.rgb(255, 0, 0));
         }

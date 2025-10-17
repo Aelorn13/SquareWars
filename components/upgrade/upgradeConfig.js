@@ -139,6 +139,21 @@ export const UPGRADE_CONFIG = {
     icon: "💨",
     scale: 1,
   },
+    bomberman: {
+    name: "Bomberman",
+    icon: "💣",
+    isEffect: true,
+    isUnique: true,
+    effectType: "bomberman",
+    allowedTiers: [5], // Legendary tier only
+    bonuses: {
+      5: {
+        distanceTrigger: 800,
+        damageMultiplier: 4,
+        maxRadius: 350,
+      },
+    },
+  },
 };
 
 /* ----------------- Rarity utilities (cached weights) ----------------- */
@@ -220,6 +235,13 @@ export function formatUpgradeForUI(statName, rolledRarity) {
   if (cfg.isEffect) {
     const tierBon = cfg.bonuses?.[rarityTier] ?? {};
     switch (cfg.effectType) {
+       case "bomberman": {
+        const trigger = Number(tierBon.distanceTrigger ?? 400);
+        const mult = Number(tierBon.damageMultiplier ?? 4);
+        out.bonusText = `${cfg.name}`;
+        out.description = `Spawns a shockwave every ${trigger} units moved, dealing ${mult}x damage.`;
+        return out;
+      }
       case "burn": {
         const dps = Number(tierBon.damagePerTick ?? 0);
         const dur = Number(tierBon.duration ?? 0);

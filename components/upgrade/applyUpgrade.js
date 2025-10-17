@@ -163,7 +163,7 @@ export function applyUpgrade(...args) {
               // Pass the shared list as an option.
               sharedHitEnemies: sharedHitEnemies,
             });
-
+            
             player._bombermanState.distanceTraveled -= distanceTrigger;
           }
         }

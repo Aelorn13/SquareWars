@@ -54,8 +54,15 @@ export function createBossSpawner(k, debugPanelX, currentPanelY, {
   const spawnMinibossWithAbility = (ability, scaling = {}) => {
     const spawnPos = k.vec2(k.rand(gameContext.sharedState.area.x + 50, gameContext.sharedState.area.x + gameContext.sharedState.area.w - 50),
                             k.rand(gameContext.sharedState.area.y + 50, gameContext.sharedState.area.y + gameContext.sharedState.area.h - 50));
-    spawnEnemy(k, player, gameContext, { forceType: "miniboss", ability, spawnPos, scaling });
+        spawnEnemy(k, player, gameContext, {
+      forceType: "miniboss",
+      ability,
+      spawnPos,
+      scaling,
+      difficulty: gameContext.difficulty,
+    });
   };
+  
 
   createDebugButton("SPAWN SUMMONER", currentPanelY, [140, 40, 140], () => { spawnMinibossWithAbility(summonMinions); });
   currentPanelY += 40;

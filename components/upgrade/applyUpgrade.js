@@ -307,7 +307,7 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
       if (picked === "skip") {
         addScore(10);
       } else if (picked && picked.stat) {
-        applyUpgrade(player, picked);
+        applyUpgrade(k, player, picked);
       }
 
       // cleanup and restore state

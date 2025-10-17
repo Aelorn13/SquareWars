@@ -28,6 +28,7 @@ import { createDpsHud } from "../components/utils/dpsHud.js";
 import { setupEnemyMerging } from "../components/enemy/enemyMerger.js";
 import { getSelectedDifficultyConfig } from "../components/utils/difficultyManager.js";
 import { DifficultyController } from "../components/utils/difficultyController.js";
+import { createEncounterCircle } from "../components/encounter/circle.js";
 
 export function defineGameScene(k, scoreRef) {
   function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
@@ -142,6 +143,15 @@ export function defineGameScene(k, scoreRef) {
     let wasAutoTogglePreviouslyPressed = false;
     let currentGamePhase = GamePhase.PRE_BOSS;
     let endlessStartTime = 0;
+
+    // --- Encounter State ---
+    let isCircleEncounterActive = false;
+    let circleEncounterCooldown = k.rand(10, 15); // Start with a shorter cooldown
+    const MIN_CIRCLE_COOLDOWN = 10;
+    const MAX_CIRCLE_COOLDOWN = 30;
+    const CIRCLE_CHARGE_TIME = 5; // 5 seconds to charge
+    const BASE_CIRCLE_SCORE_REWARD = 5;
+    const TIME_SCORE_MODIFIER = 0.33; // Extra points per second of game time
 
     const dpsHud = createDpsHud(k, player, gameState, {
       initialSpawnInterval: difficulty.config.spawnInterval.start,
@@ -326,6 +336,42 @@ export function defineGameScene(k, scoreRef) {
         case GamePhase.ENDLESS:
           runEndlessLogic();
           break;
+      }
+
+      // --- Handle Circle Encounter Spawning ---
+      const canSpawnEncounter = currentGamePhase === GamePhase.PRE_BOSS || currentGamePhase === GamePhase.ENDLESS;
+      if (canSpawnEncounter && !isCircleEncounterActive) {
+        circleEncounterCooldown -= k.dt();
+
+        if (circleEncounterCooldown <= 0) {
+          isCircleEncounterActive = true;
+          const circlePos = k.vec2(
+            k.rand(ARENA.x + 50, ARENA.x + ARENA.w - 50),
+            k.rand(ARENA.y + 50, ARENA.y + ARENA.h - 50)
+          );
+
+          createEncounterCircle(
+            k,
+            circlePos,
+            CIRCLE_CHARGE_TIME,
+            () => {
+              // --- On Complete ---
+              const timeBonus = Math.floor(gameState.elapsedTime * TIME_SCORE_MODIFIER);
+              const totalReward = Math.floor(BASE_CIRCLE_SCORE_REWARD + timeBonus);
+
+              gameContext.increaseScore(totalReward);
+              isCircleEncounterActive = false;
+              circleEncounterCooldown = k.rand(MIN_CIRCLE_COOLDOWN, MAX_CIRCLE_COOLDOWN);
+            },
+            () => {
+              // --- On Cancel (not used) ---
+              isCircleEncounterActive = false;
+              circleEncounterCooldown = k.rand(MIN_CIRCLE_COOLDOWN, MAX_CIRCLE_COOLDOWN);
+            },
+            player,
+            gameState
+          );
+        }
       }
 
       // Miniboss spawning (independent of main state for now)

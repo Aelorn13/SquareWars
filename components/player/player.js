@@ -18,7 +18,7 @@ const PLAYER_CONFIG = {
     damage: 1,
     speed: 95,
     luck: 0.1,
-    bulletSpeed: 300,
+    bulletSpeed: 400,
     attackSpeed: 0.5,
     dashDuration: 0.2,
     dashCooldown: 2.5,

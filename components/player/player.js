@@ -174,7 +174,7 @@ export function createPlayer(k, sharedState) {
         if (this.isInvincible) return;
         this.hurt(amount);
         // delegate to central buff system; pass sharedState so pause works
-        this.applyInvincibility(2);
+        this.applyInvincibility(1);
         k.shake(10);
       },
 

@@ -1,5 +1,26 @@
 import { spawnEnemy } from "../enemy/enemySpawner.js";
 
+/**
+ * Displays a moving and fading text effect on the screen.
+ *
+ * @param {object} k - The Kaboom context.
+ * @param {object} pos - The position where the text should appear.
+ * @param {string} text - The text to display.
+ * @param {object} color - The color of the text.
+ */
+export function showEncounterFeedback(k, pos, text, color) {
+  k.add([
+    k.text(text, { size: 24 }),
+    k.pos(pos),
+    k.color(color),
+    k.anchor("center"),
+    k.outline(4, k.rgb(0,0,0)),
+    k.opacity(1),
+    k.lifespan(1, { fade: 0.5 }),
+    k.move(k.UP, 60),
+  ]);
+}
+
 export const circleEncounter = {
   // A name for debugging or potential future logic
   name: "Circle",
@@ -20,11 +41,12 @@ export const circleEncounter = {
     const BAD_OUTCOME_ENEMY_COUNT = 10;
 
     // --- Helper Functions for this encounter ---
-    const onComplete = (type) => {
+    const onComplete = (type, position) => {
       if (type === "good") {
         const timeBonus = Math.floor(gameState.elapsedTime * TIME_SCORE_MODIFIER);
         const totalReward = Math.floor(BASE_CIRCLE_SCORE_REWARD + timeBonus);
         increaseScore(totalReward);
+        showEncounterFeedback(k, position, "SCORE GRANTED", k.rgb(0, 255, 0));
       } else if (type === "bad") {
         console.log("Circle Encounter: Bad outcome! Spawning enemies.");
         for (let i = 0; i < BAD_OUTCOME_ENEMY_COUNT; i++) {
@@ -34,6 +56,7 @@ export const circleEncounter = {
             difficulty: gameContext.difficulty,
           });
         }
+        showEncounterFeedback(k, position, "OOOPSIE...", k.rgb(255, 0, 0));
       }
       this.isFinished = true; // Signal completion
     };
@@ -82,7 +105,7 @@ export const circleEncounter = {
           }
 
           if (this.charge >= this.maxCharge) {
-            onComplete(this.outcomeType);
+            onComplete(this.outcomeType, this.pos.clone());
             k.destroy(this);
           }
         },

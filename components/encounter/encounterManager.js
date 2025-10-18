@@ -2,12 +2,13 @@ import { circleEncounter } from "./circle.js";
 import { goldenSquareEncounter } from "./goldenSquare.js";
 import { spotlightEncounter } from "./spotlight.js";
 import { sequenceEncounter } from "./sequence.js"; 
-
+import { tractorBeamsEncounter } from "./tractorBeams.js"; 
 export function createEncounterManager(k, gameContext) {
   const availableEncounters = [
     circleEncounter, goldenSquareEncounter,
     spotlightEncounter, 
      sequenceEncounter,
+     tractorBeamsEncounter
   ];
 
   const manager = {

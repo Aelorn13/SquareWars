@@ -76,7 +76,6 @@ export const sequenceEncounter = {
 
         if (didSucceed) {
             const timeBonus = Math.floor(gameState.elapsedTime * TIME_SCORE_MODIFIER);
-            // **REWARD CHANGE:** Apply the multiplier to the base reward
             const scaledBaseReward = BASE_SCORE_REWARD * rewardMultiplier;
             const totalReward = Math.floor(scaledBaseReward + timeBonus);
             increaseScore(totalReward);

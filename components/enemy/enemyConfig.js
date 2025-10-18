@@ -83,7 +83,7 @@ export const ENEMY_CONFIGS = {
     spawnWeightEnd: 8,       
     color: [120, 40, 200], 
     size: 30,
-    maxHp: 5, 
+    maxHp: 2.9, 
     speed: 120, 
     damage: 1,
   },

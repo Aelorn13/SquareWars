@@ -1,8 +1,10 @@
 import { circleEncounter } from "./circle.js";
+import { goldenSquareEncounter } from "./goldenSquare.js";
 
 export function createEncounterManager(k, gameContext) {
   const availableEncounters = [
       circleEncounter,
+      goldenSquareEncounter, 
   ];
 
   const manager = {

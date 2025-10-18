@@ -68,6 +68,23 @@ function getCurrentHp(entity) {
 function handleEnemyPlayerCollision(k, enemy, player, gameContext) {
   if (enemy.dead || player.isInvincible || player.isKnockedBack) return false;
 
+    // --- Special case for the Golden Square ---
+  if (enemy.type === "goldenSquare") {
+    // It doesn't damage the player. Instead, it knocks itself back.
+    const knockbackDir = enemy.pos.sub(player.pos).unit();
+    const knockbackDest = enemy.pos.add(knockbackDir.scale(80)); // Knock it back 80 pixels
+    
+    // Briefly stun it so it can't move during the knockback tween
+    enemy._isStunned = true; 
+    k.tween(enemy.pos, knockbackDest, 0.15, p => enemy.pos = p)
+      .then(() => {
+        enemy.direction = knockbackDir; // Make it run away from the player
+        enemy.changeDirTimer = k.rand(1, 2); // Force new direction change soon
+        enemy._isStunned = false;
+      });
+    return true; // Collision handled, stop further processing
+  }
+
   applyDamage(player, enemy.damage ?? 1, { source: enemy });
   gameContext.updateHealthBar?.();
 

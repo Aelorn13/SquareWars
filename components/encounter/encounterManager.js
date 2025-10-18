@@ -1,71 +1,65 @@
-import { createCircleEncounter } from "./circle.js";
-// Import other encounters here in the future
-// import { createSquareEncounter } from "./square.js"; 
+import { circleEncounter } from "./circle.js";
 
-export function createEncounterManager(k, player, gameContext) {
-  let availableEncounters = [];
-  let activeEncounter = null;
-  
-  let cooldown = k.rand(10, 15); // Initial cooldown
-  const MIN_COOLDOWN = 10;
-  const MAX_COOLDOWN = 30;
-
-  // --- Private Methods ---
-
-  function registerEncounters() {
-    // We wrap the creation function to fit a standard format
-    availableEncounters.push(() => createCircleEncounter(k, player, gameContext, onEncounterComplete));
-    // When you create a new encounter, just add it here!
-    // availableEncounters.push(() => createSquareEncounter(k, player, gameContext, onEncounterComplete));
-  }
-  
-  function onEncounterComplete() {
-    console.log(`Encounter "${activeEncounter.name}" completed.`);
-    activeEncounter = null;
-    cooldown = k.rand(MIN_COOLDOWN, MAX_COOLDOWN);
-  }
-
-  function startRandomEncounter() {
-    if (activeEncounter || availableEncounters.length === 0) {
-      return;
-    }
-
-    const encounterFactory = k.choose(availableEncounters);
-    activeEncounter = encounterFactory();
-    console.log(`Starting encounter: "${activeEncounter.name}"`);
-    activeEncounter.start();
-  }
-
-  // --- Public Interface ---
+export function createEncounterManager(k, gameContext) {
+  const availableEncounters = [
+      circleEncounter,
+  ];
 
   const manager = {
-    // The main update function to be called from game.js
-    update: (dt, currentGamePhase) => {
-      // Don't run encounters during boss fights or menus
-      const canRunEncounter = currentGamePhase === "PRE_BOSS" || currentGamePhase === "ENDLESS";
+    // --- State ---
+    isEncounterActive: false,
+    activeEncounter: null,
+    cooldown: k.rand(8, 12), // Initial cooldown before the first encounter
 
-      if (!canRunEncounter) {
-        if (activeEncounter && activeEncounter.cancel) {
-          activeEncounter.cancel();
-        }
-        return;
-      }
+    // --- Configuration ---
+    MIN_COOLDOWN: 10,
+    MAX_COOLDOWN: 25,
+
+    // --- The main update loop to be called from game.js ---
+    update(dt) {
+      const { sharedState, getCurrentGamePhase } = gameContext;
+      const gamePhase = getCurrentGamePhase();
       
-      if (activeEncounter) {
-        // If the active encounter has its own logic loop, run it
-        activeEncounter.update(dt);
+      // Don't run encounters during the boss fight or while paused.
+      const canRunEncounter = gamePhase === "PRE_BOSS" || gamePhase === "ENDLESS";
+      if (!canRunEncounter || sharedState.isPaused || sharedState.upgradeOpen) {
+          return;
+      }
+
+      if (this.isEncounterActive) {
+        // An encounter is running. Check if it has finished.
+        if (this.activeEncounter.isFinished) {
+          console.log(`Encounter '${this.activeEncounter.name}' finished.`);
+          this.isEncounterActive = false;
+          this.activeEncounter = null;
+          // Set a new cooldown for the next one
+          this.cooldown = k.rand(this.MIN_COOLDOWN, this.MAX_COOLDOWN);
+        }
       } else {
-        // Otherwise, tick down the cooldown to the next one
-        cooldown -= dt;
-        if (cooldown <= 0) {
-          startRandomEncounter();
+        // No encounter is active. Tick down the cooldown.
+        this.cooldown -= dt;
+
+        if (this.cooldown <= 0) {
+          // Time to start a new encounter!
+          this.startRandomEncounter();
         }
       }
     },
+
+    startRandomEncounter() {
+      // Choose a random encounter from our list
+      const encounterBlueprint = k.choose(availableEncounters);
+      
+      console.log(`Starting encounter: '${encounterBlueprint.name}'`);
+      
+      // Set the manager's state
+      this.isEncounterActive = true;
+      this.activeEncounter = encounterBlueprint;
+      
+      // Kick off the encounter by calling its start method
+      this.activeEncounter.start(k, gameContext);
+    },
   };
-  
-  // Initialize the manager
-  registerEncounters();
 
   return manager;
 }

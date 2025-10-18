@@ -1,77 +1,136 @@
-// src/components/encounter/circle.js
-export function createEncounterCircle(k, position, chargeTime, onComplete, onCancel, player, gameState) {
-  const encounter = k.add([
-    k.pos(position),
-    k.z(-25), 
-    "encounterCircle",
-    {
-      charge: 0,
-      maxCharge: chargeTime,
-      radius: 75,
-      isPlayerInside: false,
-      update() {
-        if (gameState.isPaused || gameState.upgradeOpen) {
-          return; // Do not update charge if the game is paused
-        }
+import { spawnEnemy } from "../enemy/enemySpawner.js";
 
-        const distance = this.pos.dist(player.pos);
-        this.isPlayerInside = distance <= this.radius;
+export const circleEncounter = {
+  // A name for debugging or potential future logic
+  name: "Circle",
 
-        if (this.isPlayerInside) {
-          // Player is inside, so we charge up
-          this.charge = Math.min(this.maxCharge, this.charge + k.dt());
-        } else {
-          // Player is outside, so we drain the charge
-          this.charge = Math.max(0, this.charge - k.dt() * 1.8); // Drains slightly faster than it charges
-        }
+  // This will be set to true when the encounter is over
+  isFinished: true,
 
-        // Check for completion
-        if (this.charge >= this.maxCharge) {
-          onComplete();
-          k.destroy(this);
-        }
-      },
-      draw() {
-        // Draw the dark grey "track" for the circle's line.
-        k.drawCircle({
-          pos: k.vec2(0, 0),
-          radius: this.radius,
-          fill: true,
-           color: k.rgb(20, 20, 20),  // Matches the arena background
-          outline: { color: k.rgb(80, 80, 80), width: 4 },
-        });
+  // The start method will kick off the encounter
+  start(k, gameContext) {
+    this.isFinished = false;
+    const { player, increaseScore, sharedState: gameState } = gameContext;
 
-        // Calculate and draw the progress arc line on top of the track.
-        const progress = this.charge / this.maxCharge;
-        if (progress > 0) {
-          // We use deg2rad because JS's Math functions use radians.
-          const endAngleRad = k.deg2rad(360 * progress);
-          // The number of small lines we'll draw to approximate a smooth arc.
-          const resolution = 60;
-          const arcPoints = [];
+    // --- Configuration ---
+    const ARENA = gameState.area;
+    const CIRCLE_CHARGE_TIME = 5;
+    const BASE_CIRCLE_SCORE_REWARD = 5;
+    const TIME_SCORE_MODIFIER = 0.33;
+    const BAD_OUTCOME_ENEMY_COUNT = 10;
 
-          for (let i = 0; i <= resolution; i++) {
-            // Calculate the angle for the current point.
-            const currentAngle = (i / resolution) * endAngleRad;
-            // Convert polar coordinates (angle, radius) to cartesian (x, y) and add to our list.
-            arcPoints.push(
-              k.vec2(
-                Math.cos(currentAngle) * this.radius,
-                Math.sin(currentAngle) * this.radius
-              )
-            );
-          }
-
-          // drawLines connects each point in the array to the next one, creating the arc.
-          k.drawLines({
-            pts: arcPoints,
-            width: 4,
-            color: k.rgb(255, 255, 255), // Bright white for the progress line
+    // --- Helper Functions for this encounter ---
+    const onComplete = (type) => {
+      if (type === "good") {
+        const timeBonus = Math.floor(gameState.elapsedTime * TIME_SCORE_MODIFIER);
+        const totalReward = Math.floor(BASE_CIRCLE_SCORE_REWARD + timeBonus);
+        increaseScore(totalReward);
+      } else if (type === "bad") {
+        console.log("Circle Encounter: Bad outcome! Spawning enemies.");
+        for (let i = 0; i < BAD_OUTCOME_ENEMY_COUNT; i++) {
+          // We'll spawn them with the current game progress.
+          spawnEnemy(k, player, gameContext, {
+            progress: gameState.spawnProgress,
+            difficulty: gameContext.difficulty,
           });
         }
-      },
-    },
-  ]);
+      }
+      this.isFinished = true; // Signal completion
+    };
 
-  return encounter;
-}
+    const onCancel = () => {
+      this.isFinished = true; // Also signal completion on cancel
+    };
+
+    // --- Position Logic ---
+    const circlePos = k.vec2(
+      k.rand(ARENA.x + 75, ARENA.x + ARENA.w - 75),
+      k.rand(ARENA.y + 75, ARENA.y + ARENA.h - 75)
+    );
+
+    // --- Create the Kaboom Game Object ---
+    const encounter = k.add([
+      k.pos(circlePos),
+      k.z(-25),
+      "encounterCircle",
+      {
+        charge: 0,
+        maxCharge: CIRCLE_CHARGE_TIME,
+        radius: 75,
+        isPlayerInside: false,
+        outcomeType: null, // Can be 'good', 'bad', or null
+        update() {
+          if (gameState.isPaused || gameState.upgradeOpen) {
+            return;
+          }
+
+          const distance = this.pos.dist(player.pos);
+          this.isPlayerInside = distance <= this.radius;
+
+          if (this.isPlayerInside) {
+            // If this is the first time the player enters, determine the outcome
+            if (this.outcomeType === null) {
+              this.outcomeType = k.choose(["good", "bad"]);
+            }
+            this.charge = Math.min(this.maxCharge, this.charge + k.dt());
+          } else {
+            this.charge = Math.max(0, this.charge - k.dt() * 1.8);
+            // If charge depletes fully, reset the outcome type
+            if (this.charge === 0) {
+              this.outcomeType = null;
+            }
+          }
+
+          if (this.charge >= this.maxCharge) {
+            onComplete(this.outcomeType);
+            k.destroy(this);
+          }
+        },
+        draw() {
+          // Draw the base circle
+          k.drawCircle({
+            pos: k.vec2(0, 0),
+            radius: this.radius,
+            fill: true,
+            color: k.rgb(20, 20, 20),
+            outline: { color: k.rgb(80, 80, 80), width: 4 },
+          });
+
+          const progress = this.charge / this.maxCharge;
+          if (progress > 0) {
+            // Determine the color of the progress arc
+            let arcColor = k.rgb(255, 255, 255); // Default to white
+            if (progress > 0.5 && this.outcomeType) {
+              const transitionProgress = (progress - 0.5) * 2; // Scale 0.5-1.0 to 0-1
+              if (this.outcomeType === "good") {
+                arcColor = k.rgb(255, 255, 255).lerp(k.rgb(0, 255, 0), transitionProgress);
+              } else {
+                // 'bad'
+                arcColor = k.rgb(255, 255, 255).lerp(k.rgb(255, 0, 0), transitionProgress);
+              }
+            }
+
+            // Draw the progress arc
+            const endAngleRad = k.deg2rad(360 * progress);
+            const resolution = 60;
+            const arcPoints = [];
+            for (let i = 0; i <= resolution; i++) {
+              const currentAngle = (i / resolution) * endAngleRad;
+              arcPoints.push(
+                k.vec2(Math.cos(currentAngle) * this.radius, Math.sin(currentAngle) * this.radius)
+              );
+            }
+            k.drawLines({
+              pts: arcPoints,
+              width: 4,
+              color: arcColor,
+            });
+          }
+        },
+      },
+    ]);
+
+    // If the encounter object is destroyed for any other reason (e.g., scene change)
+    encounter.onDestroy(onCancel);
+  },
+};

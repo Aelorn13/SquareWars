@@ -1,8 +1,8 @@
 // components/player/autoShoot.js
 import { inputState } from "./controls.js";
-
+import { SPOTLIGHT_Z_INDEX } from "../encounter/spotlight.js";
 const _state = new WeakMap(); // player -> boolean
-const _opts = new WeakMap();  // player -> { range, smoothing }
+const _opts = new WeakMap(); // player -> { range, smoothing }
 const DEFAULT_OPTS = { range: Infinity, smoothing: 0 };
 
 function ensureInitialized(player) {
@@ -76,8 +76,17 @@ export function autoShootTick(k, player, gameState) {
     player.isShooting = false;
     return;
   }
+  const isSpotlightActive = k.get("darknessOverlay").length > 0;
+  let enemies;
 
-  const enemies = k.get("enemy").filter((e) => e && !e.dead);
+  if (isSpotlightActive) {
+    // During the spotlight encounter, a target is only valid if it's on the visible Z layer.
+    enemies = k.get("enemy").filter((e) => e && !e.dead && e.z === SPOTLIGHT_Z_INDEX.VISIBLE);
+  } else {
+    // Default behavior for all other times (including normal gameplay).
+    enemies = k.get("enemy").filter((e) => e && !e.dead);
+  }
+
   if (!enemies.length) {
     if (typeof player.clearAutoAimTarget === "function") player.clearAutoAimTarget();
     else player._autoAimTarget = null;
@@ -111,7 +120,9 @@ export function autoShootTick(k, player, gameState) {
     player._autoAimTarget = targetVec;
   }
 
-  try { player.rotateTo(closest.pos.angle(player.pos)); } catch (e) {}
+  try {
+    player.rotateTo(closest.pos.angle(player.pos));
+  } catch (e) {}
   player.isShooting = true;
   if (typeof player.tryFire === "function") {
     player.tryFire();

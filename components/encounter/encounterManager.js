@@ -1,10 +1,11 @@
 import { circleEncounter } from "./circle.js";
 import { goldenSquareEncounter } from "./goldenSquare.js";
+import { spotlightEncounter } from "./spotlight.js";
 
 export function createEncounterManager(k, gameContext) {
   const availableEncounters = [
-      circleEncounter,
-      goldenSquareEncounter, 
+    circleEncounter, goldenSquareEncounter,
+    spotlightEncounter, 
   ];
 
   const manager = {
@@ -21,11 +22,11 @@ export function createEncounterManager(k, gameContext) {
     update(dt) {
       const { sharedState, getCurrentGamePhase } = gameContext;
       const gamePhase = getCurrentGamePhase();
-      
+
       // Don't run encounters during the boss fight or while paused.
       const canRunEncounter = gamePhase === "PRE_BOSS" || gamePhase === "ENDLESS";
       if (!canRunEncounter || sharedState.isPaused || sharedState.upgradeOpen) {
-          return;
+        return;
       }
 
       if (this.isEncounterActive) {
@@ -51,13 +52,13 @@ export function createEncounterManager(k, gameContext) {
     startRandomEncounter() {
       // Choose a random encounter from our list
       const encounterBlueprint = k.choose(availableEncounters);
-      
+
       console.log(`Starting encounter: '${encounterBlueprint.name}'`);
-      
+
       // Set the manager's state
       this.isEncounterActive = true;
       this.activeEncounter = encounterBlueprint;
-      
+
       // Kick off the encounter by calling its start method
       this.activeEncounter.start(k, gameContext);
     },

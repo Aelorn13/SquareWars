@@ -32,6 +32,7 @@ export function setupPlayerShooting(k, player, gameState) {
       k.rect(size, size),
       k.color(color),
       k.pos(player.pos),
+      k.z(player.z),
       k.area(),
       k.anchor("center"),
       k.offscreen({ destroy: true }),

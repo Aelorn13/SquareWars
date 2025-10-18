@@ -194,8 +194,10 @@ export function createPlayer(k, sharedState) {
     if (consumeDash()) dash.trigger(player);
 
     // Face cursor/aim direction
-    const target = aimWorldTarget(k, player.pos);
-    player.rotateTo(target.angle(player.pos));
+    if (!player._autoAimTarget) {
+      const target = aimWorldTarget(k, player.pos);
+      player.rotateTo(target.angle(player.pos));
+    }
 
     // Movement with dash boost
     const move = moveVec(k);

@@ -1,3 +1,4 @@
+//components/encounter/spotlight.js
 import { showEncounterFeedback } from "./circle.js";
 
 export const SPOTLIGHT_Z_INDEX = {

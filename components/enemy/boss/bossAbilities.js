@@ -1,15 +1,10 @@
 /**
  * @file A library of reusable abilities for bosses and minibosses.
  */
-import { 
-    BOSS_CONFIG, 
-    CHARGE_MOVE_DURATION, 
-    CHARGE_SPEED_MULTIPLIER, 
-    VULNERABILITY_DURATION 
-} from "./bossConfig.js";
+import { BOSS_CONFIG, CHARGE_MOVE_DURATION, CHARGE_SPEED_MULTIPLIER, VULNERABILITY_DURATION } from "./bossConfig.js";
 import { telegraphEffect } from "./bossVisuals.js";
 import { spawnEnemy } from "../enemySpawner.js";
-
+import { SPOTLIGHT_Z_INDEX } from "../../encounter/spotlight.js";
 export const summonMinions = {
   name: "summon",
   initiate(k, entity, player) {
@@ -17,7 +12,9 @@ export const summonMinions = {
     telegraphEffect(k, entity, telegraph.color, telegraph.duration, true);
     return telegraph;
   },
-  getParams(phase = 1) { return BOSS_CONFIG.phases[phase].abilities.summon; },
+  getParams(phase = 1) {
+    return BOSS_CONFIG.phases[phase].abilities.summon;
+  },
   execute(k, entity, player, gameContext, params) {
     const doSpawn = () => {
       for (let i = 0; i < params.count; i++) {
@@ -31,8 +28,8 @@ export const summonMinions = {
         spawnEnemy(k, player, gameContext, {
           forceType: params.minionType,
           spawnPos,
-                progress: gameContext.sharedState.spawnProgress,
-      difficulty: gameContext.difficulty,
+          progress: gameContext.sharedState.spawnProgress,
+          difficulty: gameContext.difficulty,
         });
       }
     };
@@ -53,7 +50,7 @@ export const summonMinions = {
         doSpawn();
       }
     });
-  }
+  },
 };
 
 export const spreadShot = {
@@ -74,29 +71,30 @@ export const spreadShot = {
         const currentAngle = i * angleStep;
         const angleInRadians = k.deg2rad(currentAngle);
         const direction = k.vec2(Math.cos(angleInRadians), Math.sin(angleInRadians));
-k.add([
-  k.rect(8, 8),
-  k.pos(entity.pos),
-  k.anchor("center"),
-  k.color(255, 120, 0),
-  k.opacity(1),              // required when using lifespan or fade
-  k.area(),
-  k.offscreen({ destroy: true }),
-  "enemyProjectile",
-  {
-    damage: params.damage,
-    // velocity stored so update() can move respecting pause
-    velocity: direction.scale(params.speed),
-    source: entity,
-    _shouldDestroyAfterHit: true,
-    
-    update() {
-      if (!gameContext.sharedState.isPaused) {
-        this.pos = this.pos.add(this.velocity.scale(k.dt()));
-      }
-    },
-  },
-]);
+        k.add([
+          k.rect(8, 8),
+          k.pos(entity.pos),
+          k.anchor("center"),
+          k.color(255, 120, 0),
+          k.opacity(1), // required when using lifespan or fade
+          k.area(),
+          k.offscreen({ destroy: true }),
+          k.z(SPOTLIGHT_Z_INDEX.VISIBLE),
+          "enemyProjectile",
+          {
+            damage: params.damage,
+            // velocity stored so update() can move respecting pause
+            velocity: direction.scale(params.speed),
+            source: entity,
+            _shouldDestroyAfterHit: true,
+
+            update() {
+              if (!gameContext.sharedState.isPaused) {
+                this.pos = this.pos.add(this.velocity.scale(k.dt()));
+              }
+            },
+          },
+        ]);
       }
     };
 
@@ -115,9 +113,8 @@ k.add([
         doShoot();
       }
     });
-  }
+  },
 };
-
 
 export const chargeAttack = {
   name: "charge",

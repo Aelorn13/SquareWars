@@ -1,10 +1,7 @@
 // ===== components/enemy/sniperEnemy.js =====
 import { ENEMY_CONFIGS } from "./enemyConfig.js";
-import {
-  createEnemyGameObject,
-  handleProjectileCollision,
-} from "./enemyBehavior.js";
-
+import { createEnemyGameObject, handleProjectileCollision } from "./enemyBehavior.js";
+import { SPOTLIGHT_Z_INDEX } from "../encounter/spotlight.js";
 export function createSniperEnemy(k, player, gameContext, spawnPos) {
   const cfg = ENEMY_CONFIGS.sniper;
   const sniper = createEnemyGameObject(k, player, cfg, spawnPos, gameContext);
@@ -54,6 +51,7 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
       k.area(),
       k.offscreen({ destroy: true }),
       k.color(255, 165, 0),
+      k.z(SPOTLIGHT_Z_INDEX.VISIBLE),
       "enemyProjectile",
       {
         damage: sniper.damage ?? 2,
@@ -89,10 +87,7 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
 
       const desiredCenter = player.pos.add(orbit.centerOffset);
       const maxAllowed = computeMaxRadius(desiredCenter);
-      orbit.radiusTarget = k.rand(
-        orbit.minRadius,
-        Math.max(orbit.minRadius, maxAllowed)
-      );
+      orbit.radiusTarget = k.rand(orbit.minRadius, Math.max(orbit.minRadius, maxAllowed));
       orbit.changeTimer = k.rand(1.0, 3.2);
 
       // Occasional burst mode
@@ -110,9 +105,7 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
 
     // Smooth center tracking
     const desiredCenter = player.pos.add(orbit.centerOffset);
-    orbit.center = orbit.center
-      ? orbit.center.lerp(desiredCenter, Math.min(1, dt * 2.8))
-      : desiredCenter;
+    orbit.center = orbit.center ? orbit.center.lerp(desiredCenter, Math.min(1, dt * 2.8)) : desiredCenter;
 
     // Calculate target position
     const dir = k.vec2(Math.cos(orbit.angle), Math.sin(orbit.angle));
@@ -122,10 +115,7 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
     const area = getArena();
     const margin = 8 + (sniper._size ?? 28);
     const clampedPos = k.vec2(
-      Math.max(
-        area.x + margin,
-        Math.min(area.x + area.w - margin, targetPos.x)
-      ),
+      Math.max(area.x + margin, Math.min(area.x + area.w - margin, targetPos.x)),
       Math.max(area.y + margin, Math.min(area.y + area.h - margin, targetPos.y))
     );
 
@@ -144,9 +134,7 @@ export function createSniperEnemy(k, player, gameContext, spawnPos) {
   });
 
   // Use shared projectile handler
-  sniper.onCollide("projectile", (proj) =>
-    handleProjectileCollision(k, sniper, proj)
-  );
+  sniper.onCollide("projectile", (proj) => handleProjectileCollision(k, sniper, proj));
 
   return sniper;
 }

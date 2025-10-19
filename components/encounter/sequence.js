@@ -19,13 +19,15 @@ export const sequenceEncounter = {
 
     // --- Configuration ---
     const ENCOUNTER_DURATION = 40;
-    const PILLAR_COUNT = k.randi(4, 8);
+    const MIN_PILLAR = 3;
+    const MAX_PILLAR = 5
+    const PILLAR_COUNT = k.randi(MIN_PILLAR, MAX_PILLAR);
     const PILLAR_SIZE = 25;
     const MIN_DISTANCE_BETWEEN_PILLARS = 150;
     const BASE_SCORE_REWARD = 10;
     const TIME_SCORE_MODIFIER = 0.33;
 
-    const rewardMultiplier = 1 + Math.max(0, PILLAR_COUNT - 4) * 0.25;
+    const rewardMultiplier = 1 + Math.max(0, PILLAR_COUNT - MIN_PILLAR) * 0.25;
 
     // --- Colors ---
     const COLOR_DEFAULT = k.rgb(100, 100, 100);

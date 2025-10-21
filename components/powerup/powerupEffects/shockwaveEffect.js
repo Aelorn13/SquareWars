@@ -1,3 +1,4 @@
+//components/powerup/powerupEffects/shockwaveEffect.js
 export function spawnShockwave(k, centerPosition, options = {}) {
   const {
     damage = 15,

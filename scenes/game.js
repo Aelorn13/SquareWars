@@ -18,7 +18,7 @@ import {
 } from "../components/ui/index.js";
 import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
-import { inputState, keysPressed, updateMobileUIMode } from "../components/player/controls.js";
+import { inputState, keysPressed, updateMobileUIMode, consumeSkill } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 import { summonMinions, spreadShot, chargeAttack } from "../components/enemy/boss/bossAbilities.js";
 import { isMobileDevice, registerMobileController, unregisterMobileController } from "../components/player/controls.js";
@@ -143,7 +143,7 @@ export function defineGameScene(k, scoreRef) {
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
     let wasAutoTogglePreviouslyPressed = false;
-    let wasSkillKeyPreviouslyPressed = false;
+
     let currentGamePhase = GamePhase.PRE_BOSS;
     let endlessStartTime = 0;
 
@@ -306,13 +306,8 @@ export function defineGameScene(k, scoreRef) {
       } else {
         wasAutoTogglePreviouslyPressed = false;
       }
-      if (keysPressed["KeyE"] && !gameState.upgradeOpen) {
-        if (!wasSkillKeyPreviouslyPressed) {
-          player.triggerSpecialSkill();
-          wasSkillKeyPreviouslyPressed = true;
-        }
-      } else {
-        wasSkillKeyPreviouslyPressed = false;
+      if (consumeSkill() && !gameState.upgradeOpen) {
+        player.triggerSpecialSkill();
       }
 
       dpsHud.update(k.dt(), keysPressed, gameState.isPaused || gameState.upgradeOpen);

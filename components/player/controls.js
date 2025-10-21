@@ -1,3 +1,5 @@
+// components/player/controls.js
+
 const MOBILE_AIM_DISTANCE = 200;
 const MAX_MOBILE_DIMENSION = 1400;
 
@@ -6,6 +8,7 @@ export const inputState = {
   move: { x: 0, y: 0 },
   aim: { x: 0, y: 0 },
   dashTriggered: false,
+  skillTriggered: false, // Skill trigger now follows the same pattern
   isMobile: false,
   firing: false,
 };
@@ -14,7 +17,9 @@ let mobileController = null;
 let controllerFactory = null;
 let orientationListener = null;
 let orientationHandler = null;
+// We still need 'held' state to prevent triggers every frame
 let dashHeld = false;
+let skillHeld = false;
 
 export function isMobileDevice() {
   const ua = navigator.userAgent || "";
@@ -40,27 +45,35 @@ export function initControls(k) {
   // Keyboard handlers
   window.addEventListener("keydown", (e) => {
     keysPressed[e.code] = true;
+    // FIX: Reverted to the original, correct pattern.
+    // The event listener is responsible for setting the trigger flag.
     if (e.code === "Space" && !dashHeld) {
       inputState.dashTriggered = true;
       dashHeld = true;
+    }
+    if (e.code === "KeyE" && !skillHeld) {
+      inputState.skillTriggered = true;
+      skillHeld = true;
     }
   });
 
   window.addEventListener("keyup", (e) => {
     keysPressed[e.code] = false;
+    // We only need to reset the 'held' state on keyup.
     if (e.code === "Space") dashHeld = false;
+    if (e.code === "KeyE") skillHeld = false;
   });
 
-  // Reset on blur to prevent stuck keys
   window.addEventListener("blur", () => {
     for (const kcode in keysPressed) keysPressed[kcode] = false;
     dashHeld = false;
+    skillHeld = false;
     inputState.move.x = 0;
     inputState.move.y = 0;
     inputState.dashTriggered = false;
+    inputState.skillTriggered = false;
   });
 
-  // Initialize mouse position
   if (k?.mousePos) {
     const m = k.mousePos();
     inputState.aim.x = m.x;
@@ -77,7 +90,7 @@ function recreateController() {
   if (!controllerFactory) return;
   destroyController();
   try {
-    mobileController = controllerFactory();
+    mobileController = factoryOrInstance();
     inputState.isMobile = true;
   } catch (e) {
     console.warn("Controller creation failed:", e);
@@ -89,9 +102,8 @@ export function registerMobileController(factoryOrInstance) {
 
   if (typeof factoryOrInstance === "function") {
     controllerFactory = factoryOrInstance;
-    mobileController = controllerFactory();
+    mobileController = factoryOrInstance();
 
-    // Setup orientation change listener
     if (window.matchMedia && !orientationListener) {
       try {
         orientationListener = window.matchMedia("(orientation: landscape)");
@@ -134,8 +146,10 @@ export function unregisterMobileController() {
 }
 
 export function updateInput(k) {
+  // This function is now ONLY responsible for CONTINUOUS state (movement, aim)
+  // and checking the state of mobile buttons.
   if (inputState.isMobile && mobileController) {
-    // Mobile input (clamp to unit circle)
+    // --- Mobile Input ---
     const rawMove = mobileController.getMove?.() || { x: 0, y: 0 };
     let mx = Math.max(-1, Math.min(1, rawMove.x || 0));
     let my = Math.max(-1, Math.min(1, rawMove.y || 0));
@@ -147,8 +161,7 @@ export function updateInput(k) {
     inputState.move.x = mx;
     inputState.move.y = my;
 
-    const aimActive =
-      mobileController.isAiming?.() || mobileController.isFiring?.();
+    const aimActive = mobileController.isAiming?.() || mobileController.isFiring?.();
     const aimCurrent = mobileController.getAim?.() || { x: 0, y: 0 };
     const aimLast = mobileController.getAimLast?.() || { x: 0, y: 0 };
 
@@ -168,19 +181,27 @@ export function updateInput(k) {
     }
 
     inputState.firing = aimActive;
-       try {
+    try {
       inputState.autoShoot = !!mobileController.getAutoShoot?.();
     } catch (e) {
       inputState.autoShoot = false;
     }
     
+    // Check mobile buttons and set trigger flags
     const dashNow = mobileController.getDash?.();
     if (dashNow && !dashHeld) {
       inputState.dashTriggered = true;
     }
     dashHeld = !!dashNow;
+
+    const skillNow = mobileController.getSkill?.();
+    if (skillNow && !skillHeld) {
+      inputState.skillTriggered = true;
+    }
+    skillHeld = !!skillNow;
+
   } else {
-    // Desktop keyboard input
+    // --- Desktop Input (Movement only) ---
     const dx = (keysPressed["KeyD"] ? 1 : 0) - (keysPressed["KeyA"] ? 1 : 0);
     const dy = (keysPressed["KeyS"] ? 1 : 0) - (keysPressed["KeyW"] ? 1 : 0);
     const len = Math.hypot(dx, dy);
@@ -192,18 +213,27 @@ export function updateInput(k) {
       inputState.aim.x = m.x;
       inputState.aim.y = m.y;
     }
-
-    const dashNow = keysPressed["Space"];
-    if (dashNow && !dashHeld) {
-      inputState.dashTriggered = true;
-    }
-    dashHeld = !!dashNow;
   }
 }
 
+/**
+ * Checks if dash was triggered and then resets the flag.
+ * This is the "consumer" pattern.
+ */
 export function consumeDash() {
   if (inputState.dashTriggered) {
     inputState.dashTriggered = false;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks if skill was triggered and then resets the flag.
+ */
+export function consumeSkill() {
+  if (inputState.skillTriggered) {
+    inputState.skillTriggered = false;
     return true;
   }
   return false;
@@ -221,11 +251,13 @@ export function moveVec(k) {
   if (len > 1) return { x: mx / len, y: my / len };
   return { x: mx, y: my };
 }
+
 export function updateMobileUIMode(isActive) {
   if (inputState.isMobile && mobileController) {
     mobileController.setAutoShootUIMode?.(isActive);
   }
 }
+
 export function aimWorldTarget(k, playerPos) {
   if (!k) return inputState.aim;
 

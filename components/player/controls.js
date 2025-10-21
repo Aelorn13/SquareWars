@@ -221,7 +221,11 @@ export function moveVec(k) {
   if (len > 1) return { x: mx / len, y: my / len };
   return { x: mx, y: my };
 }
-
+export function updateMobileUIMode(isActive) {
+  if (inputState.isMobile && mobileController) {
+    mobileController.setAutoShootUIMode?.(isActive);
+  }
+}
 export function aimWorldTarget(k, playerPos) {
   if (!k) return inputState.aim;
 

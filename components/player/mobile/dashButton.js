@@ -39,6 +39,8 @@ export function createDashButton({
   align = "right",
   sticky = true,
 } = {}) {
+  let opts = { container, size, marginX, marginY, align, sticky };
+
   if (container !== document.body) {
     const cs = getComputedStyle(container);
     if (cs.position === "static") container.style.position = "relative";
@@ -54,12 +56,11 @@ export function createDashButton({
   btn.style.touchAction = "none";
   btn.style.zIndex = 9999;
   btn.style.pointerEvents = "auto";
-  btn.style.display = sticky ? "block" : "none";
   btn.style.boxSizing = "border-box";
   btn.style.border = "2px solid rgba(255,255,255,0.06)";
   btn.style.alignItems = "center";
   btn.style.justifyContent = "center";
-  btn.style.display = sticky ? "flex" : "none";
+  btn.style.display = opts.sticky ? "flex" : "none";
 
   label.style.lineHeight = "1";
   label.style.textAlign = "center";
@@ -72,14 +73,14 @@ export function createDashButton({
   const supportsPointer = typeof window.PointerEvent !== "undefined";
 
   function applyStyles() {
-    const sizePx = Math.max(18, Math.round(_toPx(size, "vmin")));
-    const marginXPx = Math.round(_toPx(marginX, "x"));
-    const marginYPx = Math.round(_toPx(marginY, "y"));
+    const sizePx = Math.max(18, Math.round(_toPx(opts.size, "vmin")));
+    const marginXPx = Math.round(_toPx(opts.marginX, "x"));
+    const marginYPx = Math.round(_toPx(opts.marginY, "y"));
 
     btn.style.width = `${sizePx}px`;
     btn.style.height = `${sizePx}px`;
 
-    if (align === "right") {
+    if (opts.align === "right") {
       btn.style.right = `${marginXPx}px`;
       btn.style.left = "auto";
     } else {
@@ -134,6 +135,10 @@ export function createDashButton({
   return {
     getDash() {
       return !!pressed;
+    },
+    updateOpts(newOpts) {
+      opts = { ...opts, ...newOpts };
+      applyStyles();
     },
     destroy() {
       window.removeEventListener("resize", onResize);

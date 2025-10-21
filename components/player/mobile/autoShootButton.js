@@ -39,6 +39,7 @@ export function createAutoShootButton({
   sticky = true,
   labelText = "AUTOSHOOT TOGGLE",
 } = {}) {
+  let opts = { container, size, marginX, marginY, align, sticky, labelText };
   if (container !== document.body) {
     const cs = getComputedStyle(container);
     if (cs.position === "static") container.style.position = "relative";
@@ -46,7 +47,7 @@ export function createAutoShootButton({
 
   const btn = document.createElement("div");
   const label = document.createElement("div");
-  label.textContent = labelText;
+  label.textContent = opts.labelText;
 
   btn.style.position = container === document.body ? "fixed" : "absolute";
   btn.style.borderRadius = "10px";
@@ -54,12 +55,11 @@ export function createAutoShootButton({
   btn.style.touchAction = "none";
   btn.style.zIndex = 9999;
   btn.style.pointerEvents = "auto";
-  btn.style.display = sticky ? "block" : "none";
   btn.style.boxSizing = "border-box";
   btn.style.border = "2px solid rgba(255,255,255,0.06)";
   btn.style.alignItems = "center";
   btn.style.justifyContent = "center";
-  btn.style.display = sticky ? "flex" : "none";
+  btn.style.display = opts.sticky ? "flex" : "none";
   btn.style.padding = "6px 10px";
 
   label.style.lineHeight = "1";
@@ -74,9 +74,9 @@ export function createAutoShootButton({
   const supportsPointer = typeof window.PointerEvent !== "undefined";
 
   function applyStyles() {
-    const sizePx = Math.max(20, Math.round(_toPx(size, "vmin")));
-    const marginXPx = Math.round(_toPx(marginX, "x"));
-    const marginYPx = Math.round(_toPx(marginY, "y"));
+    const sizePx = Math.max(20, Math.round(_toPx(opts.size, "vmin")));
+    const marginXPx = Math.round(_toPx(opts.marginX, "x"));
+    const marginYPx = Math.round(_toPx(opts.marginY, "y"));
 
     btn.style.minWidth = `${Math.round(sizePx * 1.8)}px`;
     btn.style.height = `${sizePx}px`;
@@ -99,12 +99,16 @@ export function createAutoShootButton({
 
   function onPointerDown(e) {
     setPressed(true);
-    try { btn.setPointerCapture?.(e.pointerId); } catch {}
+    try {
+      btn.setPointerCapture?.(e.pointerId);
+    } catch {}
     e.preventDefault();
   }
   function onPointerUp(e) {
     setPressed(false);
-    try { btn.releasePointerCapture?.(e.pointerId); } catch {}
+    try {
+      btn.releasePointerCapture?.(e.pointerId);
+    } catch {}
   }
   function onTouchStart(e) {
     setPressed(true);
@@ -113,7 +117,9 @@ export function createAutoShootButton({
   function onTouchEnd() {
     setPressed(false);
   }
-  function onResize() { applyStyles(); }
+  function onResize() {
+    applyStyles();
+  }
 
   applyStyles();
   window.addEventListener("resize", onResize);
@@ -129,7 +135,13 @@ export function createAutoShootButton({
   }
 
   return {
-    getPressed() { return !!pressed; },
+    getPressed() {
+      return !!pressed;
+    },
+    updateOpts(newOpts) {
+        opts = { ...opts, ...newOpts };
+        applyStyles();
+    },
     destroy() {
       window.removeEventListener("resize", onResize);
       if (supportsPointer) {

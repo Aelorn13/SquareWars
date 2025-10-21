@@ -43,10 +43,11 @@ export function createAimJoystick({
   marginX = 5,
   marginY = 10,
   align = "left",
-  deadZone = 0.10,
+  deadZone = 0.1,
   sticky = true,
   preserveLast = true,
 } = {}) {
+  let opts = { container, size, marginX, marginY, align, deadZone, sticky, preserveLast };
   if (container !== document.body) {
     const cs = getComputedStyle(container);
     if (cs.position === "static") container.style.position = "relative";
@@ -61,7 +62,7 @@ export function createAimJoystick({
   base.style.touchAction = "none";
   base.style.zIndex = 9999;
   base.style.pointerEvents = "auto";
-  base.style.display = sticky ? "block" : "none";
+  base.style.display = opts.sticky ? "block" : "none";
 
   handle.style.position = "absolute";
   handle.style.left = "50%";
@@ -84,9 +85,9 @@ export function createAimJoystick({
   const supportsPointer = typeof window.PointerEvent !== "undefined";
 
   function applyStyles() {
-    const newSizePx = Math.max(28, Math.round(_toPx(size, "vmin")));
-    const marginXPx = Math.round(_toPx(marginX, "x"));
-    const marginYPx = Math.round(_toPx(marginY, "y"));
+    const newSizePx = Math.max(28, Math.round(_toPx(opts.size, "vmin")));
+    const marginXPx = Math.round(_toPx(opts.marginX, "x"));
+    const marginYPx = Math.round(_toPx(opts.marginY, "y"));
     const newMaxDist = (newSizePx / 2) * 0.9;
 
     if (oldMaxDist && oldMaxDist > 0) {
@@ -102,7 +103,7 @@ export function createAimJoystick({
     base.style.width = `${sizePx}px`;
     base.style.height = `${sizePx}px`;
 
-    if (align === "right") {
+    if (opts.align === "right") {
       base.style.right = `${marginXPx}px`;
       base.style.left = "auto";
     } else {
@@ -128,7 +129,10 @@ export function createAimJoystick({
   function positionBaseAt(clientX, clientY) {
     const crect = _getContainerRect(container);
     const leftPx = Math.round(clientX - (container === document.body ? 0 : crect.left) - sizePx / 2);
-    const bottomPx = Math.round((container === document.body ? window.innerHeight : crect.height) - ((clientY - (container === document.body ? 0 : crect.top)) + sizePx / 2));
+    const bottomPx = Math.round(
+      (container === document.body ? window.innerHeight : crect.height) -
+        (clientY - (container === document.body ? 0 : crect.top) + sizePx / 2)
+    );
     base.style.left = `${leftPx}px`;
     base.style.right = "auto";
     base.style.bottom = `${bottomPx}px`;
@@ -146,16 +150,18 @@ export function createAimJoystick({
     const nx = hx / maxDist;
     const ny = hy / maxDist;
     const len = Math.hypot(nx, ny);
-    if (len >= deadZone) lastAim = { x: nx / len, y: ny / len };
+    if (len >= opts.deadZone) lastAim = { x: nx / len, y: ny / len };
   }
 
   // pointer handlers
   function onPointerDown(e) {
     if (pointerId !== null) return;
     pointerId = e.pointerId;
-    try { base.setPointerCapture(pointerId); } catch {}
+    try {
+      base.setPointerCapture(pointerId);
+    } catch {}
     firing = true;
-    if (!sticky) {
+    if (!opts.sticky) {
       base.style.display = "block";
       positionBaseAt(e.clientX, e.clientY);
     }
@@ -170,13 +176,15 @@ export function createAimJoystick({
   }
   function onPointerUp(e) {
     if (pointerId === null || (e.pointerId && e.pointerId !== pointerId)) return;
-    try { base.releasePointerCapture(pointerId); } catch {}
+    try {
+      base.releasePointerCapture(pointerId);
+    } catch {}
     pointerId = null;
     firing = false;
     current.x = 0;
     current.y = 0;
     handle.style.transform = `translate(-50%,-50%)`;
-    if (!sticky) base.style.display = "none";
+    if (!opts.sticky) base.style.display = "none";
   }
 
   // touch fallback
@@ -187,7 +195,7 @@ export function createAimJoystick({
     const t = e.changedTouches[0];
     if (!t) return;
     firing = true;
-    if (!sticky) {
+    if (!opts.sticky) {
       base.style.display = "block";
       positionBaseAt(t.clientX, t.clientY);
     }
@@ -209,7 +217,7 @@ export function createAimJoystick({
     current.x = 0;
     current.y = 0;
     handle.style.transform = `translate(-50%,-50%)`;
-    if (!sticky) base.style.display = "none";
+    if (!opts.sticky) base.style.display = "none";
   }
 
   function onResize() {
@@ -237,7 +245,7 @@ export function createAimJoystick({
       const nx = current.x / maxDist;
       const ny = current.y / maxDist;
       const len = Math.hypot(nx, ny);
-      if (len < deadZone) return { x: 0, y: 0 };
+      if (len < opts.deadZone) return { x: 0, y: 0 };
       return { x: nx / len, y: ny / len };
     },
     getLastAim() {
@@ -246,12 +254,21 @@ export function createAimJoystick({
     isAiming() {
       return !!firing;
     },
+    toggle(visible) {
+      base.style.display = visible ? "block" : "none";
+    },
+    updateOpts(newOpts) {
+      opts = { ...opts, ...newOpts };
+      applyStyles();
+    },
     destroy() {
-            if (supportsPointer && pointerId !== null) {
-        try { base.releasePointerCapture(pointerId); } catch(e) {}
+      if (supportsPointer && pointerId !== null) {
+        try {
+          base.releasePointerCapture(pointerId);
+        } catch (e) {}
         pointerId = null;
       }
-      
+
       window.removeEventListener("resize", onResize);
       if (supportsPointer) {
         base.removeEventListener("pointerdown", onPointerDown);
@@ -259,7 +276,6 @@ export function createAimJoystick({
         base.removeEventListener("lostpointercapture", onPointerUp);
         window.removeEventListener("pointermove", onPointerMove);
         window.removeEventListener("pointerup", onPointerUp);
-        
       } else {
         base.removeEventListener("touchstart", onTouchStart, { passive: false });
         window.removeEventListener("touchmove", onTouchMove, { passive: false });

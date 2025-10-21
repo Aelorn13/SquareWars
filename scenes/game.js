@@ -17,7 +17,7 @@ import {
 } from "../components/ui/index.js";
 import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
-import { inputState, keysPressed } from "../components/player/controls.js";
+import { inputState, keysPressed,updateMobileUIMode  } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 import { summonMinions, spreadShot, chargeAttack } from "../components/enemy/boss/bossAbilities.js";
 import { isMobileDevice, registerMobileController, unregisterMobileController } from "../components/player/controls.js";
@@ -296,7 +296,8 @@ export function defineGameScene(k, scoreRef) {
       const autoToggleActive = !!inputState.autoShoot || !!keysPressed["KeyR"];
       if (autoToggleActive) {
         if (!wasAutoTogglePreviouslyPressed) {
-          toggleAutoShoot(player, { range: 9999 });
+          const isNowActive = toggleAutoShoot(player, { range: 9999 });
+          updateMobileUIMode(isNowActive);
         }
         wasAutoTogglePreviouslyPressed = true;
       } else {

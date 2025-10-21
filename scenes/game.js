@@ -8,6 +8,7 @@ import {
   updateScoreLabel,
   drawHealthBar,
   drawDashCooldownBar,
+  drawSkillCooldownBar,
   createTimerLabel,
   updateTimerLabel,
   createPauseLabel,
@@ -17,7 +18,7 @@ import {
 } from "../components/ui/index.js";
 import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
-import { inputState, keysPressed,updateMobileUIMode  } from "../components/player/controls.js";
+import { inputState, keysPressed, updateMobileUIMode } from "../components/player/controls.js";
 import { maybeShowUpgrade } from "../components/upgrade/applyUpgrade.js";
 import { summonMinions, spreadShot, chargeAttack } from "../components/enemy/boss/bossAbilities.js";
 import { isMobileDevice, registerMobileController, unregisterMobileController } from "../components/player/controls.js";
@@ -131,6 +132,7 @@ export function defineGameScene(k, scoreRef) {
     const scoreLabel = createScoreLabel(k);
     drawHealthBar(k, player.hp());
     const dashCooldownBar = drawDashCooldownBar(k);
+    const skillCooldownBar = drawSkillCooldownBar(k, player);
     const pauseLabel = createPauseLabel(k);
     const timerLabel = createTimerLabel(k, BOSS_SPAWN_TIME);
     let statsUI = null;
@@ -141,6 +143,7 @@ export function defineGameScene(k, scoreRef) {
     let wasPauseKeyPreviouslyPressed = false;
     let currentBoss = null;
     let wasAutoTogglePreviouslyPressed = false;
+    let wasSkillKeyPreviouslyPressed = false;
     let currentGamePhase = GamePhase.PRE_BOSS;
     let endlessStartTime = 0;
 
@@ -303,6 +306,14 @@ export function defineGameScene(k, scoreRef) {
       } else {
         wasAutoTogglePreviouslyPressed = false;
       }
+      if (keysPressed["KeyE"] && !gameState.upgradeOpen) {
+        if (!wasSkillKeyPreviouslyPressed) {
+          player.triggerSpecialSkill();
+          wasSkillKeyPreviouslyPressed = true;
+        }
+      } else {
+        wasSkillKeyPreviouslyPressed = false;
+      }
 
       dpsHud.update(k.dt(), keysPressed, gameState.isPaused || gameState.upgradeOpen);
       autoShootTick(k, player, gameState);
@@ -315,6 +326,10 @@ export function defineGameScene(k, scoreRef) {
 
       // --- UI Updates ---
       dashCooldownBar.width = dashCooldownBar.fullWidth * player.getDashCooldownProgress();
+      if (skillCooldownBar) {
+        skillCooldownBar.width = skillCooldownBar.fullWidth * player.getSkillCooldownProgress();
+      }
+
       updateTimerLabel(timerLabel, k.dt());
 
       encounterManager.update(k.dt());

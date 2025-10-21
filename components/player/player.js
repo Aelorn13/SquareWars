@@ -1,13 +1,9 @@
 //components/player/player.js
-import {
-  updateInput,
-  consumeDash,
-  moveVec,
-  aimWorldTarget,
-} from "./controls.js";
+import { updateInput, consumeDash, moveVec, aimWorldTarget } from "./controls.js";
 import { setupPlayerCosmetics } from "./cosmetics/playerCosmetic.js";
 import { applyInvincibility as applyInvincibilityBuff } from "../powerup/powerupEffects/temporaryStatBuffEffect.js";
-
+import { getSelectedSkill } from "./skillManager.js";
+import { skills } from "./skills.js";
 const PLAYER_CONFIG = {
   SIZE: 28,
   INITIAL_STATS: {
@@ -23,7 +19,7 @@ const PLAYER_CONFIG = {
     dashDuration: 0.2,
     dashCooldown: 2.5,
     dashSpeedMultiplier: 4,
-     hasGhost: false,
+    hasGhost: false,
     _isGhosting: false,
   },
 };
@@ -149,6 +145,32 @@ export function createPlayer(k, sharedState) {
       return player.dashCooldown === 0 ? 1 : 1 - this.cooldown / player.dashCooldown;
     },
   };
+  const skillKey = getSelectedSkill();
+  const skillDef = skills[skillKey] || skills.none;
+
+  const specialSkill = {
+    key: skillKey,
+    cooldown: 0,
+    cooldownTime: skillDef.cooldown,
+    definition: skillDef,
+
+    update(dt) {
+      this.cooldown = Math.max(0, this.cooldown - dt);
+    },
+
+    trigger(player) {
+      if (this.cooldown > 0) return;
+      this.cooldown = this.cooldownTime;
+      const aimPos = aimWorldTarget(k, player.pos);
+      this.definition.execute(k, player, aimPos, sharedState.area);
+      return true;
+    },
+
+    getCooldownProgress() {
+      if (this.cooldownTime === 0) return 1;
+      return 1 - this.cooldown / this.cooldownTime;
+    },
+  };
 
   const { area } = sharedState;
   const centerPos = k.vec2(area.x + area.w / 2, area.y + area.h / 2);
@@ -169,7 +191,7 @@ export function createPlayer(k, sharedState) {
       ...PLAYER_CONFIG.INITIAL_STATS,
       isShooting: false,
       isInvincible: false,
-
+      specialSkillKey: skillKey,
       takeDamage(amount) {
         if (this.isInvincible) return;
         this.hurt(amount);
@@ -177,19 +199,27 @@ export function createPlayer(k, sharedState) {
         this.applyInvincibility(1);
         k.shake(10);
       },
-
+      triggerSpecialSkill() {
+        specialSkill.trigger(this);
+      },
       applyInvincibility(seconds) {
         // delegate to the unified implementation and pass sharedState
         applyInvincibilityBuff(k, this, seconds, { sharedState });
       },
     },
   ]);
+  if (specialSkill.key === "none") {
+    player.speed *= 1.2; 
+    player.damage *= 1.2; 
+    player.attackSpeed *= 0.90;
+  }
 
   player.onUpdate(() => {
     if (sharedState.isPaused || sharedState.upgradeOpen) return;
 
     updateInput(k);
     dash.update(k.dt());
+    specialSkill.update(k.dt());
 
     if (consumeDash()) dash.trigger(player);
 
@@ -201,9 +231,7 @@ export function createPlayer(k, sharedState) {
 
     // Movement with dash boost
     const move = moveVec(k);
-    const speed = dash.active
-      ? player.speed * player.dashSpeedMultiplier
-      : player.speed;
+    const speed = dash.active ? player.speed * player.dashSpeedMultiplier : player.speed;
     player.move(move.scale(speed));
 
     // Constrain to arena
@@ -213,6 +241,8 @@ export function createPlayer(k, sharedState) {
   });
 
   player.getDashCooldownProgress = () => dash.getCooldownProgress(player);
+  player.getSkillCooldownProgress = () => specialSkill.getCooldownProgress();
+
   setupPlayerCosmetics(k, player);
 
   return player;

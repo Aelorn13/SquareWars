@@ -59,7 +59,6 @@ export function setupPlayerShooting(k, player, gameState) {
         proj.pos = proj.pos.add(proj.velocity.scale(k.dt()));
       }
     });
-    
     return proj;
   };
   

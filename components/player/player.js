@@ -162,7 +162,7 @@ export function createPlayer(k, sharedState) {
       if (this.cooldown > 0) return;
       this.cooldown = this.cooldownTime;
       const aimPos = aimWorldTarget(k, player.pos);
-      this.definition.execute(k, player, aimPos, sharedState.area);
+      this.definition.execute(k, player, aimPos, sharedState);
       return true;
     },
 

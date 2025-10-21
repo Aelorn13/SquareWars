@@ -8,6 +8,7 @@ export function spawnShockwave(k, centerPosition, options = {}) {
     segmentSize = 10,
     color = k.rgb(255, 150, 150),
     sharedHitEnemies,
+    sharedState,
   } = options;
 
   const hitEnemies = sharedHitEnemies || new Set();
@@ -33,6 +34,7 @@ export function spawnShockwave(k, centerPosition, options = {}) {
     {
       currentRadius: 0,
       update() {
+        if (sharedState.isPaused || sharedState.upgradeOpen) return;
         this.currentRadius += expansionSpeed * k.dt();
         const progress = Math.min(1, this.currentRadius / maxRadius);
 

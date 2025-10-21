@@ -5,7 +5,7 @@ import { spawnShockwave } from "../powerup/powerupEffects/shockwaveEffect.js";
 /**
  * Fires a single, high-damage projectile that pierces all enemies.
  */
-function strongShoot(k, player, aimPos) {
+function strongShoot(k, player, aimPos, sharedState) {
   const angleRad = Math.atan2(aimPos.y - player.pos.y, aimPos.x - player.pos.x);
   const damage = player.damage * 3;
   const speed = player.bulletSpeed * 1.5;
@@ -31,6 +31,7 @@ function strongShoot(k, player, aimPos) {
   ]);
 
   proj.onUpdate(() => {
+    if (sharedState.isPaused || sharedState.upgradeOpen) return;
     proj.pos = proj.pos.add(proj.velocity.scale(k.dt()));
   });
 }
@@ -61,17 +62,14 @@ function teleport(k, player, aimPos, arena) {
 /**
  * Launches a rotating grenade that arms and then explodes with a shockwave.
  */
-function grenade(k, player, aimPos) {
+function grenade(k, player, aimPos, sharedState) {
   const speed = 400;
   const armDistance = 300;
   const armedLifetime = 2;
 
   const direction = aimPos.sub(player.pos).unit();
-
-  // ---  Calculate spawn position outside the player model ---
-  // Player's current radius is its base half-width times its current scale.
   const currentPlayerRadius = player.width / 2;
-  const spawnBuffer = 5; // A small gap to ensure it doesn't collide
+  const spawnBuffer = 5;
   const spawnOffset = direction.scale(currentPlayerRadius + spawnBuffer);
   const spawnPos = player.pos.add(spawnOffset);
 
@@ -82,12 +80,13 @@ function grenade(k, player, aimPos) {
     k.anchor("center"),
     k.rotate(0),
     k.area(),
-    k.body(),
+    k.body(), 
     k.z(player.z),
     {
       state: "moving",
       velocity: direction.scale(speed),
       originalPos: spawnPos.clone(),
+      detonationTimer: armedLifetime,
     },
   ]);
 
@@ -99,6 +98,7 @@ function grenade(k, player, aimPos) {
     spawnShockwave(k, explosionPos, {
       damage: player.damage * 4,
       maxRadius: 250,
+      sharedState: sharedState,
     });
   };
 
@@ -107,16 +107,21 @@ function grenade(k, player, aimPos) {
     grenadeObj.state = "armed";
     grenadeObj.velocity = grenadeObj.velocity.scale(0.1);
     grenadeObj.color = k.rgb(255, 0, 0);
-    k.wait(armedLifetime, explode);
   };
 
   grenadeObj.onUpdate(() => {
-    grenadeObj.vel = grenadeObj.velocity;
-
+    if (sharedState.isPaused || sharedState.upgradeOpen) return;
+    grenadeObj.pos = grenadeObj.pos.add(grenadeObj.velocity.scale(k.dt()));
     grenadeObj.angle += 480 * k.dt();
 
     if (grenadeObj.state === "moving" && grenadeObj.pos.dist(grenadeObj.originalPos) >= armDistance) {
       armGrenade();
+    }
+    if (grenadeObj.state === "armed") {
+      grenadeObj.detonationTimer -= k.dt();
+      if (grenadeObj.detonationTimer <= 0) {
+        explode();
+      }
     }
   });
 

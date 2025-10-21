@@ -5,6 +5,7 @@ export const sequenceEncounter = {
   isFinished: true,
 
   start(k, gameContext) {
+    showEncounterFeedback(k, k.vec2(k.center().x, k.height() - 40), "Sequence...", k.rgb(200, 200, 200));
     this.isFinished = false;
     const { player, increaseScore, sharedState: gameState } = gameContext;
 

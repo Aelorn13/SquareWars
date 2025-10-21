@@ -1,14 +1,15 @@
-import { circleEncounter } from "./circle.js";
+import { circleEncounter, showEncounterFeedback } from "./circle.js";
 import { goldenSquareEncounter } from "./goldenSquare.js";
 import { spotlightEncounter } from "./spotlight.js";
-import { sequenceEncounter } from "./sequence.js"; 
-import { tractorBeamsEncounter } from "./tractorBeams.js"; 
+import { sequenceEncounter } from "./sequence.js";
+import { tractorBeamsEncounter } from "./tractorBeams.js";
 export function createEncounterManager(k, gameContext) {
   const availableEncounters = [
-    circleEncounter, goldenSquareEncounter,
-    spotlightEncounter, 
-     sequenceEncounter,
-     tractorBeamsEncounter
+    circleEncounter,
+    goldenSquareEncounter,
+    spotlightEncounter,
+    sequenceEncounter,
+    tractorBeamsEncounter,
   ];
 
   const manager = {
@@ -36,6 +37,18 @@ export function createEncounterManager(k, gameContext) {
         // An encounter is running. Check if it has finished.
         if (this.activeEncounter.isFinished) {
           console.log(`Encounter '${this.activeEncounter.name}' finished.`);
+
+          const result = this.activeEncounter.encounterResult;
+          if (result && result.scoreAwarded > 0) {
+            // We need to import showEncounterFeedback at the top of this file.
+            showEncounterFeedback(
+              k,
+              k.vec2(k.center().x, k.height() - 40),
+              `+${result.scoreAwarded} Score!`,
+              k.rgb(255, 215, 0) // A nice gold color for rewards.
+            );
+          }
+
           this.isEncounterActive = false;
           this.activeEncounter = null;
           // Set a new cooldown for the next one

@@ -109,11 +109,11 @@ export const spotlightEncounter = {
         k.destroy(darkness);
       });
 
-      showEncounterFeedback(k, k.vec2(k.center().x, k.height() - 40), "Reward for survivor!", k.rgb(255, 255, 0));
       const timeBonus = Math.floor(gameState.elapsedTime * TIME_SCORE_MODIFIER);
       const totalReward = Math.floor(BASE_SCORE_REWARD + timeBonus);
       increaseScore(totalReward);
-
+      this.encounterResult = { scoreAwarded: totalReward };
+      
       this.isFinished = true;
       visibilityUpdate.cancel();
       mainUpdate.cancel();

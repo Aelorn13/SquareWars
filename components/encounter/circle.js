@@ -46,7 +46,7 @@ export const circleEncounter = {
         const timeBonus = Math.floor(gameState.elapsedTime * TIME_SCORE_MODIFIER);
         const totalReward = Math.floor(BASE_CIRCLE_SCORE_REWARD + timeBonus);
         increaseScore(totalReward);
-        showEncounterFeedback(k, position, "SCORE GRANTED", k.rgb(0, 255, 0));
+        this.encounterResult = { scoreAwarded: totalReward };
       } else if (type === "bad") {
         console.log("Circle Encounter: Bad outcome! Spawning enemies.");
         for (let i = 0; i < BAD_OUTCOME_ENEMY_COUNT; i++) {

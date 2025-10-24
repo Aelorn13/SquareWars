@@ -33,7 +33,7 @@ function setupPuddleLogic(k, gameContext) {
 }
 
 
-export function createCorruptorEnemy(k, player, gameContext, spawnPos) {
+export function createSlimeEnemy(k, player, gameContext, spawnPos) {
   setupPuddleLogic(k, gameContext);
 
   const cfg = ENEMY_CONFIGS.slime;

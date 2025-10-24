@@ -6,7 +6,7 @@ import { attachMinibossBrain } from "./boss/minibossAI.js";
 
 import { createbroodsquareEnemy } from "./broodsquareEnemy.js";
 import { createSniperEnemy } from "./sniperEnemy.js";
-import { createCorruptorEnemy } from "./corruptorEnemy.js";
+import { createSlimeEnemy } from "./slimeEnemy.js";
 import { createGravitonEnemy } from "./gravitonEnemy.js";
 import { createGlitchEnemy } from "./glitchEnemy.js";
 
@@ -16,7 +16,7 @@ const TELEGRAPH_DURATION = 0.6;
 const specialEnemyHandlers = {
   broodsquare: createbroodsquareEnemy,
   sniper: createSniperEnemy,
-  corruptor: createCorruptorEnemy,
+  slime: createSlimeEnemy,
   graviton: createGravitonEnemy,
   glitch: createGlitchEnemy,
 };

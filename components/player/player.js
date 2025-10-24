@@ -209,9 +209,9 @@ export function createPlayer(k, sharedState) {
     },
   ]);
   if (specialSkill.key === "none") {
-    player.speed *= 1.2; 
-    player.damage *= 1.2; 
-    player.attackSpeed *= 0.90;
+    player.speed *= 1.2;
+    player.damage *= 1.2;
+    player.attackSpeed *= 0.9;
   }
 
   player.onUpdate(() => {
@@ -229,9 +229,18 @@ export function createPlayer(k, sharedState) {
       player.rotateTo(target.angle(player.pos));
     }
 
+    // : Check for slowdown from slime puddles
+    let slowdownModifier = 1.0; // 1.0 means normal speed
+    for (const puddle of k.get("slimePuddle")) {
+      if (player.isColliding(puddle)) {
+        slowdownModifier = puddle.slowdownModifier; // e.g., 0.5 for 50% slow
+        break;
+      }
+    }
+
     // Movement with dash boost
     const move = moveVec(k);
-    const speed = dash.active ? player.speed * player.dashSpeedMultiplier : player.speed;
+    const speed = dash.active ? player.speed * player.dashSpeedMultiplier : player.speed * slowdownModifier;
     player.move(move.scale(speed));
 
     // Constrain to arena

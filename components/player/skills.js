@@ -41,6 +41,10 @@ function strongShoot(k, player, aimPos, sharedState) {
  */
 function teleport(k, player, aimPos, sharedState) {
   const arena = sharedState.area;
+  if (!arena) {
+    console.error("Teleport failed: arena data not found in sharedState.");
+    return;
+  }
   const half = player.width / 2;
   const targetX = k.clamp(aimPos.x, arena.x + half, arena.x + arena.w - half);
   const targetY = k.clamp(aimPos.y, arena.y + half, arena.y + arena.h - half);
@@ -81,7 +85,7 @@ function grenade(k, player, aimPos, sharedState) {
     k.anchor("center"),
     k.rotate(0),
     k.area(),
-    k.body(), 
+    k.body(),
     k.z(player.z),
     {
       state: "moving",

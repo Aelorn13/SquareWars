@@ -89,7 +89,6 @@ export function createPlayer(k, sharedState) {
       this.duration = player.dashDuration;
       this.cooldown = player.dashCooldown;
 
-      // compute dash direction from input; fallback to aim if no move
       const mv = moveVec(k);
       let dirVec = k.vec2(mv.x || 0, mv.y || 0);
       if (Math.hypot(dirVec.x, dirVec.y) === 0) {
@@ -160,13 +159,28 @@ export function createPlayer(k, sharedState) {
     trigger(player) {
       if (this.cooldown > 0) return;
       this.cooldown = this.cooldownTime;
-      let aimPos;
-      if (isManualAimPriority() || !player._autoAimTarget) {
-        aimPos = aimWorldTarget(k, player.pos);
+
+      let finalAimPos;
+
+      const useAutoAim = !isManualAimPriority() && player._autoAimTarget;
+
+      if (useAutoAim && this.key === "teleport") {
+        const TELEPORT_AWAY_DISTANCE = 250;
+        const enemyPos = player._autoAimTarget;
+        const directionAway = player.pos.sub(enemyPos).unit();
+
+        if (directionAway.len() === 0) {
+          directionAway.y = -1; //
+        }
+
+        finalAimPos = player.pos.add(directionAway.scale(TELEPORT_AWAY_DISTANCE));
+      } else if (useAutoAim) {
+        finalAimPos = player._autoAimTarget;
       } else {
-        aimPos = player._autoAimTarget;
+        finalAimPos = aimWorldTarget(k, player.pos);
       }
-      this.definition.execute(k, player, aimPos, sharedState);
+
+      this.definition.execute(k, player, finalAimPos, sharedState);
       return true;
     },
 

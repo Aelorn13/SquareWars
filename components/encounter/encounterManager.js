@@ -4,6 +4,7 @@ import { spotlightEncounter } from "./spotlight.js";
 import { sequenceEncounter } from "./sequence.js";
 import { tractorBeamsEncounter } from "./tractorBeams.js";
 import { hiveEncounter } from "./hive.js"; 
+import { rockfallEncounter } from "./rockfall.js"; 
 
 export function createEncounterManager(k, gameContext) {
   const availableEncounters = [
@@ -12,7 +13,8 @@ export function createEncounterManager(k, gameContext) {
     spotlightEncounter,
     sequenceEncounter,
     tractorBeamsEncounter,
-    hiveEncounter
+    hiveEncounter,
+    rockfallEncounter, 
   ];
 
   const manager = {

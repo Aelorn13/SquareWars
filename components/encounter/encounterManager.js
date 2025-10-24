@@ -3,6 +3,8 @@ import { goldenSquareEncounter } from "./goldenSquare.js";
 import { spotlightEncounter } from "./spotlight.js";
 import { sequenceEncounter } from "./sequence.js";
 import { tractorBeamsEncounter } from "./tractorBeams.js";
+import { hiveEncounter } from "./hive.js"; 
+
 export function createEncounterManager(k, gameContext) {
   const availableEncounters = [
     circleEncounter,
@@ -10,6 +12,7 @@ export function createEncounterManager(k, gameContext) {
     spotlightEncounter,
     sequenceEncounter,
     tractorBeamsEncounter,
+    hiveEncounter
   ];
 
   const manager = {

@@ -143,7 +143,7 @@ export const skills = {
     execute: teleport,
   },
   grenade: {
-    cooldown: 15,
+    cooldown: 10,
     execute: grenade,
   },
   none: {

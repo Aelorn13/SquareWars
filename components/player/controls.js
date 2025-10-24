@@ -2,6 +2,7 @@
 
 const MOBILE_AIM_DISTANCE = 200;
 const MAX_MOBILE_DIMENSION = 1400;
+const MANUAL_AIM_PRIORITY_MS = 5000;
 
 export const keysPressed = {};
 export const inputState = {
@@ -17,23 +18,21 @@ let mobileController = null;
 let controllerFactory = null;
 let orientationListener = null;
 let orientationHandler = null;
-// We still need 'held' state to prevent triggers every frame
 let dashHeld = false;
 let skillHeld = false;
+let lastManualAimTime = 0;
+
+export function isManualAimPriority() {
+  return Date.now() - lastManualAimTime < MANUAL_AIM_PRIORITY_MS;
+}
 
 export function isMobileDevice() {
   const ua = navigator.userAgent || "";
   const isIPadOS = ua.includes("Macintosh") && "ontouchend" in document;
   const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-  const smallScreen =
-    Math.max(window.innerWidth || 0, window.innerHeight || 0) <=
-    MAX_MOBILE_DIMENSION;
+  const smallScreen = Math.max(window.innerWidth || 0, window.innerHeight || 0) <= MAX_MOBILE_DIMENSION;
 
-  return (
-    /Mobi|Android|iPhone|iPad|Tablet/i.test(ua) ||
-    isIPadOS ||
-    (hasTouch && smallScreen)
-  );
+  return /Mobi|Android|iPhone|iPad|Tablet/i.test(ua) || isIPadOS || (hasTouch && smallScreen);
 }
 
 export function initControls(k) {
@@ -42,11 +41,15 @@ export function initControls(k) {
 
   inputState.isMobile = isMobileDevice();
 
+  window.addEventListener("mousemove", () => {
+    if (!inputState.isMobile) {
+      lastManualAimTime = Date.now();
+    }
+  });
+
   // Keyboard handlers
   window.addEventListener("keydown", (e) => {
     keysPressed[e.code] = true;
-    // FIX: Reverted to the original, correct pattern.
-    // The event listener is responsible for setting the trigger flag.
     if (e.code === "Space" && !dashHeld) {
       inputState.dashTriggered = true;
       dashHeld = true;
@@ -59,7 +62,6 @@ export function initControls(k) {
 
   window.addEventListener("keyup", (e) => {
     keysPressed[e.code] = false;
-    // We only need to reset the 'held' state on keyup.
     if (e.code === "Space") dashHeld = false;
     if (e.code === "KeyE") skillHeld = false;
   });
@@ -78,6 +80,7 @@ export function initControls(k) {
     const m = k.mousePos();
     inputState.aim.x = m.x;
     inputState.aim.y = m.y;
+    lastManualAimTime = Date.now();
   }
 }
 
@@ -186,7 +189,7 @@ export function updateInput(k) {
     } catch (e) {
       inputState.autoShoot = false;
     }
-    
+
     // Check mobile buttons and set trigger flags
     const dashNow = mobileController.getDash?.();
     if (dashNow && !dashHeld) {
@@ -199,7 +202,6 @@ export function updateInput(k) {
       inputState.skillTriggered = true;
     }
     skillHeld = !!skillNow;
-
   } else {
     // --- Desktop Input (Movement only) ---
     const dx = (keysPressed["KeyD"] ? 1 : 0) - (keysPressed["KeyA"] ? 1 : 0);

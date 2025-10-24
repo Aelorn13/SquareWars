@@ -1,5 +1,5 @@
 //components/player/player.js
-import { updateInput, consumeDash, moveVec, aimWorldTarget } from "./controls.js";
+import { updateInput, consumeDash, consumeSkill, moveVec, aimWorldTarget, isManualAimPriority } from "./controls.js";
 import { setupPlayerCosmetics } from "./cosmetics/playerCosmetic.js";
 import { applyInvincibility as applyInvincibilityBuff } from "../powerup/powerupEffects/temporaryStatBuffEffect.js";
 import { getSelectedSkill } from "./skillManager.js";
@@ -25,7 +25,6 @@ const PLAYER_CONFIG = {
 };
 
 export function createPlayer(k, sharedState) {
-  // Dash state machine
   const dash = {
     active: false,
     cooldown: 0,
@@ -161,7 +160,12 @@ export function createPlayer(k, sharedState) {
     trigger(player) {
       if (this.cooldown > 0) return;
       this.cooldown = this.cooldownTime;
-      const aimPos = aimWorldTarget(k, player.pos);
+      let aimPos;
+      if (isManualAimPriority() || !player._autoAimTarget) {
+        aimPos = aimWorldTarget(k, player.pos);
+      } else {
+        aimPos = player._autoAimTarget;
+      }
       this.definition.execute(k, player, aimPos, sharedState);
       return true;
     },
@@ -195,7 +199,6 @@ export function createPlayer(k, sharedState) {
       takeDamage(amount) {
         if (this.isInvincible) return;
         this.hurt(amount);
-        // delegate to central buff system; pass sharedState so pause works
         this.applyInvincibility(1);
         k.shake(10);
       },
@@ -203,7 +206,6 @@ export function createPlayer(k, sharedState) {
         specialSkill.trigger(this);
       },
       applyInvincibility(seconds) {
-        // delegate to the unified implementation and pass sharedState
         applyInvincibilityBuff(k, this, seconds, { sharedState });
       },
     },
@@ -222,6 +224,7 @@ export function createPlayer(k, sharedState) {
     specialSkill.update(k.dt());
 
     if (consumeDash()) dash.trigger(player);
+    if (consumeSkill()) player.triggerSpecialSkill();
 
     // Face cursor/aim direction
     if (!player._autoAimTarget) {

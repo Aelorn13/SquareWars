@@ -39,7 +39,8 @@ function strongShoot(k, player, aimPos, sharedState) {
 /**
  * Instantly moves the player to the aim position with a fixed cooldown.
  */
-function teleport(k, player, aimPos, arena) {
+function teleport(k, player, aimPos, sharedState) {
+  const arena = sharedState.area;
   const half = player.width / 2;
   const targetX = k.clamp(aimPos.x, arena.x + half, arena.x + arena.w - half);
   const targetY = k.clamp(aimPos.y, arena.y + half, arena.y + arena.h - half);

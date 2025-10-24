@@ -57,10 +57,8 @@ export function defineGameScene(k, scoreRef) {
   }
 
   k.scene("game", () => {
-    let mobileControllerIsRegistered = false;
     if (isMobileDevice()) {
       registerMobileController(() => makeMobileController(k));
-      mobileControllerIsRegistered = true;
     }
 
     const GamePhase = {
@@ -262,17 +260,6 @@ export function defineGameScene(k, scoreRef) {
     // --- Main Game Loop (onUpdate) ---
     k.onUpdate(() => {
       checkSecretToggle();
-      if (isMobileDevice()) {
-        const shouldBeRegistered = !gameState.isPaused && !gameState.upgradeOpen;
-
-        if (shouldBeRegistered && !mobileControllerIsRegistered) {
-          registerMobileController(() => makeMobileController(k));
-          mobileControllerIsRegistered = true;
-        } else if (!shouldBeRegistered && mobileControllerIsRegistered) {
-          unregisterMobileController();
-          mobileControllerIsRegistered = false;
-        }
-      }
 
       // --- Pause Handling ---
       if (keysPressed["KeyP"] && !gameState.upgradeOpen) {

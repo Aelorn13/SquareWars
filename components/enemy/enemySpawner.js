@@ -1,35 +1,34 @@
 // ===== components/enemy/enemySpawner.js =====
 import { ENEMY_CONFIGS } from "./enemyConfig.js";
-import {
-  createEnemyGameObject,
-  attachEnemyBehaviors,
-} from "./enemyBehavior.js";
+import { createEnemyGameObject, attachEnemyBehaviors } from "./enemyBehavior.js";
 import { attachBossBrain } from "./boss/bossAI.js";
 import { attachMinibossBrain } from "./boss/minibossAI.js";
+
 import { createbroodsquareEnemy } from "./broodsquareEnemy.js";
 import { createSniperEnemy } from "./sniperEnemy.js";
-import {clamp01,easeInOutSine, lerp} from "../utils/mathUtils.js"
+import { createCorruptorEnemy } from "./corruptorEnemy.js";
+import { createGravitonEnemy } from "./gravitonEnemy.js";
+import { createGlitchEnemy } from "./glitchEnemy.js";
+
+import { clamp01, easeInOutSine, lerp } from "../utils/mathUtils.js";
 const TELEGRAPH_DURATION = 0.6;
 
+const specialEnemyHandlers = {
+  broodsquare: createbroodsquareEnemy,
+  sniper: createSniperEnemy,
+  corruptor: createCorruptorEnemy,
+  graviton: createGravitonEnemy,
+  glitch: createGlitchEnemy,
+};
+
 export function spawnEnemy(k, player, gameContext, options = {}) {
-  const {
-    forceType,
-    spawnPos: posOverride,
-    progress = 0,
-    ability,
-    scaling = {},
-    difficulty,
-  } = options;
+  const { forceType, spawnPos: posOverride, progress = 0, ability, scaling = {}, difficulty } = options;
 
   if (!difficulty) {
-    throw new Error(
-      "spawnEnemy requires a 'difficulty' controller instance in its options."
-    );
+    throw new Error("spawnEnemy requires a 'difficulty' controller instance in its options.");
   }
 
-  const baseEnemyConfig = forceType
-    ? ENEMY_CONFIGS[forceType]
-    : chooseEnemyType(progress);
+  const baseEnemyConfig = forceType ? ENEMY_CONFIGS[forceType] : chooseEnemyType(progress);
   if (!baseEnemyConfig) {
     console.error(`Failed to find enemy config for type: "${forceType}"`);
     return null;
@@ -43,7 +42,7 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
     const scoreMultiplier = lerp(
       difficulty.config.scoreStatMultiplier.start,
       difficulty.config.scoreStatMultiplier.end,
-      easeInOutSine(clamp01(progress)) 
+      easeInOutSine(clamp01(progress))
     );
     finalScore = baseEnemyConfig.score * scoreMultiplier;
   }
@@ -51,53 +50,37 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
     ...baseEnemyConfig,
     maxHp: finalHp,
     speed: finalSpeed,
-    score: Math.round(finalScore), 
+    score: Math.round(finalScore),
   };
 
-  const spawnPos =
-    posOverride ??
-    pickEdgeSpawnPosFarFromPlayer(k, gameContext.sharedState, player);
+  const spawnPos = posOverride ?? pickEdgeSpawnPosFarFromPlayer(k, gameContext.sharedState, player);
 
   const createEnemy = () => {
     // Special enemy types
-    if (finalEnemyConfig.name === "broodsquare") {
-      return createbroodsquareEnemy(k, player, gameContext, spawnPos);
-    }
-    if (finalEnemyConfig.name === "sniper") {
-      return createSniperEnemy(k, player, gameContext, spawnPos);
+    const specialHandler = specialEnemyHandlers[finalEnemyConfig.name];
+    if (specialHandler) {
+      // If a special handler exists for this enemy name, use it.
+      return specialHandler(k, player, gameContext, spawnPos);
     }
 
     // Standard enemy creation
-    const enemy = createEnemyGameObject(
-      k,
-      player,
-      finalEnemyConfig,
-      spawnPos,
-      gameContext
-    );
+    const enemy = createEnemyGameObject(k, player, finalEnemyConfig, spawnPos, gameContext);
 
     // Attach appropriate AI
     if (enemy.type === "boss") {
       if (typeof attachBossBrain === "function") {
         attachBossBrain(k, enemy, player, gameContext);
       } else {
-        console.error(
-          "attachBossBrain function not found! Boss will have no AI."
-        );
+        console.error("attachBossBrain function not found! Boss will have no AI.");
         // Attach default behavior as a fallback
         attachEnemyBehaviors(k, enemy, player);
       }
     } else if (enemy.type === "miniboss") {
       if (!ability || typeof ability.name !== "string") {
-        console.error(
-          "Miniboss spawned with invalid or missing ability! Attaching default behavior.",
-          ability
-        );
+        console.error("Miniboss spawned with invalid or missing ability! Attaching default behavior.", ability);
         attachEnemyBehaviors(k, enemy, player);
       } else if (typeof attachMinibossBrain !== "function") {
-        console.error(
-          "attachMinibossBrain function not found! Miniboss will have no AI."
-        );
+        console.error("attachMinibossBrain function not found! Miniboss will have no AI.");
         attachEnemyBehaviors(k, enemy, player);
       } else {
         attachMinibossBrain(k, enemy, player, gameContext, ability, scaling);
@@ -111,10 +94,7 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
   // Immediate spawn if position override
   if (posOverride) {
     const enemy = createEnemy();
-    if (
-      finalEnemyConfig.name === "boss" ||
-      finalEnemyConfig.name === "miniboss"
-    ) {
+    if (finalEnemyConfig.name === "boss" || finalEnemyConfig.name === "miniboss") {
       return Promise.resolve(enemy);
     }
     return enemy;
@@ -124,10 +104,7 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
   showSpawnTelegraph(k, spawnPos, gameContext.sharedState, TELEGRAPH_DURATION);
 
   // Boss spawns return a promise
-  if (
-    finalEnemyConfig.name === "boss" ||
-    finalEnemyConfig.name === "miniboss"
-  ) {
+  if (finalEnemyConfig.name === "boss" || finalEnemyConfig.name === "miniboss") {
     return new Promise((resolve) => {
       k.wait(TELEGRAPH_DURATION, () => resolve(createEnemy()));
     });
@@ -184,28 +161,15 @@ function pickEdgeSpawnPos(k, sharedState, offset = 24) {
 
   const edges = [
     () => k.vec2(k.rand(bounds.x, bounds.x + bounds.w), bounds.y - offset), // Top
-    () =>
-      k.vec2(
-        k.rand(bounds.x, bounds.x + bounds.w),
-        bounds.y + bounds.h + offset
-      ), // Bottom
+    () => k.vec2(k.rand(bounds.x, bounds.x + bounds.w), bounds.y + bounds.h + offset), // Bottom
     () => k.vec2(bounds.x - offset, k.rand(bounds.y, bounds.y + bounds.h)), // Left
-    () =>
-      k.vec2(
-        bounds.x + bounds.w + offset,
-        k.rand(bounds.y, bounds.y + bounds.h)
-      ), // Right
+    () => k.vec2(bounds.x + bounds.w + offset, k.rand(bounds.y, bounds.y + bounds.h)), // Right
   ];
 
   const pos = k.choose(edges)();
 
   if (!Number.isFinite(pos.x) || !Number.isFinite(pos.y)) {
-    console.error(
-      "[spawner.js] pickEdgeSpawnPos returned NaN. bounds:",
-      bounds,
-      "sharedState:",
-      sharedState
-    );
+    console.error("[spawner.js] pickEdgeSpawnPos returned NaN. bounds:", bounds, "sharedState:", sharedState);
   }
 
   return pos;
@@ -214,27 +178,15 @@ function pickEdgeSpawnPos(k, sharedState, offset = 24) {
 /**
  * Find spawn position far from player
  */
-function pickEdgeSpawnPosFarFromPlayer(
-  k,
-  sharedState,
-  player,
-  minDist = 120,
-  maxTries = 8
-) {
+function pickEdgeSpawnPosFarFromPlayer(k, sharedState, player, minDist = 120, maxTries = 8) {
   let best = null;
 
   for (let i = 0; i < maxTries; i++) {
     const pos = pickEdgeSpawnPos(k, sharedState, 48);
-    if (
-      pos &&
-      Number.isFinite(pos.x) &&
-      Number.isFinite(pos.y) &&
-      pos.dist(player.pos) >= minDist
-    ) {
+    if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y) && pos.dist(player.pos) >= minDist) {
       return pos;
     }
-    if (!best && pos && Number.isFinite(pos.x) && Number.isFinite(pos.y))
-      best = pos;
+    if (!best && pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) best = pos;
   }
 
   return (

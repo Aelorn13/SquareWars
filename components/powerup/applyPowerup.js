@@ -41,6 +41,7 @@ export function applyPowerUp(k, player, powerUpType, gameContext, onHeal) {
         spawnShockwave(k, player.pos, {
           damage: effect.damage,
           maxRadius: effect.maxRadius,
+          sharedState :gameContext.sharedState
         });
         k.shake(12);
         break;

@@ -5,6 +5,7 @@ import { createAimJoystick } from "./aimJoystick.js";
 import { createDashButton } from "./dashButton.js";
 import { createAutoShootButton } from "./autoShootButton.js";
 import { createSkillButton } from "./skillButton.js";
+import { getSelectedSkill } from "../skillManager.js";
 
 export function makeMobileController(
   k,
@@ -25,11 +26,11 @@ export function makeMobileController(
     },
     portraitAutoShoot = {
       dashOpts: { size: "20%", marginX: "8%", marginY: "15%", align: "right" },
-      skillOpts: { size: "20%", marginX: "30%", marginY: "15%", align: "right" }, 
+      skillOpts: { size: "20%", marginX: "30%", marginY: "15%", align: "right" },
     },
     landscapeAutoShoot = {
       dashOpts: { size: "22%", marginX: "6%", marginY: "20%", align: "right" },
-      skillOpts: { size: "22%", marginX: "25%", marginY: "20%", align: "right" }, 
+      skillOpts: { size: "22%", marginX: "25%", marginY: "20%", align: "right" },
     },
     containers = {},
   } = {}
@@ -45,7 +46,16 @@ export function makeMobileController(
   const aim = createAimJoystick({ container: rightContainer, ...regularOpts.aimOpts });
   const dash = createDashButton({ container: rightContainer, ...regularOpts.dashOpts });
   const auto = createAutoShootButton({ container: rightContainer, ...regularOpts.autoShootOpts });
-  const skill = createSkillButton({ container: rightContainer, ...regularOpts.skillOpts }); // <-- CREATE the button
+  let skill;
+  if (getSelectedSkill() !== "none") {
+    skill = createSkillButton({ container: rightContainer, ...regularOpts.skillOpts });
+  } else {
+    skill = {
+      getSkill: () => false,
+      updateOpts: () => {},
+      destroy: () => {},
+    };
+  }
 
   return {
     getMove: () => move.getMove(),
@@ -53,7 +63,7 @@ export function makeMobileController(
     getAimLast: () => aim.getLastAim(),
     isAiming: () => aim.isAiming?.() ?? false,
     getDash: () => dash.getDash(),
-    getSkill: () => skill.getSkill(), 
+    getSkill: () => skill.getSkill(),
     getAutoShoot: () => auto.getPressed(),
     isFiring: () => aim.isAiming?.() ?? false,
 
@@ -61,19 +71,19 @@ export function makeMobileController(
       aim.toggle(!isActive);
       if (isActive) {
         dash.updateOpts(autoShootActiveOpts.dashOpts);
-        skill.updateOpts(autoShootActiveOpts.skillOpts); 
+        skill.updateOpts(autoShootActiveOpts.skillOpts);
       } else {
         dash.updateOpts(regularOpts.dashOpts);
-        skill.updateOpts(regularOpts.skillOpts); 
+        skill.updateOpts(regularOpts.skillOpts);
       }
     },
-    
+
     destroy: () => {
       move?.destroy?.();
       aim?.destroy?.();
       dash?.destroy?.();
       auto?.destroy?.();
-      skill?.destroy?.(); 
+      skill?.destroy?.();
     },
   };
 }

@@ -151,7 +151,6 @@ export function applyUpgrade(...args) {
         player._bombermanState.lastPos = currentPos.clone();
 
         if (player._bombermanState.distanceTraveled >= distanceTrigger) {
-          // Create ONE shared list for all shockwaves spawned in this frame.
           const sharedHitEnemies = new Set();
 
           while (player._bombermanState.distanceTraveled >= distanceTrigger) {
@@ -160,8 +159,8 @@ export function applyUpgrade(...args) {
             spawnShockwave(k, player.pos, {
               damage: shockwaveDamage,
               maxRadius: maxRadius,
-              // Pass the shared list as an option.
               sharedHitEnemies: sharedHitEnemies,
+              
             });
             
             player._bombermanState.distanceTraveled -= distanceTrigger;

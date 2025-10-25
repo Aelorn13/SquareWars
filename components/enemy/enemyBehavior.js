@@ -117,18 +117,13 @@ function isOverlapping(enemy, player) {
   const overlapDist = (eSize + pSize) * 0.5;
   return enemy.pos.dist(player.pos) <= overlapDist;
 }
-const PUDDLE_DAMAGE_INTERVAL = 2;
 
 export function setupEnemyPlayerCollisions(k, gameContext) {
   let wasInvincible = false;
-  let puddleDamageCooldown = 0;
 
   k.onUpdate(() => {
     const player = gameContext.player;
     if (!player) return;
-    if (puddleDamageCooldown > 0) {
-      puddleDamageCooldown -= k.dt();
-    }
     const isInvincible = !!player.isInvincible;
 
     // Check pending collisions when invincibility ends
@@ -136,12 +131,13 @@ export function setupEnemyPlayerCollisions(k, gameContext) {
       k.get("enemy").forEach((enemy) => {
         if (enemy.dead || enemy._spawnGrace) return;
 
-        if (enemy._touchingPlayer || isOverlapping(enemy, player)) {
+        enemy._touchingPlayer = false;
+
+        if (isOverlapping(enemy, player)) {
           if (!player.isInvincible && !player.isKnockedBack) {
             handleEnemyPlayerCollision(k, enemy, player, gameContext);
           }
         }
-        enemy._touchingPlayer = false;
       });
     }
 

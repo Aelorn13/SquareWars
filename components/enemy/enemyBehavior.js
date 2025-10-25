@@ -65,7 +65,7 @@ function getCurrentHp(entity) {
  * Centralised handler for enemy-player collision
  */
 function handleEnemyPlayerCollision(k, enemy, player, gameContext) {
-  if (enemy.dead || player.isInvincible || player.isKnockedBack) return false;
+  if (enemy.dead || player.isInvincible || player.isKnockedBack) return;
 
   // --- Special case for the Golden Square ---
   if (enemy.type === "goldenSquare") {
@@ -105,7 +105,7 @@ function handleEnemyPlayerCollision(k, enemy, player, gameContext) {
     goToGameOverScene(k, gameContext, snapshot);
   }
 
-  return true;
+  return;
 }
 
 /**

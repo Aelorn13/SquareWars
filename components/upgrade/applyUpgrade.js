@@ -319,5 +319,5 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
     isMobileDevice()
   );
 
-  nextThresholdRef.value = Math.floor(nextThresholdRef.value * 1.3) + 10;
+  nextThresholdRef.value = Math.floor(nextThresholdRef.value * 1.25) + 5;
 }

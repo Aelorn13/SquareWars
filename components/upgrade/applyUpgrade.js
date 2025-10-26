@@ -1,6 +1,6 @@
 // components/upgrade/applyUpgrade.js
 import { showUpgradeUI, cleanupUpgradeUI } from "../ui/upgradeUI.js";
-import { UPGRADE_CONFIG, rollRarityForStat, formatUpgradeForUI } from "./upgradeConfig.js";
+import { UPGRADE_CONFIG, rollRarityForStat, formatUpgradeForUI, getMinimumRarityForProgress } from "./upgradeConfig.js";
 import { getPermanentBaseStat, applyPermanentUpgrade } from "./statManager.js";
 import { attachBuffManager } from "../buffManager.js";
 import { spawnShockwave } from "../powerup/powerupEffects/shockwaveEffect.js";
@@ -160,9 +160,8 @@ export function applyUpgrade(...args) {
               damage: shockwaveDamage,
               maxRadius: maxRadius,
               sharedHitEnemies: sharedHitEnemies,
-              
             });
-            
+
             player._bombermanState.distanceTraveled -= distanceTrigger;
           }
         }
@@ -247,37 +246,29 @@ export function applyUpgrade(...args) {
   }
 }
 
-/**
- * maybeShowUpgrade - builds 3 offers but excludes unique effects the player already owns.
- * no signature changes here (k, player, sharedState, currentScore, nextThresholdRef, addScore)
- */
 export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThresholdRef, addScore, isMobileDevice) {
   if (player.hp() <= 0) return;
   if (sharedState.upgradeOpen || currentScore < nextThresholdRef.value) return;
 
-  // open upgrade screen and pause game
   sharedState.isPaused = true;
   sharedState.upgradeOpen = true;
-
-  // Interaction lock to prevent accidental immediate clicks.
-  // Use setTimeout because k.wait/k.time may be paused.
   sharedState.upgradeInteractionLocked = true;
+
   const CLICK_LOCK_MS = 1000;
   const unlockTimer = setTimeout(() => {
     sharedState.upgradeInteractionLocked = false;
   }, CLICK_LOCK_MS);
+
+  sharedState.upgradeCount = (sharedState.upgradeCount || 0) + 1;
+  const progressMinTier = getMinimumRarityForProgress(sharedState.upgradeCount);
 
   const ownedEffects = new Set((player._projectileEffects ?? []).map((e) => e.type));
   const available = Object.keys(UPGRADE_CONFIG).filter((stat) => {
     const cfg = UPGRADE_CONFIG[stat];
     if (!cfg) return false;
 
-    // If upgrade is unique, exclude if already owned
     if (cfg.isUnique) {
-      // projectile-typed unique effects stored in player._projectileEffects
       if (cfg.isEffect && cfg.effectType && ownedEffects.has(cfg.effectType)) return false;
-
-      // non-projectile unique upgrades (e.g. ghost) stored as flags on player
       if (stat === "ghost" && player.hasGhost) return false;
       if (stat === "bomberman" && player.hasBomberman) return false;
     }
@@ -286,22 +277,19 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
   });
 
   const offered = [];
+
   for (let i = 0; i < 3 && available.length > 0; i++) {
     const idx = Math.floor(Math.random() * available.length);
     const statName = available.splice(idx, 1)[0];
-    const rarity = rollRarityForStat(statName);
+    const rarity = rollRarityForStat(statName, progressMinTier);
     offered.push(formatUpgradeForUI(statName, rarity));
   }
 
-  // Wrap the callback so early clicks are ignored.
   showUpgradeUI(
     k,
     offered,
     (picked) => {
-      if (sharedState.upgradeInteractionLocked) {
-        // ignore accidental clicks during the lock period
-        return;
-      }
+      if (sharedState.upgradeInteractionLocked) return;
 
       if (picked === "skip") {
         addScore(10);
@@ -309,7 +297,6 @@ export function maybeShowUpgrade(k, player, sharedState, currentScore, nextThres
         applyUpgrade(k, player, picked);
       }
 
-      // cleanup and restore state
       clearTimeout(unlockTimer);
       cleanupUpgradeUI(k);
       sharedState.isPaused = false;

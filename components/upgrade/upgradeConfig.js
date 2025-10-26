@@ -89,7 +89,7 @@ export const UPGRADE_CONFIG = {
     bonuses: {
       3: { slowFactor: 0.25, duration: 3 },
       4: { slowFactor: 0.5, duration: 4 },
-      5: { slowFactor: 0.75, duration: 5 }, 
+      5: { slowFactor: 0.75, duration: 5 },
     },
   },
 
@@ -139,7 +139,7 @@ export const UPGRADE_CONFIG = {
     icon: "💨",
     scale: 1,
   },
-    bomberman: {
+  bomberman: {
     name: "Bomberman",
     icon: "💣",
     isEffect: true,
@@ -184,14 +184,45 @@ export function rollWeightedRarity(rarityPool = RARITY_CONFIG) {
   return { ...rarityPool[rarityPool.length - 1] };
 }
 
-export function rollRarityForStat(statName) {
+/**
+ * Calculate minimum rarity tier based on game progression
+ * @param {number} upgradeCount - Total upgrades player has received
+ * @returns {number} Minimum tier (0 = any, 1 = Common+, 2 = Uncommon+, etc.)
+ */
+export function getMinimumRarityForProgress(upgradeCount) {
+  if (upgradeCount >= 12) return 3; // Rare+ after 12 upgrades
+  if (upgradeCount >= 6) return 2; // Uncommon+ after 6 upgrades
+  return 0; 
+}
+
+/**
+ * Roll rarity for a stat with optional minimum tier guarantee
+ * @param {string} statName - Name of the stat/upgrade
+ * @param {number} guaranteeMinTier - Minimum tier to guarantee (0 = no guarantee)
+ * @returns {object} Rolled rarity config
+ */
+export function rollRarityForStat(statName, guaranteeMinTier = 0) {
   const cfg = UPGRADE_CONFIG[statName];
   const allowed = cfg?.allowedTiers;
-  if (allowed) {
-    const pool = RARITY_CONFIG.filter((r) => allowed.includes(r.tier));
-    return rollWeightedRarity(pool);
+  
+  // Start with allowed tiers for this stat (or all tiers if no restriction)
+  let pool = allowed 
+    ? RARITY_CONFIG.filter((r) => allowed.includes(r.tier))
+    : RARITY_CONFIG;
+  
+  // Filter out rarities below the guaranteed minimum
+  if (guaranteeMinTier > 0) {
+    pool = pool.filter((r) => r.tier >= guaranteeMinTier);
+    
+    // Fallback: if no rarities meet the requirement, use the original pool
+    if (pool.length === 0) {
+      pool = allowed 
+        ? RARITY_CONFIG.filter((r) => allowed.includes(r.tier))
+        : RARITY_CONFIG;
+    }
   }
-  return rollWeightedRarity();
+  
+  return rollWeightedRarity(pool);
 }
 
 /* ----------------- UI formatting: numeric descriptions ----------------- */
@@ -235,7 +266,7 @@ export function formatUpgradeForUI(statName, rolledRarity) {
   if (cfg.isEffect) {
     const tierBon = cfg.bonuses?.[rarityTier] ?? {};
     switch (cfg.effectType) {
-       case "bomberman": {
+      case "bomberman": {
         const trigger = Number(tierBon.distanceTrigger ?? 400);
         const mult = Number(tierBon.damageMultiplier ?? 4);
         out.bonusText = `${cfg.name}`;

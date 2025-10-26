@@ -14,14 +14,14 @@ export function makeMobileController(
       moveOpts: { size: "30%", marginX: "5%", marginY: "10%" },
       aimOpts: { size: "30%", marginX: "5%", marginY: "10%", align: "right" },
       dashOpts: { size: "15%", marginX: "5%", marginY: "25%", align: "right" },
-      skillOpts: { size: "15%", marginX: "22%", marginY: "15%", align: "right" },
+      skillOpts: { size: "20%", marginX: "28%", marginY: "25%", align: "right" },
       autoShootOpts: { size: "10%", marginX: "5%", marginY: "50%", align: "right" },
     },
     landscape = {
       moveOpts: { size: "30%", marginX: "4%", marginY: "10%" },
       aimOpts: { size: "30%", marginX: "4%", marginY: "10%", align: "right" },
       dashOpts: { size: "15%", marginX: "4%", marginY: "40%", align: "right" },
-      skillOpts: { size: "15%", marginX: "18%", marginY: "20%", align: "right" },
+      skillOpts: { size: "15%", marginX: "18%", marginY: "30%", align: "right" },
       autoShootOpts: { size: "10%", marginX: "5%", marginY: "80%", align: "right" },
     },
     portraitAutoShoot = {
@@ -29,8 +29,8 @@ export function makeMobileController(
       skillOpts: { size: "20%", marginX: "30%", marginY: "15%", align: "right" },
     },
     landscapeAutoShoot = {
-      dashOpts: { size: "22%", marginX: "6%", marginY: "20%", align: "right" },
-      skillOpts: { size: "22%", marginX: "25%", marginY: "20%", align: "right" },
+      dashOpts: { size: "22%", marginX: "4%", marginY: "15%", align: "right" },
+      skillOpts: { size: "22%", marginX: "15%", marginY: "25%", align: "right" },
     },
     containers = {},
   } = {}

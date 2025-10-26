@@ -35,13 +35,13 @@ export const difficultySettings = {
     bossSpawnTime: 100,
     
     hp: {
-      start: 1.0,
+      start: 0.9,
       end: 2.0,
       endlessRate: 3.5,
     },
     
     speed: {
-      start: 1.0,
+      start: 0.9,
       end: 1.5,
       endlessRate: 2.5,
     },

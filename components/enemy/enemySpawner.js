@@ -34,8 +34,8 @@ export function spawnEnemy(k, player, gameContext, options = {}) {
     return null;
   }
 
-  const finalHp = difficulty.scaleStat(baseEnemyConfig.maxHp, progress);
-  const finalSpeed = difficulty.scaleStat(baseEnemyConfig.speed, progress);
+  const finalHp = difficulty.scaleStat("hp", baseEnemyConfig.maxHp, progress);
+  const finalSpeed = difficulty.scaleStat("speed", baseEnemyConfig.speed, progress);
   let finalScore = baseEnemyConfig.score;
 
   if (difficulty.config.scoreStatMultiplier) {

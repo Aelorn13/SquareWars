@@ -1,49 +1,96 @@
-//difficultyManager.js
+
+// ===== utils/difficultyManager.js =====
 export const difficultySettings = {
   easy: {
     name: 'Easy',
-    spawnInterval: { start: 3, end: 0.8 },
-    enemyStatMultiplier: { start: 0.75, end: 1.25 },
     bossSpawnTime: 120,
-    endlessScaling: {
-      statMultiplierRate: 4,
-      spawnIntervalDecay: 6,
-    }
+    
+    // HP Scaling
+    hp: {
+      start: 0.75,      // 75% HP at start
+      end: 1.25,        // 125% HP at boss spawn
+      endlessRate: 4,   // Slower growth in endless
+    },
+    
+    // Speed Scaling
+    speed: {
+      start: 0.8,       // 80% speed at start
+      end: 1.2,         // 120% speed at boss spawn
+      endlessRate: 3,   // Moderate growth in endless
+    },
+    
+    // Spawn Rate
+    spawnInterval: {
+      start: 3.0,       // 3 seconds between spawns initially
+      end: 0.8,         // 0.8 seconds at boss spawn
+      endlessDecay: 6,  // Slower decay in endless
+    },
+    
+    // Score multiplier (optional)
+    scoreMultiplier: { start: 1.0, end: 1.5 },
   },
+
   normal: {
     name: 'Normal',
-    spawnInterval: { start: 2, end: 0.2 },
-    enemyStatMultiplier: { start: 1.0, end: 2.0 },
     bossSpawnTime: 100,
-    endlessScaling: {
-      statMultiplierRate: 3.5,
-      spawnIntervalDecay: 10,
-    }
+    
+    hp: {
+      start: 1.0,
+      end: 2.0,
+      endlessRate: 3.5,
+    },
+    
+    speed: {
+      start: 1.0,
+      end: 1.5,
+      endlessRate: 2.5,
+    },
+    
+    spawnInterval: {
+      start: 2.0,
+      end: 0.2,
+      endlessDecay: 10,
+    },
+    
+    scoreMultiplier: { start: 1.0, end: 2.0 },
   },
+
   hard: {
     name: 'Nightmare',
-    spawnInterval: { start: 1.6, end: 0.1 },
-    enemyStatMultiplier: { start: 1.0, end: 2.7 },
-    scoreStatMultiplier: { start: 1.5, end: 3.0 }, 
     bossSpawnTime: 90,
-    endlessScaling: {
-      statMultiplierRate: 3,
-      spawnIntervalDecay: 9,
-    }
-  }
+    
+    hp: {
+      start: 1.0,
+      end: 2.7,
+      endlessRate: 3,
+    },
+    
+    speed: {
+      start: 1.0,
+      end: 1.8,
+      endlessRate: 2,
+    },
+    
+    spawnInterval: {
+      start: 1.6,
+      end: 0.1,
+      endlessDecay: 9,
+    },
+    
+    scoreMultiplier: { start: 1.5, end: 3.0 },
+  },
 };
 
 let currentDifficulty = 'normal';
 
 export function getSelectedDifficultyConfig() {
-    // In a real implementation, this would read  or a menu selection
-    return difficultySettings[currentDifficulty];
+  return difficultySettings[currentDifficulty];
 }
 
 export function setCurrentDifficulty(difficulty) {
-    if (difficultySettings[difficulty]) {
-        currentDifficulty = difficulty;
-    } else {
-        console.error(`Attempted to set an invalid difficulty: ${difficulty}`);
-    }
+  if (difficultySettings[difficulty]) {
+    currentDifficulty = difficulty;
+  } else {
+    console.error(`Invalid difficulty: ${difficulty}`);
+  }
 }

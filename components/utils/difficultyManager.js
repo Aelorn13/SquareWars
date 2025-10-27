@@ -42,13 +42,13 @@ export const difficultySettings = {
     
     speed: {
       start: 0.9,
-      end: 1.5,
+      end: 1.3,
       endlessRate: 2.5,
     },
     
     spawnInterval: {
       start: 2.0,
-      end: 0.2,
+      end: 0.3,
       endlessDecay: 10,
     },
     

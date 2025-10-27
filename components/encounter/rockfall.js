@@ -1,7 +1,5 @@
 // ===== components/encounter/rockfall.js =====
 
-import { showEncounterFeedback } from "./circle.js";
-
 export const rockfallEncounter = {
   name: "Rockfall",
   isFinished: true,
@@ -46,13 +44,6 @@ export const rockfallEncounter = {
       const totalReward = BASE_SCORE_REWARD + timeBonus;
       increaseScore(totalReward);
       this.encounterResult = { scoreAwarded: totalReward };
-      
-      showEncounterFeedback(
-        k,
-        player.pos.add(0, -60),
-        `Survived! +${totalReward} Score`,
-        k.rgb(255, 215, 0)
-      );
     };
     
     // --- Rock Spawner Loop ---

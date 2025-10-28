@@ -4,9 +4,9 @@
 export const RARITY_CONFIG = [
   { name: "Common", color: [255, 255, 255], tier: 1, multiplier: 0.15, weight: 75 },
   { name: "Uncommon", color: [0, 255, 0], tier: 2, multiplier: 0.2, weight: 50 },
-  { name: "Rare", color: [0, 0, 255], tier: 3, multiplier: 0.25, weight: 25 },
-  { name: "Epic", color: [128, 0, 128], tier: 4, multiplier: 0.3, weight: 12 },
-  { name: "Legendary", color: [255, 165, 0], tier: 5, multiplier: 0.4, weight: 5 },
+  { name: "Rare", color: [0, 0, 255], tier: 3, multiplier: 0.25, weight: 35 },
+  { name: "Epic", color: [128, 0, 128], tier: 4, multiplier: 0.3, weight: 18 },
+  { name: "Legendary", color: [255, 165, 0], tier: 5, multiplier: 0.4, weight: 8 },
 ];
 
 export const UPGRADE_CONFIG = {

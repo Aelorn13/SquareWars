@@ -35,13 +35,13 @@ export const difficultySettings = {
 
     hp: {
       start: 0.9,
-      end: 1.7,
+      end: 1.6,
       endlessRate: 3.5,
     },
 
     speed: {
       start: 0.9,
-      end: 1.3,
+      end: 1.2,
       endlessRate: 2.5,
     },
 

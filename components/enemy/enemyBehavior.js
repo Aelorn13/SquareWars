@@ -6,6 +6,7 @@ import { applyProjectileEffects } from "../effects/applyProjectileEffects.js";
 import { attachBuffManager } from "../buffManager.js";
 import { unregisterMobileController } from "../player/controls.js";
 import { cleanupUpgradeUI } from "../ui/upgradeUI.js";
+import { cleanupAllOverlays } from "../effects/vfx/overlayManager.js";
 const KNOCKBACK_DISTANCE = 120;
 const KNOCKBACK_DURATION = 0.1;
 const DAMAGE_COLOR = [240, 240, 240]; // Color when damaged
@@ -18,6 +19,7 @@ function goToGameOverScene(k, gameContext, snapshot) {
   }
   cleanupUpgradeUI(k);
   unregisterMobileController();
+  cleanupAllOverlays(k);
   k.go("gameover", { statsSnapshot: snapshot });
 }
 

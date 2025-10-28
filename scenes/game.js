@@ -30,6 +30,7 @@ import { setupEnemyMerging } from "../components/enemy/enemyMerger.js";
 import { getSelectedDifficultyConfig } from "../components/utils/difficultyManager.js";
 import { DifficultyController } from "../components/utils/difficultyController.js";
 import { createEncounterManager } from "../components/encounter/encounterManager.js";
+import { cleanupAllOverlays } from "../effects/vfx/overlayManager.js";
 
 export function defineGameScene(k, scoreRef) {
   function spawnMiniboss(gameContext, ability, scaling, spawnTime) {
@@ -57,6 +58,7 @@ export function defineGameScene(k, scoreRef) {
   }
 
   k.scene("game", () => {
+    cleanupAllOverlays(k);
     if (isMobileDevice()) {
       registerMobileController(() => makeMobileController(k));
     }

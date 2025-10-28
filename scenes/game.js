@@ -30,7 +30,7 @@ import { setupEnemyMerging } from "../components/enemy/enemyMerger.js";
 import { getSelectedDifficultyConfig } from "../components/utils/difficultyManager.js";
 import { DifficultyController } from "../components/utils/difficultyController.js";
 import { createEncounterManager } from "../components/encounter/encounterManager.js";
-import { cleanupAllOverlays } from "../effects/vfx/overlayManager.js";
+import { cleanupAllOverlays } from "../components/effects/vfx/overlayManager.js";
 
 export function defineGameScene(k, scoreRef) {
   function spawnMiniboss(gameContext, ability, scaling, spawnTime) {

@@ -24,8 +24,6 @@ export function cleanupAllOverlays(k) {
     } catch (e) {}
   }
   activeOverlays.clear();
-
-  console.log("[overlayManager] Cleaned up all overlays");
 }
 
 function startOverlayUpdater(k) {

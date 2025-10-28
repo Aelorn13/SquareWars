@@ -13,21 +13,21 @@ export const knockback = (kaboom, params = {}) => {
   const k = getK(kaboom);
   const baseForce = params.force ?? 600;
   const stun = params.duration ?? 0.14;
-
-  // Behavior options (optional params)
-  // params.scaleMode: "linear" | "sqrt" (default "linear")
-  // params.minMultiplier: minimum multiplier to avoid zero (~0.1 recommended)
+  
+  // Behavior options
   const scaleMode = params.scaleMode ?? "sqrt";
   const minMultiplier = params.minMultiplier ?? 0.1;
-
+  
   return {
     name: "knockback",
+    
     apply(target, ctx = {}, projectile = {}) {
       if (!target) return;
+      
       let force = baseForce;
       if (isBoss(target)) force = Math.floor(force / 3);
-
-      // --- new: determine attacker's projectile count robustly ---
+      
+      // Determine attacker's projectile count
       const attackerProjectiles = Number(
         (ctx && ctx.source && ctx.source.projectiles) ||
         (projectile && projectile.source && projectile.source.projectiles) ||
@@ -36,29 +36,49 @@ export const knockback = (kaboom, params = {}) => {
         1
       );
       const projCount = Math.max(1, attackerProjectiles);
-
-      // compute per-hit multiplier
+      
+      // Compute per-hit multiplier
       let mult;
-      if (scaleMode === "sqrt") mult = 1 / Math.sqrt(projCount);
-      else mult = 1 / projCount; // linear default
-
+      if (scaleMode === "sqrt") {
+        mult = 1 / Math.sqrt(projCount);
+      } else {
+        mult = 1 / projCount; // linear
+      }
       mult = Math.max(minMultiplier, mult);
       force = Math.round(force * mult);
-      // --------------------------------------------------------
-
+      
       let dir = null;
-      if (projectile?.pos && target?.pos)
+      
+      const attackerPos = 
+        (ctx?.source?.pos) || 
+        (projectile?.source?.pos) || 
+        (projectile?.owner?.pos) ||
+        null;
+      
+      if (attackerPos && target?.pos) {
+        dir = normalize(subtract(target.pos, attackerPos));
+      }
+      else if (projectile?.pos && target?.pos) {
         dir = normalize(subtract(target.pos, projectile.pos));
-      else if (projectile?.velocity) dir = normalize(projectile.velocity);
-      dir ??= { x: 0, y: -1 };
-
+      }
+      else if (projectile?.velocity) {
+        dir = normalize(projectile.velocity);
+      }
+      
+      dir = dir || { x: 0, y: -1 };
+      
       const impulse = scale(dir, force);
       if (!impulse) return;
-
-      if (target.velocity) addVecToEntity(target, impulse, k, "velocity");
-      else if (target.pos)
+      
+      // Apply knockback
+      if (target.velocity) {
+        addVecToEntity(target, impulse, k, "velocity");
+      } else if (target.pos) {
+        // For entities without velocity, apply to position directly
         addVecToEntity(target, scale(impulse, 0.03), k, "pos");
-
+      }
+      
+      // Apply stun
       if (target._buffManager) {
         target._buffManager.applyBuff({
           id: genBuffId("knockback_stun", ctx),
@@ -72,13 +92,19 @@ export const knockback = (kaboom, params = {}) => {
           },
         });
       } else {
+        // Fallback for entities without buff manager
         target._isStunned = true;
-        k.wait?.(stun, () => {
-          target._isStunned = false;
-        }) ??
-          setTimeout(() => {
+        const unstun = () => {
+          if (target && target.exists?.()) {
             target._isStunned = false;
-          }, stun * 1000);
+          }
+        };
+        
+        if (k.wait) {
+          k.wait(stun, unstun);
+        } else {
+          setTimeout(unstun, stun * 1000);
+        }
       }
     },
   };

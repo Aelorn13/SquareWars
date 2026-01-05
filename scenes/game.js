@@ -15,6 +15,7 @@ import {
   createBossHealthBar,
   showVictoryPrompt,
   getPlayerStatsSnapshot,
+  createRestartButton,
 } from "../components/ui/index.js";
 import { setupPlayerShooting } from "../components/player/shooting.js";
 import { applyPowerUp } from "../components/powerup/applyPowerup.js";
@@ -134,6 +135,7 @@ export function defineGameScene(k, scoreRef) {
     const dashCooldownBar = drawDashCooldownBar(k);
     const skillCooldownBar = drawSkillCooldownBar(k, player);
     const pauseLabel = createPauseLabel(k);
+    const restartButton = createRestartButton(k, gameState);
     const timerLabel = createTimerLabel(k, BOSS_SPAWN_TIME);
     let statsUI = null;
 
@@ -268,6 +270,11 @@ export function defineGameScene(k, scoreRef) {
         if (!wasPauseKeyPreviouslyPressed) {
           gameState.isPaused = !gameState.isPaused;
           pauseLabel.hidden = !gameState.isPaused;
+          if (gameState.isPaused) {
+            restartButton.show();
+          } else {
+            restartButton.hide();
+          }
           wasPauseKeyPreviouslyPressed = true;
           if (gameState.isPaused) {
             statsUI = createPlayerStatsUI(k, player, {

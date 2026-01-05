@@ -121,6 +121,7 @@ export function TutorialScene(k) {
       "Special: E",
       "Autoshoot: R",
       "Pause: P",
+      "(Restart available in pause)"
     ];
 
     instructions.forEach((text, i) => {

@@ -6,21 +6,52 @@
   <link rel="icon" href="icon.png" type="image/x-icon">
   <title>SquareWars</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     html, body {
-      margin: 0;
-      padding: 0;
+      margin: 0 !important;
+      padding: 0 !important;
       width: 100vw;
       height: 100vh;
       overflow: hidden;       /* prevent moving the screen on mobile */
       background: #000;
-    }
-
-    #game-container {
-      width: 100%;
-      height: 100%;
       position: relative;
     }
 
+        /* Fullscreen mode specific fixes */
+    html:fullscreen, html:-webkit-full-screen, html:-moz-full-screen, html:-ms-fullscreen {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100%;
+      height: 100%;
+    }
+    
+    body:fullscreen, body:-webkit-full-screen, body:-moz-full-screen, body:-ms-fullscreen {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100%;
+      height: 100%;
+    }
+
+      #game-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      margin: 0 !important;
+      padding: 0 !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #game-container:fullscreen,
+    #game-container:-webkit-full-screen,
+    #game-container:-moz-full-screen,
+    #game-container:-ms-fullscreen {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
     canvas {
       display: block;
       max-width: 100%;
@@ -28,6 +59,16 @@
       object-fit: contain;   /* keeps arena aspect ratio */
       margin: 0 auto;
       pointer-events: auto;
+    }
+    /* Ensure fullscreen canvas takes full space without margins */
+    canvas:fullscreen,
+    canvas:-webkit-full-screen,
+    canvas:-moz-full-screen,
+    canvas:-ms-fullscreen {
+      width: 100vw !important;
+      height: 100vh !important;
+      max-width: 100vw !important;
+      max-height: 100vh !important;
     }
   </style>
 </head>

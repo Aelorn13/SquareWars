@@ -44,14 +44,27 @@ function applyCanvasBaseStyleForContainer(canvas) {
   });
 }
 
+/**
+ * Check if the document is currently in fullscreen mode
+ */
+function isInFullscreen() {
+  return !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  );
+}
 /* Create/destroy shell (DOM only). These DO NOT register controllers. */
 
 function createGameShell() {
   if (gameShell) return;
 
   // clear any portrait padding (so shell doesn't get pushed down)
-  if (gameContainer) gameContainer.style.paddingTop = "";
-
+  if (gameContainer) {
+    gameContainer.style.paddingTop = "";
+    gameContainer.style.paddingBottom = "";
+  }
   const sideWidth = computeSideColumnWidth();
   const shell = document.createElement("div");
   shell.id = "game-shell";
@@ -63,13 +76,21 @@ function createGameShell() {
     zIndex: "9998",
     pointerEvents: "none",
     background: "transparent",
+    margin: "0",
+    padding: "0",
   });
 
   const left = document.createElement("div");
   const center = document.createElement("div");
   const right = document.createElement("div");
 
-  Object.assign(left.style, { position: "relative", pointerEvents: "none", overflow: "hidden" });
+  Object.assign(left.style, {
+    position: "relative",
+    pointerEvents: "none",
+    overflow: "hidden",
+    margin: "0",
+    padding: "0",
+  });
   Object.assign(center.style, {
     position: "relative",
     display: "flex",
@@ -77,8 +98,16 @@ function createGameShell() {
     justifyContent: "center",
     pointerEvents: "auto",
     overflow: "hidden",
+    margin: "0",
+    padding: "0",
   });
-  Object.assign(right.style, { position: "relative", pointerEvents: "none", overflow: "hidden" });
+  Object.assign(right.style, {
+    position: "relative",
+    pointerEvents: "none",
+    overflow: "hidden",
+    margin: "0",
+    padding: "0",
+  });
 
   shell.appendChild(left);
   shell.appendChild(center);
@@ -86,7 +115,7 @@ function createGameShell() {
   document.body.appendChild(shell);
 
   // Move canvas into center and record original parent
-  const canvasOriginalParent = (k && k.canvas && k.canvas.parentElement) ? k.canvas.parentElement : gameContainer;
+  const canvasOriginalParent = k && k.canvas && k.canvas.parentElement ? k.canvas.parentElement : gameContainer;
   if (k && k.canvas) {
     center.appendChild(k.canvas);
     applyCanvasBaseStyleForContainer(k.canvas);
@@ -104,7 +133,9 @@ function destroyGameShell() {
       prev.appendChild(k.canvas);
       applyCanvasBaseStyleForContainer(k.canvas);
       // Snap to top to help mobile browsers show the canvas
-      try { window.scrollTo(0, 0); } catch {}
+      try {
+        window.scrollTo(0, 0);
+      } catch {}
     }
 
     gameShell.shell.remove();
@@ -120,7 +151,16 @@ function notifyCanvasResize() {
   if (!k || !k.canvas) return;
   const rect = k.canvas.getBoundingClientRect();
   const scale = Math.min(rect.width / LOGICAL_WIDTH, rect.height / LOGICAL_HEIGHT);
-  window.dispatchEvent(new CustomEvent("game-canvas-resized", { detail: { scale, rect, isLandscape: window.matchMedia("(orientation: landscape)").matches } }));
+  window.dispatchEvent(
+    new CustomEvent("game-canvas-resized", {
+      detail: {
+        scale,
+        rect,
+        isLandscape: window.matchMedia("(orientation: landscape)").matches,
+        isFullscreen: isInFullscreen(),
+      },
+    })
+  );
 }
 
 /* High-level layout flows (small, isolated responsibilities) */
@@ -128,7 +168,21 @@ function notifyCanvasResize() {
 function applyDesktopLayout() {
   // remove mobile shell and do NOT register mobile controllers
   if (gameShell) destroyGameShell();
-  if (gameContainer) gameContainer.style.paddingTop = "";
+  // Ensure container has no padding/margin
+  if (gameContainer) {
+    gameContainer.style.paddingTop = "";
+    gameContainer.style.paddingBottom = "";
+    gameContainer.style.margin = "0";
+  }
+  // Ensure canvas is properly positioned
+  if (k && k.canvas) {
+    const desiredParent = gameContainer || document.body;
+    if (k.canvas.parentElement !== desiredParent) {
+      desiredParent.appendChild(k.canvas);
+    }
+    applyCanvasBaseStyleForContainer(k.canvas);
+  }
+
   notifyCanvasResize();
 }
 
@@ -137,7 +191,11 @@ function applyMobileLandscapeLayout() {
   if (gameShell) destroyGameShell();
   createGameShell();
   if (gameShell) {
-    registerMobileController(() => makeMobileController(k, { containers: { left: gameShell.left, right: gameShell.right, center: gameShell.center } }));
+    registerMobileController(() =>
+      makeMobileController(k, {
+        containers: { left: gameShell.left, right: gameShell.right, center: gameShell.center },
+      })
+    );
   }
   notifyCanvasResize();
 }
@@ -151,14 +209,16 @@ function applyMobilePortraitLayout() {
     const desiredParent = gameContainer || document.body;
     if (k.canvas.parentElement !== desiredParent) desiredParent.appendChild(k.canvas);
     applyCanvasBaseStyleForContainer(k.canvas);
-    try { window.scrollTo(0, 0); } catch {}
+    try {
+      window.scrollTo(0, 0);
+    } catch {}
   }
-  //commented out as causes some bugs on PC sometimes
-  // small top offset to make room for UI above canvas on portrait phones
-  // if (gameContainer) {
-  //   const topOffset = Math.max(window.innerHeight * 0.06, 36);
-  //   gameContainer.style.paddingTop = `${topOffset}px`;
-  // }
+  // Ensure container has no unwanted padding
+  if (gameContainer) {
+    gameContainer.style.paddingTop = "";
+    gameContainer.style.paddingBottom = "";
+    gameContainer.style.margin = "0";
+  }
 
   registerMobileController(() => makeMobileController(k));
   notifyCanvasResize();
@@ -168,7 +228,11 @@ function applyMobilePortraitLayout() {
 
 function handleLayoutChange() {
   // ensure previous mobile controller removed
-  try { unregisterMobileController(); } catch (e) { /* ignore */ }
+  try {
+    unregisterMobileController();
+  } catch (e) {
+    /* ignore */
+  }
 
   if (!isMobileDevice()) {
     applyDesktopLayout();
@@ -194,11 +258,29 @@ export function initLayoutManager(kaplayInstance) {
   k = kaplayInstance;
   gameContainer = document.getElementById("game-container") || document.body;
 
+  // Ensure game container starts clean
+  if (gameContainer) {
+    gameContainer.style.paddingTop = "";
+    gameContainer.style.paddingBottom = "";
+    gameContainer.style.margin = "0";
+  }
+
+  // Listen for fullscreen changes
+  const fullscreenEvents = ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "msfullscreenchange"];
+  fullscreenEvents.forEach((event) => {
+    document.addEventListener(event, () => {
+      console.log("Fullscreen change detected, reapplying layout...");
+      // Small delay to ensure browser has finished fullscreen transition
+      setTimeout(handleLayoutChange, 100);
+    });
+  });
   // listen orientation changes
   try {
     window.matchMedia("(orientation: landscape)").addEventListener("change", handleLayoutChange);
   } catch (e) {
-    try { window.matchMedia("(orientation: landscape)").addListener(handleLayoutChange); } catch (e2) {}
+    try {
+      window.matchMedia("(orientation: landscape)").addListener(handleLayoutChange);
+    } catch (e2) {}
   }
 
   // listen window resize (debounced)

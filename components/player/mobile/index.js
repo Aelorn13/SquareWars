@@ -15,7 +15,7 @@ export function makeMobileController(
       aimOpts: { size: "30%", marginX: "5%", marginY: "10%", align: "right" },
       dashOpts: { size: "15%", marginX: "5%", marginY: "25%", align: "right" },
       skillOpts: { size: "20%", marginX: "28%", marginY: "25%", align: "right" },
-      autoShootOpts: { size: "10%", marginX: "5%", marginY: "50%", align: "right" },
+      autoShootOpts: { size: "6%", marginX: "5%", marginY: "30%", align: "left" },
     },
     landscape = {
       moveOpts: { size: "30%", marginX: "4%", marginY: "10%" },
